@@ -684,7 +684,7 @@ Não colocar chaves ou tokens no repositório, Dockerfile ou frontend. Esta demo
 4. Usar `/api/health` como verificação de saúde. Não cadastrar banco de dados nesta etapa.
 5. Aguardar a compilação e conferir HTTPS, WebSocket, editor e exportação de JSON na URL retornada pelo provedor.
 
-Publicado em 06/11/2026: https://nexo-scada-demo.onrender.com. Serviço nexo-scada-demo, plano Free, região Virginia, branch main, opção de atualização automática habilitada. O envio posterior não gerou deploy; integração GitHub/Render pendente de conferência no painel autenticado. Criado diretamente como Web Service; render.yaml permanece como modelo para reproduzir a infraestrutura e não está vinculado a um Blueprint. A ferramenta de criação não configurou healthCheckPath: o provedor usa sua verificação padrão, e /api/health foi conferido externamente com resposta UP. Os seis testes de navegador passaram contra o endereço público.
+Publicado em 06/11/2026: https://nexo-scada-demo.onrender.com. Serviço nexo-scada-demo, plano Free, região Virginia, branch main, GitHub autorizado e repositório vinculado pelo provedor Git, com publicação automática a cada envio à main. Criado diretamente como Web Service; render.yaml permanece como modelo para reproduzir a infraestrutura e não está vinculado a um Blueprint. Health Check Path configurado como /api/health no painel; endpoint conferido externamente com resposta UP. Os seis testes de navegador passaram contra o endereço público.
 
 ## Atualizações
 
@@ -4221,7 +4221,7 @@ Interrompa cada processo com Ctrl+C. Esses servidores de desenvolvimento escutam
 
 ## Publicação da demonstração
 
-O pacote de hospedagem reúne interface e Java em um único serviço. `Dockerfile` e `render.yaml` preparam a demonstração pública no Render, com atualizações automáticas a partir da branch main após conectar o GitHub. Publicado e verificado em https://nexo-scada-demo.onrender.com em 06/11/2026. Opção de atualização automática habilitada, mas o envio de verificação não gerou deploy. A ligação do GitHub ao Render ainda precisa ser conferida no painel autenticado.
+O pacote de hospedagem reúne interface e Java em um único serviço. `Dockerfile` e `render.yaml` preparam a demonstração pública no Render, com atualizações automáticas a partir da branch main após conectar o GitHub. Publicado e verificado em https://nexo-scada-demo.onrender.com em 06/11/2026. GitHub autorizado e repositório vinculado pelo provedor Git. Publicação automática configurada para cada envio à main.
 
 Veja o [guia de publicação](docs/deployment.md) para configurar a conta, gerar o pacote e entender os limites do plano gratuito. A demonstração usa apenas dados simulados; autenticação e uso com dados reais serão etapas posteriores.
 

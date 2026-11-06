@@ -41,6 +41,16 @@ O histórico guarda até 60 revisões; uma nova alteração após desfazer limpa
 
 ## Limites deste incremento
 
-Uma tela por projeto, quatro tipos de componente, sem seleção múltipla, grupos, importação de imagens ou servidor de projetos. A edição não grava tags nem substitui automaticamente o sinótico fixo de Supervisão.
+Uma tela por projeto, quatro tipos de componente, sem grupos permanentes, importação de imagens ou servidor de projetos. A edição não grava tags nem substitui automaticamente o sinótico fixo de Supervisão.
+
+## Seleção múltipla — 0.3.0
+
+Shift + clique acrescenta ou remove objetos da seleção. Na lista, Ctrl/Cmd + clique também funciona. Arraste uma área vazia para selecionar objetos, ou use Selecionar todos e Limpar seleção no painel. A seleção é temporária e não altera o contrato JSON v1.
+
+Arrastar uma seleção múltipla mantém distâncias, tamanhos, rotações e vínculos. A grade arredonda o deslocamento conjunto para múltiplos de 20 px; os limites de posição restringem o deslocamento do conjunto sem separar seus objetos. Redimensionamento e rotação são individuais.
+
+Alinhamento usa as bordas ou centros do retângulo envolvente da seleção, considerando a rotação de cada componente. Distribuição exige três objetos, mantém os extremos e iguala os espaços entre as caixas. Se não houver espaço ou uma posição exceder o contrato, a ação é recusada sem alterar o documento. Não se aplica arredondamento à grade ao alinhar ou distribuir; posições podem conter até três casas decimais.
+
+Alinhamento, distribuição, movimento e exclusão conjunta geram uma revisão por ação. Desfazer recupera todos os componentes afetados. Modo Operação desativa seleção e comandos de edição.
 
 Referência da biblioteca: https://fabricjs.com/docs/getting-started/installing/

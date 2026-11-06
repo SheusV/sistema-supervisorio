@@ -1,5 +1,12 @@
 # Histórico de versões
 
+## 0.3.0 — 06/11/2026
+
+- Seleção múltipla por Shift + clique, área de seleção ou Selecionar todos.
+- Movimento conjunto com grade e limites, preservando geometria e vínculos.
+- Alinhamento por bordas/centros e distribuição de espaços, considerando rotação.
+- Exclusão conjunta e uma revisão de histórico por ação; JSON v1 compatível.
+
 ## Preparação de hospedagem — 06/11/2026
 
 - Interface integrada ao pacote Java, perfil hosted e cabeçalhos de segurança.

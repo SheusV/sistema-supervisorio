@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch } from "react";
-import { Canvas, Pattern } from "fabric";
+import { ActiveSelection, Canvas, Pattern } from "fabric";
+import { arrange, layoutLabels, moveTogether, type LayoutAction } from "./layout";
 import type { Snapshot } from "../tags/model";
 import type { Connection } from "../tags/useTags";
 import {
@@ -42,16 +43,18 @@ export default function Editor({
   const widgets = useRef(new Map<string, Widget>());
   const importing = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editing, setEditing] = useState(true);
   const [zoom, setZoom] = useState(70);
   const [snap, setSnap] = useState(true);
   const [message, setMessage] = useState("");
-  const selected = project.components.find((item) => item.id === selectedId);
+  const [sceneRevision, setSceneRevision] = useState(0);
+  const selected = selectedIds.length === 1 ? project.components.find((item) => item.id === selectedIds[0]) : undefined;
   const state = useRef({ project, editing, snap });
   state.current = { project, editing, snap };
   const change = (next: HmiProject) => {
     dispatch({ type: "change", project: next });
+    setSceneRevision(value => value + 1);
     onDirty(true);
   };
   const changeRef = useRef(change);
@@ -62,7 +65,7 @@ export default function Editor({
     const instance = new Canvas(canvasElement.current, {
       width: 840,
       height: 504,
-      selection: false,
+      selection: true,
       preserveObjectStacking: true,
       backgroundColor: "#ffffff",
     });
@@ -70,13 +73,14 @@ export default function Editor({
     const identify = (target: unknown) =>
       [...widgets.current].find(([, widget]) => widget.root === target)?.[0] ??
       null;
-    instance.on("selection:created", (event) =>
-      setSelectedId(identify(event.selected[0])),
-    );
-    instance.on("selection:updated", (event) =>
-      setSelectedId(identify(event.selected[0])),
-    );
-    instance.on("selection:cleared", () => setSelectedId(null));
+    const syncSelection = () => {
+      const active = instance.getActiveObject();
+      if (active instanceof ActiveSelection) active.set({ hasControls: false, lockScalingX: true, lockScalingY: true, lockRotation: true });
+      setSelectedIds(instance.getActiveObjects().map(identify).filter((id): id is string => id !== null));
+    };
+    instance.on("selection:created", syncSelection);
+    instance.on("selection:updated", syncSelection);
+    instance.on("selection:cleared", () => setSelectedIds([]));
     instance.on("object:moving", ({ target }) => {
       if (!state.current.snap) return;
       target.set({
@@ -86,6 +90,18 @@ export default function Editor({
     });
     instance.on("object:modified", ({ target }) => {
       if (!state.current.editing) return;
+      if (target instanceof ActiveSelection) {
+        const ids = instance.getActiveObjects().map(identify).filter((id): id is string => id !== null);
+        const first = state.current.project.components.find(item => item.id === ids[0]);
+        const object = first && widgets.current.get(first.id)?.root;
+        if (first && object) {
+          const position = object.getXY();
+          let dx = position.x - first.x, dy = position.y - first.y;
+          if (state.current.snap) { dx = Math.round(dx / 20) * 20; dy = Math.round(dy / 20) * 20; }
+          changeRef.current(moveTogether(state.current.project, ids, dx, dy));
+        }
+        return;
+      }
       const id = identify(target);
       if (!id) return;
       const angle = ((((target.angle + 180) % 360) + 360) % 360) - 180;
@@ -116,7 +132,8 @@ export default function Editor({
   useEffect(() => {
     const instance = canvas.current;
     if (!instance) return;
-    const active = selectedId;
+    const active = selectedIds;
+    instance.selection = editing;
     const grid = document.createElement("canvas");
     grid.width = 20;
     grid.height = 20;
@@ -137,17 +154,13 @@ export default function Editor({
       widget.update(null, editing);
       widgets.current.set(item.id, widget);
       instance.add(widget.root);
-      if (editing && item.id === active) instance.setActiveObject(widget.root);
     }
-    setSelectedId(
-      editing && project.components.some((item) => item.id === active)
-        ? active
-        : null,
-    );
+    const ids = editing ? active.filter(id => widgets.current.has(id)) : [];
+    activate(ids);
     instance.requestRenderAll();
     // Selection changes do not rebuild the scene; document changes do.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, editing]);
+  }, [project, editing, sceneRevision]);
 
   useEffect(() => {
     const instance = canvas.current;
@@ -187,19 +200,26 @@ export default function Editor({
     fit();
   }, []);
 
-  function select(id: string) {
+  function activate(ids: string[]) {
+    const instance = canvas.current;
+    if (!instance) return;
+    instance.discardActiveObject();
+    const objects = ids.flatMap(id => { const widget = widgets.current.get(id); return widget ? [widget.root] : []; });
+    if (objects.length === 1) instance.setActiveObject(objects[0]);
+    if (objects.length > 1) instance.setActiveObject(new ActiveSelection(objects, {
+      canvas: instance, hasControls: false, lockScalingX: true, lockScalingY: true, lockRotation: true,
+    }));
+    setSelectedIds(ids);
+    instance.requestRenderAll();
+  }
+  function select(id: string, multiple = false) {
     if (!editing) return;
-    setSelectedId(id);
-    const object = widgets.current.get(id)?.root;
-    if (object) {
-      canvas.current?.setActiveObject(object);
-      canvas.current?.requestRenderAll();
-    }
+    activate(multiple ? selectedIds.includes(id) ? selectedIds.filter(value => value !== id) : [...selectedIds, id] : [id]);
   }
   function add(kind: ComponentKind) {
     if (!editing || project.components.length >= MAX_COMPONENTS) return;
     const item = createComponent(kind, project.components.length);
-    setSelectedId(item.id);
+    setSelectedIds([item.id]);
     change({ ...project, components: [...project.components, item] });
   }
   function patch(values: Partial<HmiComponent>) {
@@ -255,7 +275,7 @@ export default function Editor({
       const loaded = parseProject(await file.text());
       if (request !== importing.current || !state.current.editing) return;
       change(loaded);
-      setSelectedId(null);
+      setSelectedIds([]);
       setMessage("Projeto aberto. Desfazer recupera a tela anterior.");
     } catch (error) {
       setMessage((error as Error).message);
@@ -300,7 +320,7 @@ export default function Editor({
             disabled={!editing}
             onClick={() => {
               change({ ...project, name: "Nova tela", components: [] });
-              setSelectedId(null);
+              setSelectedIds([]);
               setMessage("Tela criada. Desfazer recupera a tela anterior.");
             }}
           >
@@ -357,8 +377,8 @@ export default function Editor({
               <li key={item.id}>
                 <button
                   disabled={!editing}
-                  aria-pressed={selectedId === item.id}
-                  onClick={() => select(item.id)}
+                  aria-pressed={selectedIds.includes(item.id)}
+                  onClick={(event) => select(item.id, event.shiftKey || event.ctrlKey || event.metaKey)}
                 >
                   <span className="layer-kind">
                     {componentNames[item.kind]}
@@ -413,7 +433,7 @@ export default function Editor({
           </div>
           <div className="editor-hint">
             {editing
-              ? "Arraste para mover. Use as alças para redimensionar e girar. Valores ilustrativos no modo edição."
+              ? "Shift + clique para selecionar vários objetos, ou arraste uma área vazia. A seleção múltipla permite mover e alinhar. Valores ilustrativos em edição."
               : "Operação • Somente leitura • Valores do simulador em tempo real"}
           </div>
           {!editing && (
@@ -442,6 +462,27 @@ export default function Editor({
         </div>
         <aside className="properties" aria-label="Propriedades do componente">
           <h2>Propriedades</h2>
+          {editing && <div className="selection-actions">
+            <button disabled={!project.components.length} onClick={() => activate(project.components.map(item => item.id))}>Selecionar todos</button>
+            <button disabled={!selectedIds.length} onClick={() => activate([])}>Limpar seleção</button>
+          </div>}
+          {editing && selectedIds.length > 1 && <div className="multiple-properties">
+            <p role="status">{selectedIds.length} objetos selecionados</p>
+            <h3>Alinhamento e espaçamento</h3>
+            <p className="property-note">Usa os limites da seleção, considerando a rotação. Distribuir exige ao menos três objetos.</p>
+            <div className="alignment-actions">
+              {(Object.keys(layoutLabels) as LayoutAction[]).map(action => <button key={action}
+                disabled={action.startsWith("space") && selectedIds.length < 3}
+                onClick={() => {
+                  try { change(arrange(project, selectedIds, action)); setMessage(""); }
+                  catch (error) { setMessage((error as Error).message); }
+                }}>{layoutLabels[action]}</button>)}
+            </div>
+            <button className="delete-component" onClick={() => {
+              change({ ...project, components: project.components.filter(item => !selectedIds.includes(item.id)) });
+              setSelectedIds([]);
+            }}>Excluir selecionados</button>
+          </div>}
           {selected && editing ? (
             <>
               <div className="selected-type">
@@ -540,19 +581,19 @@ export default function Editor({
                       (item) => item.id !== selected.id,
                     ),
                   });
-                  setSelectedId(null);
+                  setSelectedIds([]);
                 }}
               >
                 Excluir componente
               </button>
             </>
-          ) : (
+          ) : selectedIds.length <= 1 || !editing ? (
             <div className="empty-properties">
               {editing
                 ? "Selecione um objeto na tela ou na lista para editar suas propriedades."
                 : "Edição bloqueada durante a operação."}
             </div>
-          )}
+          ) : null}
         </aside>
       </div>
       {message && (

@@ -1,12 +1,13 @@
 # NEXO — Supervisão e engenharia de telas
 
-Plataforma SCADA/HMI local com backend Java e interface web. A versão **0.2.0** acrescenta o editor de telas ao circuito de simulação validado na versão 0.1.0.
+Plataforma SCADA/HMI com backend Java e interface web. A versão **0.3.0** acrescenta seleção múltipla, movimentação conjunta, alinhamento e distribuição ao editor de telas.
 
 ## Recursos disponíveis
 
 - Supervisão de nível, bomba e temperatura, com atualizações por WebSocket.
 - Editor com tanque, bomba, indicador e texto.
 - Posicionamento livre, ajuste à grade, dimensões, rotação e ordem de exibição.
+- Seleção múltipla, movimento conjunto e alinhamento pelas bordas ou centros; distribuição de espaçamento com três ou mais objetos.
 - Vínculos com tags compatíveis e modos separados de Edição e Operação.
 - Desfazer/refazer até 60 alterações, exportação e abertura de projetos JSON.
 - Lista de tags com qualidade, origem e timestamps; reconexão automática.
@@ -74,7 +75,9 @@ Veja o [guia de publicação](docs/deployment.md) para configurar a conta, gerar
 
 As alterações são mantidas ao navegar entre as páginas, mas não são gravadas automaticamente no servidor ou no navegador. Antes de recarregar ou fechar, exporte o arquivo. A tela fixa de Supervisão é independente do projeto aberto no editor.
 
-O arquivo `examples/water-tank/project.json` pode ser aberto diretamente no editor. Importação de imagens e SVG, grupos e alinhamento múltiplo ainda não estão disponíveis.
+Para selecionar vários objetos, use Shift + clique na tela ou na lista, arraste uma área vazia da tela ou use **Selecionar todos**. O painel Propriedades oferece alinhamento, distribuição e exclusão conjunta. Cada ação pode ser desfeita em uma única etapa. As dimensões e rotações continuam sendo editadas individualmente.
+
+O arquivo `examples/water-tank/project.json` pode ser aberto diretamente no editor. Importação de imagens e SVG e grupos permanentes ainda não estão disponíveis.
 
 ## Testes
 

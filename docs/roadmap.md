@@ -1,7 +1,7 @@
 # Próximos incrementos
 
 1. Etapa 0 validada tecnicamente: backend, frontend e fluxo WebSocket real, incluindo reconexão após interrupção do transporte. Revisão visual pelo usuário disponível.
-2. Editor HMI inicial entregue em 0.2.0: Fabric.js, componentes básicos, transformação, vínculos restritos, undo/redo e salvar/abrir JSON validado. Próxima evolução: grupos, alinhamento múltiplo e importação segura de imagens.
+2. Editor HMI inicial entregue em 0.2.0; seleção múltipla, movimento conjunto, alinhamento e distribuição entregues em 0.3.0. Próxima evolução: grupos permanentes e importação segura de imagens.
 3. PostgreSQL/Flyway, projetos persistidos, autenticação, perfis e auditoria; testes com Testcontainers.
 4. Drivers de leitura, primeiro contra servidores OPC UA/Modbus/MQTT simulados, com qualidade e timeouts testados.
 5. Alarmes e histórico com ECharts.

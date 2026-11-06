@@ -29,6 +29,7 @@
 - examples/water-tank/project.json
 - frontend/e2e/editor.spec.ts
 - frontend/e2e/interface.spec.ts
+- frontend/e2e/layout.spec.ts
 - frontend/e2e/supervision.spec.ts
 - frontend/index.html
 - frontend/package.json
@@ -38,6 +39,8 @@
 - frontend/src/components/Process.tsx
 - frontend/src/editor/editor.css
 - frontend/src/editor/Editor.tsx
+- frontend/src/editor/layout.test.ts
+- frontend/src/editor/layout.ts
 - frontend/src/editor/project.test.ts
 - frontend/src/editor/project.ts
 - frontend/src/editor/widgets.ts

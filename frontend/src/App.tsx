@@ -78,8 +78,8 @@ export function App() {
           <p>Laboratório PID</p>
         </div>
         <div className="sidebar-footer">
-          <span className="small-dot" /> Ambiente local{" "}
-          <small>v0.2.0 · Engenharia</small>
+            <span className="small-dot" /> Ambiente simulado{" "}
+            <small>v0.3.0 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -275,6 +275,14 @@ export function App() {
                 Selecione a tag no painel Propriedades. Edição usa valores
                 ilustrativos; Operação usa as tags do simulador e bloqueia
                 alterações.
+              </p>
+              <h3>Como organizar vários objetos?</h3>
+              <p>
+                Use Shift + clique para selecionar vários objetos na tela ou
+                na lista. Também é possível arrastar uma área vazia ou usar
+                Selecionar todos. Arraste o conjunto para mover; no painel
+                Propriedades, alinhe pelas bordas ou centros. Com três objetos
+                ou mais, distribua os espaços. Desfazer recupera a ação inteira.
               </p>
               <h3>Como salvar e recuperar o projeto?</h3>
               <p>

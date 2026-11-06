@@ -1,4 +1,4 @@
-# Relatório de validação — versão 0.2.0
+# Relatório de validação — versão 0.3.0
 
 Data: 06/11/2026. Ambiente: Windows, Node.js 24.22.1, Java 21.0.13, Microsoft Edge.
 
@@ -10,14 +10,17 @@ Editor integrado e validado com o simulador Java. A supervisão existente perman
 
 - TypeScript: compilação sem erros.
 - Vite: build de produção aprovado; editor carregado separadamente da tela inicial.
-- Vitest: **21 testes aprovados em 4 arquivos**.
-- Playwright/Edge: **6 testes aprovados**.
+- Vitest: **32 testes aprovados em 5 arquivos**.
+- Playwright/Edge: **8 testes aprovados**, com o frontend atualizado e o simulador Java local.
 - Dependências npm: instalação concluída; auditoria reportou zero vulnerabilidades no momento da instalação.
-- Backend: **5 testes Java aprovados**, incluindo cabeçalhos do perfil hosted.
-- Pacote integrado: build com perfil Maven web-ui aprovado; os 6 testes de navegador também passaram contra o JAR em modo hosted na porta local 8081.
-- Docker não está instalado localmente; a imagem Linux foi construída pelo Render. HTTPS público e seis testes de navegador aprovados em https://nexo-scada-demo.onrender.com.
+- Backend sem alterações neste incremento: os **5 testes Java** e o pacote integrado foram aprovados na preparação de hospedagem. O Dockerfile executa novamente os testes Java/frontend em cada build.
+- Docker não está instalado localmente. A hospedagem usa a imagem Linux construída pelo Render em https://nexo-scada-demo.onrender.com.
 
 ## Cobertura do editor
+
+- Seleção múltipla pela lista, movimento conjunto no canvas, preservação de rotação e vínculos.
+- Seis alinhamentos, distribuição com dimensões diferentes, limites de movimento e rejeição atômica de posições inválidas ou espaço insuficiente.
+- Alinhar/excluir vários objetos em uma revisão; recuperação pelo histórico e exportação/reabertura compatível com JSON v1.
 
 - Arquivo de exemplo distribuído aceito pelo parser.
 - Preservação de geometria, rotação, rótulo, ordem e vínculo ao exportar e reabrir.
@@ -34,6 +37,8 @@ Os testes de contrato usam mensagens controladas; três testes de navegador usam
 
 ## Capturas
 
+- `screenshots/editor-selecao-multipla.png`: painel de alinhamento e distribuição da versão 0.3.0.
+
 - `screenshots/editor-v0.2.png`: edição e reabertura de projeto com dados controlados.
 - `screenshots/editor-operacao-java.png`: editor em Operação com o simulador Java.
 - `screenshots/desktop-java-live.png`: supervisão conectada ao Java.
@@ -41,6 +46,6 @@ Os testes de contrato usam mensagens controladas; três testes de navegador usam
 
 ## Limites
 
-Não foram validados Linux, carga, uso entre computadores, persistência em servidor ou equipamentos industriais. O projeto permanece em memória até ser exportado. Imagens/SVG, grupos, alinhamento múltiplo e conexões industriais não fazem parte desta versão.
+Não foram validados carga, persistência em servidor ou equipamentos industriais. O projeto permanece em memória até ser exportado. Imagens/SVG, grupos permanentes e conexões industriais não fazem parte desta versão.
 
 A validação de reconexão interrompe o transporte WebSocket e verifica sua recuperação; não equivale a um teste de reinício manual do processo Java. Não há certificação de segurança ou disponibilidade industrial.

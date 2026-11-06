@@ -1,4 +1,4 @@
-# Código completo — versão 0.2.0
+# Código completo — versão 0.3.0
 Cópia integral dos arquivos autorais; lockfile e capturas disponíveis separadamente.
 
 ## .dockerignore
@@ -496,6 +496,13 @@ class TankSimulatorTest {
 ````
 # Histórico de versões
 
+## 0.3.0 — 06/11/2026
+
+- Seleção múltipla por Shift + clique, área de seleção ou Selecionar todos.
+- Movimento conjunto com grade e limites, preservando geometria e vínculos.
+- Alinhamento por bordas/centros e distribuição de espaços, considerando rotação.
+- Exclusão conjunta e uma revisão de histórico por ação; JSON v1 compatível.
+
 ## Preparação de hospedagem — 06/11/2026
 
 - Interface integrada ao pacote Java, perfil hosted e cabeçalhos de segurança.
@@ -777,7 +784,17 @@ O histórico guarda até 60 revisões; uma nova alteração após desfazer limpa
 
 ## Limites deste incremento
 
-Uma tela por projeto, quatro tipos de componente, sem seleção múltipla, grupos, importação de imagens ou servidor de projetos. A edição não grava tags nem substitui automaticamente o sinótico fixo de Supervisão.
+Uma tela por projeto, quatro tipos de componente, sem grupos permanentes, importação de imagens ou servidor de projetos. A edição não grava tags nem substitui automaticamente o sinótico fixo de Supervisão.
+
+## Seleção múltipla — 0.3.0
+
+Shift + clique acrescenta ou remove objetos da seleção. Na lista, Ctrl/Cmd + clique também funciona. Arraste uma área vazia para selecionar objetos, ou use Selecionar todos e Limpar seleção no painel. A seleção é temporária e não altera o contrato JSON v1.
+
+Arrastar uma seleção múltipla mantém distâncias, tamanhos, rotações e vínculos. A grade arredonda o deslocamento conjunto para múltiplos de 20 px; os limites de posição restringem o deslocamento do conjunto sem separar seus objetos. Redimensionamento e rotação são individuais.
+
+Alinhamento usa as bordas ou centros do retângulo envolvente da seleção, considerando a rotação de cada componente. Distribuição exige três objetos, mantém os extremos e iguala os espaços entre as caixas. Se não houver espaço ou uma posição exceder o contrato, a ação é recusada sem alterar o documento. Não se aplica arredondamento à grade ao alinhar ou distribuir; posições podem conter até três casas decimais.
+
+Alinhamento, distribuição, movimento e exclusão conjunta geram uma revisão por ação. Desfazer recupera todos os componentes afetados. Modo Operação desativa seleção e comandos de edição.
 
 Referência da biblioteca: https://fabricjs.com/docs/getting-started/installing/
 ````
@@ -787,7 +804,7 @@ Referência da biblioteca: https://fabricjs.com/docs/getting-started/installing/
 # Próximos incrementos
 
 1. Etapa 0 validada tecnicamente: backend, frontend e fluxo WebSocket real, incluindo reconexão após interrupção do transporte. Revisão visual pelo usuário disponível.
-2. Editor HMI inicial entregue em 0.2.0: Fabric.js, componentes básicos, transformação, vínculos restritos, undo/redo e salvar/abrir JSON validado. Próxima evolução: grupos, alinhamento múltiplo e importação segura de imagens.
+2. Editor HMI inicial entregue em 0.2.0; seleção múltipla, movimento conjunto, alinhamento e distribuição entregues em 0.3.0. Próxima evolução: grupos permanentes e importação segura de imagens.
 3. PostgreSQL/Flyway, projetos persistidos, autenticação, perfis e auditoria; testes com Testcontainers.
 4. Drivers de leitura, primeiro contra servidores OPC UA/Modbus/MQTT simulados, com qualidade e timeouts testados.
 5. Alarmes e histórico com ECharts.
@@ -800,7 +817,7 @@ Conexão com CLP físico, comandos de escrita e uso em produção exigem fases e
 
 ## docs/validation.md
 ````
-# Relatório de validação — versão 0.2.0
+# Relatório de validação — versão 0.3.0
 
 Data: 06/11/2026. Ambiente: Windows, Node.js 24.22.1, Java 21.0.13, Microsoft Edge.
 
@@ -812,14 +829,17 @@ Editor integrado e validado com o simulador Java. A supervisão existente perman
 
 - TypeScript: compilação sem erros.
 - Vite: build de produção aprovado; editor carregado separadamente da tela inicial.
-- Vitest: **21 testes aprovados em 4 arquivos**.
-- Playwright/Edge: **6 testes aprovados**.
+- Vitest: **32 testes aprovados em 5 arquivos**.
+- Playwright/Edge: **8 testes aprovados**, com o frontend atualizado e o simulador Java local.
 - Dependências npm: instalação concluída; auditoria reportou zero vulnerabilidades no momento da instalação.
-- Backend: **5 testes Java aprovados**, incluindo cabeçalhos do perfil hosted.
-- Pacote integrado: build com perfil Maven web-ui aprovado; os 6 testes de navegador também passaram contra o JAR em modo hosted na porta local 8081.
-- Docker não está instalado localmente; a imagem Linux foi construída pelo Render. HTTPS público e seis testes de navegador aprovados em https://nexo-scada-demo.onrender.com.
+- Backend sem alterações neste incremento: os **5 testes Java** e o pacote integrado foram aprovados na preparação de hospedagem. O Dockerfile executa novamente os testes Java/frontend em cada build.
+- Docker não está instalado localmente. A hospedagem usa a imagem Linux construída pelo Render em https://nexo-scada-demo.onrender.com.
 
 ## Cobertura do editor
+
+- Seleção múltipla pela lista, movimento conjunto no canvas, preservação de rotação e vínculos.
+- Seis alinhamentos, distribuição com dimensões diferentes, limites de movimento e rejeição atômica de posições inválidas ou espaço insuficiente.
+- Alinhar/excluir vários objetos em uma revisão; recuperação pelo histórico e exportação/reabertura compatível com JSON v1.
 
 - Arquivo de exemplo distribuído aceito pelo parser.
 - Preservação de geometria, rotação, rótulo, ordem e vínculo ao exportar e reabrir.
@@ -836,6 +856,8 @@ Os testes de contrato usam mensagens controladas; três testes de navegador usam
 
 ## Capturas
 
+- `screenshots/editor-selecao-multipla.png`: painel de alinhamento e distribuição da versão 0.3.0.
+
 - `screenshots/editor-v0.2.png`: edição e reabertura de projeto com dados controlados.
 - `screenshots/editor-operacao-java.png`: editor em Operação com o simulador Java.
 - `screenshots/desktop-java-live.png`: supervisão conectada ao Java.
@@ -843,7 +865,7 @@ Os testes de contrato usam mensagens controladas; três testes de navegador usam
 
 ## Limites
 
-Não foram validados Linux, carga, uso entre computadores, persistência em servidor ou equipamentos industriais. O projeto permanece em memória até ser exportado. Imagens/SVG, grupos, alinhamento múltiplo e conexões industriais não fazem parte desta versão.
+Não foram validados carga, persistência em servidor ou equipamentos industriais. O projeto permanece em memória até ser exportado. Imagens/SVG, grupos permanentes e conexões industriais não fazem parte desta versão.
 
 A validação de reconexão interrompe o transporte WebSocket e verifica sua recuperação; não equivale a um teste de reinício manual do processo Java. Não há certificação de segurança ou disponibilidade industrial.
 ````
@@ -1041,6 +1063,74 @@ test("interface with controlled test frames: updates, disconnects and remains re
 });
 ````
 
+## frontend/e2e/layout.spec.ts
+````
+import { test, expect, type Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+
+const project = { schemaVersion: 1, name: "Organização", screen: { width: 1200, height: 720 }, components: [
+  { id: "a", kind: "pump", label: "P-A", x: 100, y: 100, width: 160, height: 130, angle: 0, binding: "P001.RUNNING" },
+  { id: "b", kind: "tank", label: "T-B", x: 400, y: 220, width: 180, height: 260, angle: 0, binding: "TQ001.LEVEL" },
+  { id: "c", kind: "indicator", label: "I-C", x: 900, y: 400, width: 160, height: 130, angle: 0, binding: "TQ001.TEMPERATURE" },
+] };
+async function exported(page: Page) {
+  const pending = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Salvar projeto" }).click();
+  const download = await pending;
+  return JSON.parse(await readFile((await download.path())!, "utf8")) as typeof project;
+}
+test.beforeEach(async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await page.getByLabel("Arquivo de projeto").setInputFiles({ name: "layout.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(project)) });
+  await expect(page.getByRole("button", { name: "Bomba P-A", exact: true })).toBeVisible();
+});
+test("aligns and distributes a selection, undoes once and reopens its JSON", async ({ page }) => {
+  await page.getByRole("button", { name: "Bomba P-A", exact: true }).click();
+  await page.getByRole("button", { name: "Tanque T-B", exact: true }).click({ modifiers: ["Shift"] });
+  await expect(page.getByText("2 objetos selecionados", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Distribuir na horizontal", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Alinhar à esquerda", exact: true }).click();
+  expect((await exported(page)).components.map(i => i.x)).toEqual([100, 100, 900]);
+  await page.getByRole("button", { name: "Desfazer", exact: true }).click();
+  expect((await exported(page)).components).toEqual(project.components);
+  await page.getByRole("button", { name: "Selecionar todos", exact: true }).click();
+  await page.getByRole("button", { name: "Distribuir na horizontal", exact: true }).click();
+  const result = await exported(page);
+  expect(result.components.map(i => i.x)).toEqual([100, 490, 900]);
+  await page.getByRole("button", { name: "Excluir selecionados", exact: true }).click();
+  expect((await exported(page)).components).toHaveLength(0);
+  await page.getByRole("button", { name: "Desfazer", exact: true }).click();
+  expect((await exported(page)).components).toEqual(result.components);
+  await page.getByLabel("Arquivo de projeto").setInputFiles({ name: "layout.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(result)) });
+  expect((await exported(page)).components).toEqual(result.components);
+  await page.getByRole("button", { name: "Selecionar todos", exact: true }).click();
+  await page.screenshot({ path: "../docs/screenshots/editor-selecao-multipla.png", fullPage: true });
+  await page.getByRole("button", { name: "Operação", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Alinhar à esquerda", exact: true })).toHaveCount(0);
+  await expect(page.getByText("Edição bloqueada durante a operação.")).toBeVisible();
+});
+test("moves a multi-selection together on the canvas and preserves rotation", async ({ page }) => {
+  const rotated = structuredClone(project); rotated.components[1].angle = 30;
+  await page.getByLabel("Arquivo de projeto").setInputFiles({ name: "rotated.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(rotated)) });
+  await page.getByRole("button", { name: "Bomba P-A", exact: true }).click();
+  await page.getByRole("button", { name: "Tanque T-B", exact: true }).click({ modifiers: ["Shift"] });
+  const scale = Number(await page.getByLabel("Zoom", { exact: true }).inputValue()) / 100;
+  const area = (await page.locator(".upper-canvas").boundingBox())!;
+  await page.mouse.move(area.x + 180 * scale, area.y + 165 * scale);
+  await page.mouse.down();
+  await page.mouse.move(area.x + 260 * scale, area.y + 225 * scale, { steps: 8 });
+  await page.mouse.up();
+  const result = await exported(page);
+  expect(result.components[0]).toMatchObject({ x: 180, y: 160 });
+  expect(result.components[1]).toMatchObject({ x: 480, y: 280, angle: 30, width: 180, height: 260 });
+  expect(result.components[2]).toEqual(project.components[2]);
+  await page.getByRole("button", { name: "Desfazer", exact: true }).click();
+  expect((await exported(page)).components).toEqual(rotated.components);
+});
+````
+
 ## frontend/e2e/supervision.spec.ts
 ````
 import { test, expect } from "@playwright/test";
@@ -1109,7 +1199,7 @@ test("recovers the real Java stream after a transport interruption", async ({ pa
 ````
 {
   "name": "scada-hmi",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -1286,8 +1376,8 @@ export function App() {
           <p>Laboratório PID</p>
         </div>
         <div className="sidebar-footer">
-          <span className="small-dot" /> Ambiente local{" "}
-          <small>v0.2.0 · Engenharia</small>
+            <span className="small-dot" /> Ambiente simulado{" "}
+            <small>v0.3.0 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -1483,6 +1573,14 @@ export function App() {
                 Selecione a tag no painel Propriedades. Edição usa valores
                 ilustrativos; Operação usa as tags do simulador e bloqueia
                 alterações.
+              </p>
+              <h3>Como organizar vários objetos?</h3>
+              <p>
+                Use Shift + clique para selecionar vários objetos na tela ou
+                na lista. Também é possível arrastar uma área vazia ou usar
+                Selecionar todos. Arraste o conjunto para mover; no painel
+                Propriedades, alinhe pelas bordas ou centros. Com três objetos
+                ou mais, distribua os espaços. Desfazer recupera a ação inteira.
               </p>
               <h3>Como salvar e recuperar o projeto?</h3>
               <p>
@@ -1951,6 +2049,14 @@ export function Process({
   border-bottom: 1px solid #e5ebef;
   padding-bottom: 13px;
 }
+.selection-actions, .alignment-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.alignment-actions { grid-template-columns: 1fr; }
+.multiple-properties > p { font-size: 12px; color: #405d73; }
 .properties h3 {
   font-size: 10px;
   font-weight: 500;
@@ -2101,7 +2207,8 @@ main:has(.editor) {
 ## frontend/src/editor/Editor.tsx
 ````
 import { useEffect, useRef, useState, type Dispatch } from "react";
-import { Canvas, Pattern } from "fabric";
+import { ActiveSelection, Canvas, Pattern } from "fabric";
+import { arrange, layoutLabels, moveTogether, type LayoutAction } from "./layout";
 import type { Snapshot } from "../tags/model";
 import type { Connection } from "../tags/useTags";
 import {
@@ -2144,16 +2251,18 @@ export default function Editor({
   const widgets = useRef(new Map<string, Widget>());
   const importing = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editing, setEditing] = useState(true);
   const [zoom, setZoom] = useState(70);
   const [snap, setSnap] = useState(true);
   const [message, setMessage] = useState("");
-  const selected = project.components.find((item) => item.id === selectedId);
+  const [sceneRevision, setSceneRevision] = useState(0);
+  const selected = selectedIds.length === 1 ? project.components.find((item) => item.id === selectedIds[0]) : undefined;
   const state = useRef({ project, editing, snap });
   state.current = { project, editing, snap };
   const change = (next: HmiProject) => {
     dispatch({ type: "change", project: next });
+    setSceneRevision(value => value + 1);
     onDirty(true);
   };
   const changeRef = useRef(change);
@@ -2164,7 +2273,7 @@ export default function Editor({
     const instance = new Canvas(canvasElement.current, {
       width: 840,
       height: 504,
-      selection: false,
+      selection: true,
       preserveObjectStacking: true,
       backgroundColor: "#ffffff",
     });
@@ -2172,13 +2281,14 @@ export default function Editor({
     const identify = (target: unknown) =>
       [...widgets.current].find(([, widget]) => widget.root === target)?.[0] ??
       null;
-    instance.on("selection:created", (event) =>
-      setSelectedId(identify(event.selected[0])),
-    );
-    instance.on("selection:updated", (event) =>
-      setSelectedId(identify(event.selected[0])),
-    );
-    instance.on("selection:cleared", () => setSelectedId(null));
+    const syncSelection = () => {
+      const active = instance.getActiveObject();
+      if (active instanceof ActiveSelection) active.set({ hasControls: false, lockScalingX: true, lockScalingY: true, lockRotation: true });
+      setSelectedIds(instance.getActiveObjects().map(identify).filter((id): id is string => id !== null));
+    };
+    instance.on("selection:created", syncSelection);
+    instance.on("selection:updated", syncSelection);
+    instance.on("selection:cleared", () => setSelectedIds([]));
     instance.on("object:moving", ({ target }) => {
       if (!state.current.snap) return;
       target.set({
@@ -2188,6 +2298,18 @@ export default function Editor({
     });
     instance.on("object:modified", ({ target }) => {
       if (!state.current.editing) return;
+      if (target instanceof ActiveSelection) {
+        const ids = instance.getActiveObjects().map(identify).filter((id): id is string => id !== null);
+        const first = state.current.project.components.find(item => item.id === ids[0]);
+        const object = first && widgets.current.get(first.id)?.root;
+        if (first && object) {
+          const position = object.getXY();
+          let dx = position.x - first.x, dy = position.y - first.y;
+          if (state.current.snap) { dx = Math.round(dx / 20) * 20; dy = Math.round(dy / 20) * 20; }
+          changeRef.current(moveTogether(state.current.project, ids, dx, dy));
+        }
+        return;
+      }
       const id = identify(target);
       if (!id) return;
       const angle = ((((target.angle + 180) % 360) + 360) % 360) - 180;
@@ -2218,7 +2340,8 @@ export default function Editor({
   useEffect(() => {
     const instance = canvas.current;
     if (!instance) return;
-    const active = selectedId;
+    const active = selectedIds;
+    instance.selection = editing;
     const grid = document.createElement("canvas");
     grid.width = 20;
     grid.height = 20;
@@ -2239,17 +2362,13 @@ export default function Editor({
       widget.update(null, editing);
       widgets.current.set(item.id, widget);
       instance.add(widget.root);
-      if (editing && item.id === active) instance.setActiveObject(widget.root);
     }
-    setSelectedId(
-      editing && project.components.some((item) => item.id === active)
-        ? active
-        : null,
-    );
+    const ids = editing ? active.filter(id => widgets.current.has(id)) : [];
+    activate(ids);
     instance.requestRenderAll();
     // Selection changes do not rebuild the scene; document changes do.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, editing]);
+  }, [project, editing, sceneRevision]);
 
   useEffect(() => {
     const instance = canvas.current;
@@ -2289,19 +2408,26 @@ export default function Editor({
     fit();
   }, []);
 
-  function select(id: string) {
+  function activate(ids: string[]) {
+    const instance = canvas.current;
+    if (!instance) return;
+    instance.discardActiveObject();
+    const objects = ids.flatMap(id => { const widget = widgets.current.get(id); return widget ? [widget.root] : []; });
+    if (objects.length === 1) instance.setActiveObject(objects[0]);
+    if (objects.length > 1) instance.setActiveObject(new ActiveSelection(objects, {
+      canvas: instance, hasControls: false, lockScalingX: true, lockScalingY: true, lockRotation: true,
+    }));
+    setSelectedIds(ids);
+    instance.requestRenderAll();
+  }
+  function select(id: string, multiple = false) {
     if (!editing) return;
-    setSelectedId(id);
-    const object = widgets.current.get(id)?.root;
-    if (object) {
-      canvas.current?.setActiveObject(object);
-      canvas.current?.requestRenderAll();
-    }
+    activate(multiple ? selectedIds.includes(id) ? selectedIds.filter(value => value !== id) : [...selectedIds, id] : [id]);
   }
   function add(kind: ComponentKind) {
     if (!editing || project.components.length >= MAX_COMPONENTS) return;
     const item = createComponent(kind, project.components.length);
-    setSelectedId(item.id);
+    setSelectedIds([item.id]);
     change({ ...project, components: [...project.components, item] });
   }
   function patch(values: Partial<HmiComponent>) {
@@ -2357,7 +2483,7 @@ export default function Editor({
       const loaded = parseProject(await file.text());
       if (request !== importing.current || !state.current.editing) return;
       change(loaded);
-      setSelectedId(null);
+      setSelectedIds([]);
       setMessage("Projeto aberto. Desfazer recupera a tela anterior.");
     } catch (error) {
       setMessage((error as Error).message);
@@ -2402,7 +2528,7 @@ export default function Editor({
             disabled={!editing}
             onClick={() => {
               change({ ...project, name: "Nova tela", components: [] });
-              setSelectedId(null);
+              setSelectedIds([]);
               setMessage("Tela criada. Desfazer recupera a tela anterior.");
             }}
           >
@@ -2459,8 +2585,8 @@ export default function Editor({
               <li key={item.id}>
                 <button
                   disabled={!editing}
-                  aria-pressed={selectedId === item.id}
-                  onClick={() => select(item.id)}
+                  aria-pressed={selectedIds.includes(item.id)}
+                  onClick={(event) => select(item.id, event.shiftKey || event.ctrlKey || event.metaKey)}
                 >
                   <span className="layer-kind">
                     {componentNames[item.kind]}
@@ -2515,7 +2641,7 @@ export default function Editor({
           </div>
           <div className="editor-hint">
             {editing
-              ? "Arraste para mover. Use as alças para redimensionar e girar. Valores ilustrativos no modo edição."
+              ? "Shift + clique para selecionar vários objetos, ou arraste uma área vazia. A seleção múltipla permite mover e alinhar. Valores ilustrativos em edição."
               : "Operação • Somente leitura • Valores do simulador em tempo real"}
           </div>
           {!editing && (
@@ -2544,6 +2670,27 @@ export default function Editor({
         </div>
         <aside className="properties" aria-label="Propriedades do componente">
           <h2>Propriedades</h2>
+          {editing && <div className="selection-actions">
+            <button disabled={!project.components.length} onClick={() => activate(project.components.map(item => item.id))}>Selecionar todos</button>
+            <button disabled={!selectedIds.length} onClick={() => activate([])}>Limpar seleção</button>
+          </div>}
+          {editing && selectedIds.length > 1 && <div className="multiple-properties">
+            <p role="status">{selectedIds.length} objetos selecionados</p>
+            <h3>Alinhamento e espaçamento</h3>
+            <p className="property-note">Usa os limites da seleção, considerando a rotação. Distribuir exige ao menos três objetos.</p>
+            <div className="alignment-actions">
+              {(Object.keys(layoutLabels) as LayoutAction[]).map(action => <button key={action}
+                disabled={action.startsWith("space") && selectedIds.length < 3}
+                onClick={() => {
+                  try { change(arrange(project, selectedIds, action)); setMessage(""); }
+                  catch (error) { setMessage((error as Error).message); }
+                }}>{layoutLabels[action]}</button>)}
+            </div>
+            <button className="delete-component" onClick={() => {
+              change({ ...project, components: project.components.filter(item => !selectedIds.includes(item.id)) });
+              setSelectedIds([]);
+            }}>Excluir selecionados</button>
+          </div>}
           {selected && editing ? (
             <>
               <div className="selected-type">
@@ -2642,19 +2789,19 @@ export default function Editor({
                       (item) => item.id !== selected.id,
                     ),
                   });
-                  setSelectedId(null);
+                  setSelectedIds([]);
                 }}
               >
                 Excluir componente
               </button>
             </>
-          ) : (
+          ) : selectedIds.length <= 1 || !editing ? (
             <div className="empty-properties">
               {editing
                 ? "Selecione um objeto na tela ou na lista para editar suas propriedades."
                 : "Edição bloqueada durante a operação."}
             </div>
-          )}
+          ) : null}
         </aside>
       </div>
       {message && (
@@ -2667,6 +2814,137 @@ export default function Editor({
       )}
     </section>
   );
+}
+````
+
+## frontend/src/editor/layout.test.ts
+````
+import { describe, expect, it } from "vitest";
+import { arrange, bounds, moveTogether } from "./layout";
+import { createComponent, parseProject, projectReducer, serializeProject, type HmiProject } from "./project";
+
+function fixture(): HmiProject {
+  return { schemaVersion: 1, name: "Layout", screen: { width: 1200, height: 720 }, components: [
+    { ...createComponent("pump", 0), id: "a", x: 100, y: 100, width: 80, height: 60 },
+    { ...createComponent("tank", 0), id: "b", x: 330, y: 200, width: 120, height: 80 },
+    { ...createComponent("indicator", 0), id: "c", x: 700, y: 400, width: 60, height: 40 },
+  ] };
+}
+describe("selection layout", () => {
+  it("aligns rotated boxes without changing bindings, size or order", () => {
+    const project = fixture(); project.components[1].angle = 90;
+    const result = arrange(project, ["a", "b"], "left");
+    expect(bounds(result.components[0]).left).toBeCloseTo(bounds(result.components[1]).left);
+    expect(result.components[1]).toMatchObject({ width: 120, height: 80, angle: 90, binding: "TQ001.LEVEL" });
+    expect(result.components[2]).toEqual(project.components[2]);
+    expect(project.components[1].x).toBe(330);
+  });
+  it.each(["right", "top", "bottom", "centerX", "centerY"] as const)("aligns %s", action => {
+    const result = arrange(fixture(), ["a", "b", "c"], action);
+    const values = result.components.map(item => {
+      const b = bounds(item);
+      return action === "centerX" ? (b.left + b.right) / 2 : action === "centerY" ? (b.top + b.bottom) / 2 : b[action];
+    });
+    expect(values[0]).toBeCloseTo(values[1]); expect(values[1]).toBeCloseTo(values[2]);
+  });
+  it.each(["spaceX", "spaceY"] as const)("distributes equal gaps for different dimensions: %s", action => {
+    const result = arrange(fixture(), ["c", "a", "b"], action);
+    const [a, b, c] = result.components.map(bounds);
+    expect(action === "spaceX" ? b.left - a.right : b.top - a.bottom)
+      .toBeCloseTo(action === "spaceX" ? c.left - b.right : c.top - b.bottom, 2);
+    expect(result.components[0]).toEqual(fixture().components[0]);
+    expect(result.components[2]).toEqual(fixture().components[2]);
+  });
+  it("rejects insufficient space and invalid positions atomically", () => {
+    const project = fixture(); project.components.forEach(item => { item.x = 0; item.y = 0; });
+    expect(() => arrange(project, ["a", "b", "c"], "spaceX")).toThrow("espaço suficiente");
+    project.components[1].angle = 90;
+    expect(() => arrange(project, ["a", "b"], "left")).toThrow("limites");
+    expect(project.components[0].x).toBe(0);
+  });
+  it("clamps movement as a unit and preserves geometry and export", () => {
+    const project = fixture(); project.components[1].angle = 35;
+    const result = moveTogether(project, ["a", "b"], -200, 900);
+    expect(result.components[0]).toMatchObject({ x: 0, y: 588 });
+    expect(result.components[1]).toMatchObject({ x: 230, y: 688, angle: 35 });
+    expect(result.components[2]).toEqual(project.components[2]);
+    expect(parseProject(serializeProject(result))).toEqual(result);
+  });
+  it("undoes a whole alignment in one revision and ignores small selections", () => {
+    const project = fixture();
+    expect(arrange(project, ["a"], "left")).toBe(project);
+    expect(arrange(project, ["a", "b"], "spaceX")).toBe(project);
+    const changed = projectReducer({ past: [], present: project, future: [] }, { type: "change", project: arrange(project, ["a", "b"], "left") });
+    expect(changed.past).toHaveLength(1);
+    expect(projectReducer(changed, { type: "undo" }).present).toEqual(project);
+  });
+});
+````
+
+## frontend/src/editor/layout.ts
+````
+import { parseProject, type HmiComponent, type HmiProject } from "./project";
+
+export type LayoutAction = "left" | "centerX" | "right" | "top" | "centerY" | "bottom" | "spaceX" | "spaceY";
+export const layoutLabels: Record<LayoutAction, string> = {
+  left: "Alinhar à esquerda", centerX: "Centralizar horizontalmente", right: "Alinhar à direita",
+  top: "Alinhar ao topo", centerY: "Centralizar verticalmente", bottom: "Alinhar à base",
+  spaceX: "Distribuir na horizontal", spaceY: "Distribuir na vertical",
+};
+
+// Bounds of the rotated component box in screen coordinates (top-left origin).
+export function bounds(item: HmiComponent) {
+  const radians = item.angle * Math.PI / 180;
+  const c = Math.cos(radians), s = Math.sin(radians);
+  const xs = [0, item.width * c, -item.height * s, item.width * c - item.height * s];
+  const ys = [0, item.width * s, item.height * c, item.width * s + item.height * c];
+  return { left: item.x + Math.min(...xs), right: item.x + Math.max(...xs),
+    top: item.y + Math.min(...ys), bottom: item.y + Math.max(...ys) };
+}
+
+export function arrange(project: HmiProject, ids: string[], action: LayoutAction): HmiProject {
+  const selected = project.components.filter(item => ids.includes(item.id));
+  const spacing = action === "spaceX" || action === "spaceY";
+  if (selected.length < (spacing ? 3 : 2)) return project;
+  const horizontal = ["left", "right", "centerX", "spaceX"].includes(action);
+  const start = horizontal ? "left" : "top", end = horizontal ? "right" : "bottom";
+  const entries = selected.map(item => ({ item, box: bounds(item) }));
+  const min = Math.min(...entries.map(e => e.box[start]));
+  const max = Math.max(...entries.map(e => e.box[end]));
+  const positions = new Map<string, number>();
+  if (spacing) {
+    entries.sort((a, b) => a.box[start] - b.box[start]);
+    const gap = (max - min - entries.reduce((sum, e) => sum + e.box[end] - e.box[start], 0)) / (entries.length - 1);
+    if (gap < -0.001) throw new Error("Afaste os objetos antes de distribuir: não há espaço suficiente entre os extremos.");
+    let cursor = min;
+    for (const { item, box } of entries) {
+      positions.set(item.id, (horizontal ? item.x : item.y) + cursor - box[start]);
+      cursor += box[end] - box[start] + Math.max(0, gap);
+    }
+  } else {
+    for (const { item, box } of entries) {
+      const delta = action === "left" || action === "top" ? min - box[start]
+        : action === "right" || action === "bottom" ? max - box[end]
+        : (min + max - box[start] - box[end]) / 2;
+      positions.set(item.id, (horizontal ? item.x : item.y) + delta);
+    }
+  }
+  const components = project.components.map(item => {
+    const value = positions.get(item.id);
+    return value === undefined ? item : { ...item, [horizontal ? "x" : "y"]: Math.round(value * 1000) / 1000 };
+  });
+  try { return parseProject(JSON.stringify({ ...project, components })); }
+  catch { throw new Error("O alinhamento ultrapassa os limites de posição. Reposicione os objetos e tente novamente."); }
+}
+
+export function moveTogether(project: HmiProject, ids: string[], dx: number, dy: number): HmiProject {
+  const items = project.components.filter(item => ids.includes(item.id));
+  if (!items.length) return project;
+  // Clamp the shared translation, preserving the distances between all objects.
+  dx = Math.max(-Math.min(...items.map(i => i.x)), Math.min(1160 - Math.max(...items.map(i => i.x)), dx));
+  dy = Math.max(-Math.min(...items.map(i => i.y)), Math.min(688 - Math.max(...items.map(i => i.y)), dy));
+  return parseProject(JSON.stringify({ ...project, components: project.components.map(item => ids.includes(item.id)
+    ? { ...item, x: item.x + dx, y: item.y + dy } : item) }));
 }
 ````
 
@@ -4162,13 +4440,14 @@ Consulte o [guia de publicação](../docs/deployment.md). Serviço publicado em 
 ````
 # NEXO — Supervisão e engenharia de telas
 
-Plataforma SCADA/HMI local com backend Java e interface web. A versão **0.2.0** acrescenta o editor de telas ao circuito de simulação validado na versão 0.1.0.
+Plataforma SCADA/HMI com backend Java e interface web. A versão **0.3.0** acrescenta seleção múltipla, movimentação conjunta, alinhamento e distribuição ao editor de telas.
 
 ## Recursos disponíveis
 
 - Supervisão de nível, bomba e temperatura, com atualizações por WebSocket.
 - Editor com tanque, bomba, indicador e texto.
 - Posicionamento livre, ajuste à grade, dimensões, rotação e ordem de exibição.
+- Seleção múltipla, movimento conjunto e alinhamento pelas bordas ou centros; distribuição de espaçamento com três ou mais objetos.
 - Vínculos com tags compatíveis e modos separados de Edição e Operação.
 - Desfazer/refazer até 60 alterações, exportação e abertura de projetos JSON.
 - Lista de tags com qualidade, origem e timestamps; reconexão automática.
@@ -4236,7 +4515,9 @@ Veja o [guia de publicação](docs/deployment.md) para configurar a conta, gerar
 
 As alterações são mantidas ao navegar entre as páginas, mas não são gravadas automaticamente no servidor ou no navegador. Antes de recarregar ou fechar, exporte o arquivo. A tela fixa de Supervisão é independente do projeto aberto no editor.
 
-O arquivo `examples/water-tank/project.json` pode ser aberto diretamente no editor. Importação de imagens e SVG, grupos e alinhamento múltiplo ainda não estão disponíveis.
+Para selecionar vários objetos, use Shift + clique na tela ou na lista, arraste uma área vazia da tela ou use **Selecionar todos**. O painel Propriedades oferece alinhamento, distribuição e exclusão conjunta. Cada ação pode ser desfeita em uma única etapa. As dimensões e rotações continuam sendo editadas individualmente.
+
+O arquivo `examples/water-tank/project.json` pode ser aberto diretamente no editor. Importação de imagens e SVG e grupos permanentes ainda não estão disponíveis.
 
 ## Testes
 

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "water-tank",
+  "name": "Tanque TQ-001",
+  "mode": "SIMULATION",
+  "description": "Referência declarativa da tela fixa da Etapa 0. Importação pelo editor será implementada posteriormente.",
+  "components": [
+    {"id": "tank", "type": "tank", "bindings": {"level": "TQ001.LEVEL"}},
+    {"id": "pump", "type": "pump", "bindings": {"running": "P001.RUNNING"}},
+    {"id": "temperature", "type": "indicator", "bindings": {"value": "TQ001.TEMPERATURE"}}
+  ]
+}

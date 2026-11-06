@@ -11,7 +11,7 @@ Editor integrado e validado com o simulador Java. A supervisão existente perman
 - TypeScript: compilação sem erros.
 - Vite: build de produção aprovado; editor carregado separadamente da tela inicial.
 - Vitest: **50 testes aprovados em 6 arquivos**.
-- Playwright/Edge: **10 testes aprovados**, incluindo criação de tags/ligações e comandos contra o Java local.
+- Playwright/Edge: **10 testes aprovados**, incluindo criação de tags/ligações e comandos contra o Java local. Os mesmos dez cenários passaram no endereço público após a publicação da versão 0.4.0.
 - Dependências npm: instalação concluída; auditoria reportou zero vulnerabilidades no momento da instalação.
 - Backend: **8 testes Java aprovados**, incluindo isolamento por requisição, tipos, faixas, corpo excedente, campos desconhecidos e JSON malformado. O Dockerfile executa novamente os testes Java/frontend em cada build.
 - Docker não está instalado localmente. A hospedagem usa a imagem Linux construída pelo Render em https://nexo-scada-demo.onrender.com.

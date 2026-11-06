@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState, type Dispatch } from "react";
-import { ActiveSelection, Canvas, Pattern } from "fabric";
+import { ActiveSelection, Canvas, Pattern, Path, type FabricObject } from "fabric";
 import { arrange, layoutLabels, moveTogether, type LayoutAction } from "./layout";
+import { ProjectTools } from "./ProjectTools";
+import { processExample } from "./processExample";
+import { useProjectSimulation } from "./useProjectSimulation";
 import type { Snapshot } from "../tags/model";
 import type { Connection } from "../tags/useTags";
 import {
-  bindings,
+  availableBindings,
+  removeComponents,
+  type Port,
   componentNames,
   createComponent,
   MAX_COMPONENTS,
@@ -49,11 +54,29 @@ export default function Editor({
   const [snap, setSnap] = useState(true);
   const [message, setMessage] = useState("");
   const [sceneRevision, setSceneRevision] = useState(0);
+  const simulation = useProjectSimulation(project.variables ?? [], !editing);
+  const lines = useRef<Path[]>([]);
+  const drawLinesRef = useRef<() => void>(() => {});
+  const commandRef = useRef<(id: string) => void>(() => {});
+  const valueFor = (binding: string | null): number | boolean | null => {
+    if (!binding) return null;
+    if (project.variables?.some(tag => tag.name === binding)) return simulation.ready ? simulation.values[binding] ?? null : null;
+    const tag = snapshot?.tags.find(tag => tag.name === binding);
+    return connection === "live" && tag?.quality === "GOOD" ? tag.value : null;
+  };
+  const unitFor = (binding: string | null) => project.variables?.find(tag => tag.name === binding)?.unit
+    ?? snapshot?.tags.find(tag => tag.name === binding)?.unit ?? (binding === "TQ001.LEVEL" ? "%" : "");
+  commandRef.current = id => {
+    const item = project.components.find(item => item.id === id);
+    if (!item?.binding || !simulation.ready || simulation.busy) return;
+    if (item.kind === "button" && typeof simulation.values[item.binding] === "boolean") simulation.write(item.binding, !simulation.values[item.binding]);
+    if (item.kind === "setpoint") document.getElementById(`setpoint-${item.binding}`)?.focus();
+  };
   const selected = selectedIds.length === 1 ? project.components.find((item) => item.id === selectedIds[0]) : undefined;
   const state = useRef({ project, editing, snap });
   state.current = { project, editing, snap };
   const change = (next: HmiProject) => {
-    dispatch({ type: "change", project: next });
+    dispatch({ type: "change", project: { ...next, schemaVersion: 2, variables: next.variables ?? [], connections: next.connections ?? [] } });
     setSceneRevision(value => value + 1);
     onDirty(true);
   };
@@ -81,13 +104,18 @@ export default function Editor({
     instance.on("selection:created", syncSelection);
     instance.on("selection:updated", syncSelection);
     instance.on("selection:cleared", () => setSelectedIds([]));
+    instance.on("mouse:up", ({ target }) => {
+      if (!state.current.editing) { const id = identify(target); if (id) commandRef.current(id); }
+    });
     instance.on("object:moving", ({ target }) => {
-      if (!state.current.snap) return;
-      target.set({
+      if (state.current.snap) target.set({
         left: Math.round(target.left / 20) * 20,
         top: Math.round(target.top / 20) * 20,
       });
+      drawLinesRef.current();
     });
+    instance.on("object:scaling", () => drawLinesRef.current());
+    instance.on("object:rotating", () => drawLinesRef.current());
     instance.on("object:modified", ({ target }) => {
       if (!state.current.editing) return;
       if (target instanceof ActiveSelection) {
@@ -129,6 +157,33 @@ export default function Editor({
     };
   }, []);
 
+  drawLinesRef.current = () => {
+    const instance = canvas.current;
+    if (!instance) return;
+    instance.remove(...lines.current);
+    lines.current = [];
+    function port(object: FabricObject, side: Port) {
+      object.setCoords();
+      const points = object.getCoords();
+      const [a, b] = side === "top" ? [points[0], points[1]] : side === "right" ? [points[1], points[2]] : side === "bottom" ? [points[2], points[3]] : [points[3], points[0]];
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    }
+    for (const line of project.connections ?? []) {
+      const source = widgets.current.get(line.from)?.root, destination = widgets.current.get(line.to)?.root;
+      if (!source || !destination) continue;
+      const a = port(source, line.fromPort), b = port(destination, line.toPort);
+      const path = line.fromPort === "left" || line.fromPort === "right"
+        ? `M ${a.x} ${a.y} L ${(a.x + b.x) / 2} ${a.y} L ${(a.x + b.x) / 2} ${b.y} L ${b.x} ${b.y}`
+        : `M ${a.x} ${a.y} L ${a.x} ${(a.y + b.y) / 2} L ${b.x} ${(a.y + b.y) / 2} L ${b.x} ${b.y}`;
+      const value = valueFor(line.binding);
+      const object = new Path(path, { fill: "", stroke: editing || value === true ? "#318f9b" : "#94a3b0", strokeWidth: line.kind === "pipe" ? 7 : 2,
+        strokeDashArray: line.kind === "signal" || (!editing && line.binding && value === null) ? [8, 5] : undefined,
+        selectable: false, evented: false, strokeLineCap: "round", objectCaching: false });
+      lines.current.push(object); instance.add(object); instance.sendObjectToBack(object);
+    }
+    instance.requestRenderAll();
+  };
+
   useEffect(() => {
     const instance = canvas.current;
     if (!instance) return;
@@ -147,16 +202,18 @@ export default function Editor({
       : "#ffffff";
     instance.discardActiveObject();
     instance.remove(...instance.getObjects());
+    lines.current = [];
     widgets.current.clear();
     for (const item of project.components) {
-      const widget = createWidget(item);
-      widget.root.set({ selectable: editing, evented: editing });
+      const widget = createWidget(item, unitFor(item.binding));
+      widget.root.set({ selectable: editing, evented: editing || item.kind === "button" || item.kind === "setpoint", hoverCursor: !editing && (item.kind === "button" || item.kind === "setpoint") ? "pointer" : "move" });
       widget.update(null, editing);
       widgets.current.set(item.id, widget);
       instance.add(widget.root);
     }
     const ids = editing ? active.filter(id => widgets.current.has(id)) : [];
     activate(ids);
+    drawLinesRef.current();
     instance.requestRenderAll();
     // Selection changes do not rebuild the scene; document changes do.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -176,13 +233,12 @@ export default function Editor({
   useEffect(() => {
     if (editing) return;
     for (const item of project.components) {
-      const tag = snapshot?.tags.find((tag) => tag.name === item.binding);
-      const value =
-        connection === "live" && tag?.quality === "GOOD" ? tag.value : null;
+      const value = valueFor(item.binding);
       widgets.current.get(item.id)?.update(value, false);
     }
     canvas.current?.requestRenderAll();
-  }, [snapshot, connection, editing, project]);
+    drawLinesRef.current();
+  }, [snapshot, connection, editing, project, simulation.values, simulation.ready]);
 
   const fit = () => {
     if (host.current)
@@ -228,6 +284,7 @@ export default function Editor({
       const next = parseProject(
         JSON.stringify({
           ...project,
+          schemaVersion: 2, variables: project.variables ?? [], connections: project.connections ?? [],
           components: project.components.map((item) =>
             item.id === selected.id ? { ...item, ...values } : item,
           ),
@@ -319,7 +376,7 @@ export default function Editor({
           <button
             disabled={!editing}
             onClick={() => {
-              change({ ...project, name: "Nova tela", components: [] });
+              change({ ...project, name: "Nova tela", components: [], variables: [], connections: [] });
               setSelectedIds([]);
               setMessage("Tela criada. Desfazer recupera a tela anterior.");
             }}
@@ -332,6 +389,7 @@ export default function Editor({
           >
             Abrir JSON
           </button>
+          <button disabled={!editing} onClick={() => { change(processExample()); setSelectedIds([]); setMessage("Exemplo carregado. Abra Operação para testar os comandos. Desfazer recupera a tela anterior."); }}>Exemplo de processo</button>
           <button className="primary-action" onClick={save}>
             Salvar projeto
           </button>
@@ -348,7 +406,22 @@ export default function Editor({
           />
         </div>
       </div>
-      <div className="editor-layout">
+      {editing && <ProjectTools project={project} change={change} report={setMessage} />}
+      {!editing && !!project.variables?.length && <section className="simulation-console" aria-label="Comandos da simulação">
+        <h2>Simulação manual do projeto</h2>
+        <p>Valores validados pelo Java, isolados neste navegador. Comandos alteram tags e seus objetos vinculados; tubulações são ligações gráficas, sem cálculo de vazão.</p>
+        <p role="status">{simulation.busy ? "Validando no Java…" : simulation.ready ? "Simulação pronta" : simulation.error || "Conectando ao simulador…"}</p>
+        {simulation.error && <button disabled={simulation.busy} onClick={simulation.retry}>Reconectar simulação</button>}
+        <div className="simulation-values">{project.variables.map(variable => <div key={variable.name}>
+          <strong>{variable.name}</strong><output aria-label={`Valor de ${variable.name}`}>{simulation.ready ? `${String(simulation.values[variable.name])} ${variable.unit}` : "Indisponível"}</output>
+          {variable.dataType === "BOOLEAN" ? <button disabled={!simulation.ready || simulation.busy} onClick={() => simulation.write(variable.name, !simulation.values[variable.name])}>Alternar {variable.name}</button>
+            : <form onSubmit={event => { event.preventDefault(); const field = new FormData(event.currentTarget).get("value"); if (typeof field === "string" && field.trim()) simulation.write(variable.name, Number(field)); }}>
+              <input id={`setpoint-${variable.name}`} key={String(simulation.values[variable.name])} aria-label={`Novo valor de ${variable.name}`} name="value" type="number" step="any" min={variable.min} max={variable.max} defaultValue={Number(simulation.values[variable.name] ?? variable.initial)} required disabled={!simulation.ready || simulation.busy} />
+              <button disabled={!simulation.ready || simulation.busy}>Aplicar {variable.name}</button>
+            </form>}
+        </div>)}</div>
+      </section>}
+      <div className={`editor-layout ${editing ? "" : "operating-layout"}`}>
         <aside
           className="component-library"
           aria-label="Biblioteca de componentes"
@@ -391,7 +464,11 @@ export default function Editor({
         </aside>
         <div className="editor-workspace">
           <div className="screen-title">
-            <span>{project.name}</span>
+            {editing ? <input aria-label="Nome da tela" key={project.name} defaultValue={project.name} maxLength={80} onBlur={event => {
+              if (event.target.value === project.name) return;
+              try { change(parseProject(JSON.stringify({ ...project, name: event.target.value }))); setMessage(""); }
+              catch (error) { setMessage((error as Error).message); }
+            }} /> : <span>{project.name}</span>}
             <span>1200 × 720 px</span>
           </div>
           <div
@@ -434,24 +511,20 @@ export default function Editor({
           <div className="editor-hint">
             {editing
               ? "Shift + clique para selecionar vários objetos, ou arraste uma área vazia. A seleção múltipla permite mover e alinhar. Valores ilustrativos em edição."
-              : "Operação • Somente leitura • Valores do simulador em tempo real"}
+              : "Operação • Tags de demonstração em leitura • Comandos apenas nas tags próprias de simulação"}
           </div>
           {!editing && (
             <div className="runtime-readings" aria-label="Valores em operação">
               {project.components
                 .filter((item) => item.binding)
                 .map((item) => {
-                  const tag = snapshot?.tags.find(
-                    (tag) => tag.name === item.binding,
-                  );
-                  const valid =
-                    connection === "live" && tag?.quality === "GOOD";
+                  const value = valueFor(item.binding);
                   return (
                     <span key={item.id} data-testid={`runtime-${item.id}`}>
                       {item.label}:{" "}
                       <strong>
-                        {valid
-                          ? `${String(tag.value)} ${tag.unit}`
+                        {value !== null
+                          ? `${String(value)} ${unitFor(item.binding)}`
                           : "Indisponível"}
                       </strong>
                     </span>
@@ -479,7 +552,7 @@ export default function Editor({
                 }}>{layoutLabels[action]}</button>)}
             </div>
             <button className="delete-component" onClick={() => {
-              change({ ...project, components: project.components.filter(item => !selectedIds.includes(item.id)) });
+              change(removeComponents(project, selectedIds));
               setSelectedIds([]);
             }}>Excluir selecionados</button>
           </div>}
@@ -553,11 +626,16 @@ export default function Editor({
                   }
                 >
                   <option value="">Sem vínculo</option>
-                  {bindings[selected.kind].map((tag) => (
+                  {availableBindings(selected.kind, project.variables).map((tag) => (
                     <option key={tag}>{tag}</option>
                   ))}
                 </select>
               </label>
+              <label>Cor do componente<input aria-label="Cor do componente" type="color" value={selected.color ?? "#318f9b"} onChange={e => patch({ color: e.target.value })} /></label>
+              {selected.kind === "tank" && <div className="geometry-fields">
+                <label>Escala mínima<input key={`min-${selected.id}-${selected.rangeMin}`} aria-label="Escala mínima" type="number" defaultValue={selected.rangeMin ?? 0} onBlur={e => patch({ rangeMin: Number(e.target.value), rangeMax: selected.rangeMax ?? 100 })} /></label>
+                <label>Escala máxima<input key={`max-${selected.id}-${selected.rangeMax}`} aria-label="Escala máxima" type="number" defaultValue={selected.rangeMax ?? 100} onBlur={e => patch({ rangeMin: selected.rangeMin ?? 0, rangeMax: Number(e.target.value) })} /></label>
+              </div>}
               <p className="property-note">
                 {selected.kind === "tank"
                   ? "A tag controla o nível de 0 a 100%."
@@ -565,7 +643,9 @@ export default function Editor({
                     ? "A tag booleana controla o estado visual."
                     : selected.kind === "indicator"
                       ? "Exibe o valor e a unidade da tag."
-                      : "Texto fixo da tela."}
+                    : selected.kind === "button" ? "Em Operação, clique no botão para alternar a tag booleana de simulação."
+                    : selected.kind === "setpoint" ? "Em Operação, clique para acessar o campo de valor da tag."
+                    : "Vínculo opcional para estado ou leitura. Cores e dimensões são configuráveis."}
               </p>
               <h3>Ordem de exibição</h3>
               <div className="layer-actions">
@@ -575,12 +655,7 @@ export default function Editor({
               <button
                 className="delete-component"
                 onClick={() => {
-                  change({
-                    ...project,
-                    components: project.components.filter(
-                      (item) => item.id !== selected.id,
-                    ),
-                  });
+                  change(removeComponents(project, [selected.id]));
                   setSelectedIds([]);
                 }}
               >

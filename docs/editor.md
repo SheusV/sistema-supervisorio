@@ -1,4 +1,6 @@
-# Editor de telas — contrato v1
+# Editor de telas — base v1 e organização
+
+A versão 0.4.0 mantém a leitura do formato v1 e acrescenta o formato v2 com tags próprias, ligações, cores e comandos manuais. Consulte o [contrato v2 e guia de processo](process-editor.md). As regras abaixo descrevem a base v1, preservada para importação.
 
 O editor usa Fabric.js 7.4.0 para seleção e transformação, mas o arquivo salvo é um modelo de domínio próprio. Não se importa JSON nativo do Fabric nem se executam classes indicadas pelo arquivo.
 
@@ -41,7 +43,7 @@ O histórico guarda até 60 revisões; uma nova alteração após desfazer limpa
 
 ## Limites deste incremento
 
-Uma tela por projeto, quatro tipos de componente, sem grupos permanentes, importação de imagens ou servidor de projetos. A edição não grava tags nem substitui automaticamente o sinótico fixo de Supervisão.
+Na base v1: uma tela por projeto e quatro tipos de componente. A versão 0.4.0 amplia a biblioteca e permite comandos em tags próprias de simulação, conforme o guia de processo. Grupos permanentes, importação de imagens e servidor de projetos ainda não estão disponíveis. O sinótico fixo de Supervisão continua separado do editor.
 
 ## Seleção múltipla — 0.3.0
 

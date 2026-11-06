@@ -79,14 +79,14 @@ export function App() {
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.3.0 · Engenharia</small>
+            <small>v0.4.0 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
         <header>
           <span>
             Projetos <span className="slash">/</span>{" "}
-            <strong>Tanque TQ-001</strong>
+            <strong>{page === "Editor" ? editorHistory.present.name : "Tanque TQ-001"}</strong>
           </span>
           <span className="simulation">◉ SIMULAÇÃO</span>
         </header>
@@ -102,7 +102,7 @@ export function App() {
                     : page}
               </h1>
               <p>
-                Tanque TQ-001 <span className="separator">•</span>{" "}
+                {page === "Editor" ? editorHistory.present.name : "Tanque TQ-001"} <span className="separator">•</span>{" "}
                 {page === "Supervisão"
                   ? "Acompanhamento em tempo real"
                   : page === "Editor"
@@ -283,6 +283,21 @@ export function App() {
                 Selecionar todos. Arraste o conjunto para mover; no painel
                 Propriedades, alinhe pelas bordas ou centros. Com três objetos
                 ou mais, distribua os espaços. Desfazer recupera a ação inteira.
+              </p>
+              <h3>Como ligar equipamentos e definir valores?</h3>
+              <p>
+                Abra Tags do projeto para criar variáveis BOOLEAN ou DOUBLE,
+                com valor inicial e faixa permitida. Vincule os objetos pelo
+                painel Propriedades. Em Ligações, escolha equipamentos e portas
+                para criar tubulações ou sinais; uma tag booleana pode indicar
+                seu estado. Exemplo de processo carrega uma linha pronta.
+              </p>
+              <p>
+                Em Operação, botões alternam tags próprias e entradas numéricas
+                acessam os campos de valor. Os comandos são validados pelo Java
+                e não afetam outras abas. Voltar à edição ou sair do editor
+                reinicia a simulação manual. As tubulações não calculam vazão,
+                pressão ou lógica automática; essas regras ainda não existem.
               </p>
               <h3>Como salvar e recuperar o projeto?</h3>
               <p>

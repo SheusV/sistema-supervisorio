@@ -208,6 +208,7 @@
   font-weight: 600;
   color: #3e5265;
 }
+.screen-title > input { flex: 1; min-width: 0; max-width: 75%; font: inherit; font-weight: 600; color: #3e5265; background: white; border: 1px solid #d8e1e8; padding: 4px 6px; border-radius: 3px; }
 .canvas-scroll {
   padding: 18px;
   overflow: auto;
@@ -448,6 +449,34 @@ main:has(.editor) {
   background: #1b4f6d;
   color: #fff;
 }
+.project-tools { border-bottom: 1px solid #dce4eb; padding: 8px 14px; }
+.editor-layout.operating-layout { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+.operating-layout .component-library, .operating-layout .properties { display: none; }
+.operating-layout .canvas-container { margin-inline: auto; }
+.project-tools details { padding: 8px 0; }
+.project-tools summary { cursor: pointer; font-size: 12px; font-weight: 600; color: #344b60; }
+.project-tools summary span { margin-left: 10px; color: #718596; font-weight: 400; }
+.project-tools p, .simulation-console p { font-size: 12px; color: #64798a; line-height: 1.6; }
+.project-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.project-form label { display: grid; gap: 5px; font-size: 11px; color: #536b7d; flex: 1 1 140px; }
+.project-form input, .project-form select, .simulation-console input { min-width: 0; width: 100%; padding: 8px; border: 1px solid #c8d5df; border-radius: 4px; background: white; color: #25384b; }
+.project-items { list-style: none; padding: 0; margin: 12px 0; }
+.project-items li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid #e5ebef; padding: 8px 0; font-size: 11px; overflow-wrap: anywhere; }
+.simulation-console { padding: 18px; background: #f2f8f7; border-bottom: 1px solid #c7ded8; }
+.simulation-values { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 12px; }
+.simulation-values > div { display: grid; gap: 8px; background: white; border: 1px solid #d3e1dd; padding: 12px; min-width: 0; }
+.simulation-values strong { font-size: 12px; overflow-wrap: anywhere; }
+.simulation-values output { font-size: 18px; color: #256b61; }
+.simulation-values form { display: flex; flex-wrap: wrap; gap: 6px; }
+.library-symbol.motor:after, .library-symbol.valve:after, .library-symbol.sensor:after, .library-symbol.button:after, .library-symbol.setpoint:after { position: absolute; inset: 4px 0; text-align: center; font-size: 13px; }
+.library-symbol.motor { border-radius: 50%; }
+.library-symbol.motor:after { content: "M"; }
+.library-symbol.valve:after { content: "⋈"; }
+.library-symbol.sensor:after { content: "S"; }
+.library-symbol.button:after { content: "I/O"; font-size: 10px; }
+.library-symbol.setpoint:after { content: "SP"; }
+.library-symbol.ellipse { border-radius: 50%; }
+@media (max-width: 720px) { .toolbar-files { flex-wrap: wrap; } }
 @media (min-width: 721px) and (max-width: 850px) {
   .main:has(.editor) {
     width: calc(100% - 185px);

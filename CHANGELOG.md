@@ -1,5 +1,14 @@
 # Histórico de versões
 
+## 0.4.0 — 06/11/2026
+
+- Válvulas, motores, sensores, botões, entradas numéricas e figuras na biblioteca.
+- Tubulações e sinais ancorados a portas, com indicação de estado por tag booleana.
+- Tags de projeto tipadas, valores iniciais/faixas editáveis, cores e escala do tanque.
+- Comandos de simulação manual validados pelo Java, sem estado compartilhado entre abas.
+- Exemplo de processo conectado; projeto v2 com importação v1 preservada.
+- Simulação manual explícita: sem cálculo hidráulico, lógica automática ou comandos físicos.
+
 ## 0.3.0 — 06/11/2026
 
 - Seleção múltipla por Shift + clique, área de seleção ou Selecionar todos.

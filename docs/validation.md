@@ -1,4 +1,4 @@
-# Relatório de validação — versão 0.3.0
+# Relatório de validação — versão 0.4.0
 
 Data: 06/11/2026. Ambiente: Windows, Node.js 24.22.1, Java 21.0.13, Microsoft Edge.
 
@@ -10,13 +10,18 @@ Editor integrado e validado com o simulador Java. A supervisão existente perman
 
 - TypeScript: compilação sem erros.
 - Vite: build de produção aprovado; editor carregado separadamente da tela inicial.
-- Vitest: **32 testes aprovados em 5 arquivos**.
-- Playwright/Edge: **8 testes aprovados**, com o frontend atualizado e o simulador Java local; os mesmos oito testes passaram no endereço público após a publicação da versão 0.3.0.
+- Vitest: **50 testes aprovados em 6 arquivos**.
+- Playwright/Edge: **10 testes aprovados**, incluindo criação de tags/ligações e comandos contra o Java local.
 - Dependências npm: instalação concluída; auditoria reportou zero vulnerabilidades no momento da instalação.
-- Backend sem alterações neste incremento: os **5 testes Java** e o pacote integrado foram aprovados na preparação de hospedagem. O Dockerfile executa novamente os testes Java/frontend em cada build.
+- Backend: **8 testes Java aprovados**, incluindo isolamento por requisição, tipos, faixas, corpo excedente, campos desconhecidos e JSON malformado. O Dockerfile executa novamente os testes Java/frontend em cada build.
 - Docker não está instalado localmente. A hospedagem usa a imagem Linux construída pelo Render em https://nexo-scada-demo.onrender.com.
 
 ## Cobertura do editor
+
+- Projeto v2 com tags próprias, componentes ampliados, cores, escalas e ligações; importação v1 preservada.
+- Exclusão de equipamento remove ligações; Desfazer recupera tudo. Vínculos incompatíveis, órfãos, nomes reservados e cores inválidas são rejeitados.
+- Criação e edição de tags, nome da tela, comandos reais de simulação Java, botão no canvas, limite numérico e isolamento entre abas.
+- Falha na API manual torna valores próprios indisponíveis e oferece reconexão. Tubulações não calculam vazão.
 
 - Seleção múltipla pela lista, movimento conjunto no canvas, preservação de rotação e vínculos.
 - Seis alinhamentos, distribuição com dimensões diferentes, limites de movimento e rejeição atômica de posições inválidas ou espaço insuficiente.
@@ -36,6 +41,8 @@ Editor integrado e validado com o simulador Java. A supervisão existente perman
 Os testes de contrato usam mensagens controladas; três testes de navegador usam o backend real: supervisão, reconexão do transporte e operação do editor. A restrição de importar conteúdo fora da raiz do servidor Vite foi respeitada: o teste do exemplo lê o arquivo diretamente como dado local de teste, sem ampliar as permissões do servidor web.
 
 ## Capturas
+
+- `screenshots/processo-operacao.png`: processo conectado e comandos de simulação da versão 0.4.0.
 
 - `screenshots/editor-selecao-multipla.png`: painel de alinhamento e distribuição da versão 0.3.0.
 

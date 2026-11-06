@@ -42,7 +42,7 @@ test("aligns and distributes a selection, undoes once and reopens its JSON", asy
   await page.screenshot({ path: "../docs/screenshots/editor-selecao-multipla.png", fullPage: true });
   await page.getByRole("button", { name: "Operação", exact: true }).click();
   await expect(page.getByRole("button", { name: "Alinhar à esquerda", exact: true })).toHaveCount(0);
-  await expect(page.getByText("Edição bloqueada durante a operação.")).toBeVisible();
+  await expect(page.getByLabel("Propriedades do componente")).toBeHidden();
 });
 test("moves a multi-selection together on the canvas and preserves rotation", async ({ page }) => {
   const rotated = structuredClone(project); rotated.components[1].angle = 30;

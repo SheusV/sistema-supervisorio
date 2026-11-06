@@ -1,7 +1,7 @@
 # Próximos incrementos
 
 1. Etapa 0 validada tecnicamente: backend, frontend e fluxo WebSocket real, incluindo reconexão após interrupção do transporte. Revisão visual pelo usuário disponível.
-2. Editor HMI inicial entregue em 0.2.0; seleção múltipla, movimento conjunto, alinhamento e distribuição entregues em 0.3.0. Próxima evolução: grupos permanentes e importação segura de imagens.
+2. Editor: base em 0.2.0; seleção/alinhamento em 0.3.0; ligações, biblioteca ampliada, tags próprias e comandos manuais em 0.4.0. Prioridade seguinte: regras explícitas de simulação automática e experiência de ligação direta no canvas, com testes de comportamento. Grupos permanentes e imagens entram depois, sem substituir essa prioridade funcional.
 3. PostgreSQL/Flyway, projetos persistidos, autenticação, perfis e auditoria; testes com Testcontainers.
 4. Drivers de leitura, primeiro contra servidores OPC UA/Modbus/MQTT simulados, com qualidade e timeouts testados.
 5. Alarmes e histórico com ECharts.

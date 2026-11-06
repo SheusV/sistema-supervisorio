@@ -66,7 +66,7 @@ Se Docker estiver instalado, `docker build -t nexo-scada .` constrói a imagem e
 
 ## Limites de segurança
 
-A publicação é uma demonstração pública com dados sintéticos e consultas de leitura. Não há login, dados privados, uploads no servidor, conexão OT ou comandos físicos. Projetos importados são processados apenas no navegador. TLS é terminado pelo provedor; o perfil hosted usa cabeçalhos encaminhados exclusivamente atrás desse proxy.
+A publicação é uma demonstração pública com dados sintéticos. As tags compartilhadas permanecem somente leitura; o endpoint de simulação manual valida definições e valores próprios sem guardar estado entre requisições. Não há login, dados privados, upload de projeto no servidor, conexão OT ou comandos físicos. Projetos importados são processados no navegador; somente definições/valores de tags manuais são enviados ao Java. TLS é terminado pelo provedor; o perfil hosted usa cabeçalhos encaminhados exclusivamente atrás desse proxy.
 
 Qualquer evolução que inclua persistência compartilhada, dados reais ou administração remota exige autenticação, autorização e revisão específica antes de publicação.
 

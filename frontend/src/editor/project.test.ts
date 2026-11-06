@@ -26,7 +26,7 @@ describe("project files", () => {
     expect(parseProject(serializeProject(project))).toEqual(project);
   });
   it.each([
-    ["unsupported version", (p: any) => (p.schemaVersion = 2)],
+    ["unsupported version", (p: any) => (p.schemaVersion = 99)],
     [
       "remote assets",
       (p: any) => (p.components[0].src = "https://example.com/image.svg"),

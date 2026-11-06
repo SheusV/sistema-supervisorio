@@ -1,11 +1,14 @@
 # NEXO — Supervisão e engenharia de telas
 
-Plataforma SCADA/HMI com backend Java e interface web. A versão **0.3.0** acrescenta seleção múltipla, movimentação conjunta, alinhamento e distribuição ao editor de telas.
+Plataforma SCADA/HMI com backend Java e interface web. A versão **0.4.0** acrescenta ligações entre equipamentos, tags próprias e comandos de simulação manual ao editor de telas.
 
 ## Recursos disponíveis
 
 - Supervisão de nível, bomba e temperatura, com atualizações por WebSocket.
-- Editor com tanque, bomba, indicador e texto.
+- Editor com tanque, bomba, válvula, motor, sensor, indicador, texto, botão, entrada numérica, retângulo e elipse.
+- Tubulações e sinais entre portas dos objetos, acompanhando movimento e transformação.
+- Tags próprias BOOLEAN/DOUBLE com unidade, valor inicial e faixa; comandos manuais validados pelo Java e isolados por aba.
+- Nome da tela, cores e escala do tanque configuráveis; exemplo de processo conectado.
 - Posicionamento livre, ajuste à grade, dimensões, rotação e ordem de exibição.
 - Seleção múltipla, movimento conjunto e alinhamento pelas bordas ou centros; distribuição de espaçamento com três ou mais objetos.
 - Vínculos com tags compatíveis e modos separados de Edição e Operação.
@@ -66,11 +69,13 @@ Veja o [guia de publicação](docs/deployment.md) para configurar a conta, gerar
 
 ## Usar o editor
 
+Para testar a nova entrega, abra **Editor → Exemplo de processo → Operação**. Use o botão desenhado para ligar/desligar a linha e o campo **TANQUE.NIVEL** para ajustar o nível. Para construir sua própria tela, use **Tags do projeto**, **Ligações** e **Tag vinculada**. Veja o [guia de processo](docs/process-editor.md).
+
 1. Abra **Editor** e mantenha o modo **Edição**.
 2. Insira um componente pela biblioteca ou selecione um dos objetos do exemplo.
 3. Arraste para mover. Use as alças para redimensionar e girar; valores exatos também podem ser informados no painel Propriedades.
-4. Selecione a tag vinculada. Tanques aceitam nível; bombas aceitam estado booleano; indicadores aceitam nível ou temperatura.
-5. Use **Operação** para visualizar os valores recebidos do servidor. As alterações ficam bloqueadas nesse modo.
+4. Selecione a tag vinculada. Objetos numéricos aceitam tags DOUBLE; equipamentos de estado aceitam BOOLEAN. Botões e entradas numéricas usam somente tags próprias.
+5. Use **Operação** para visualizar valores e comandar tags próprias de simulação. A geometria fica bloqueada nesse modo; as tags da demonstração continuam somente leitura.
 6. Use **Salvar projeto** para exportar o JSON. **Abrir JSON** recupera componentes, geometria, ordem e vínculos. **Nova tela** abre uma tela vazia; Desfazer recupera a anterior.
 
 As alterações são mantidas ao navegar entre as páginas, mas não são gravadas automaticamente no servidor ou no navegador. Antes de recarregar ou fechar, exporte o arquivo. A tela fixa de Supervisão é independente do projeto aberto no editor.
@@ -131,6 +136,8 @@ scripts/          Inicialização no Windows
 O código completo também está reunido em `docs/CODIGO_COMPLETO.md`; os arquivos individuais são a fonte editável. Nenhuma fonte tipográfica ou imagem externa é necessária para operar a interface.
 
 ## Contrato e comportamento
+
+- `POST /api/simulation/evaluate`: validação sem estado dos valores manuais de tags próprias; nenhum comando físico ou alteração do simulador compartilhado. Tubulações não calculam vazão nem lógica automática.
 
 - `GET /api/health`: saúde e modo do serviço de simulação, versão de backend 0.1.0.
 - `GET /api/tags` e `WS /ws/tags`: snapshots versionados de três tags.

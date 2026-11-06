@@ -1,5 +1,7 @@
 # Arquitetura — incremento 0
 
+Atualização 0.4.0: `ProjectSimulation` e `ProjectSimulationController` acrescentam `POST /api/simulation/evaluate`, uma validação sem estado de tags e comandos manuais de cada editor. O cliente guarda os valores aceitos em memória; não há estado compartilhado nem escrita em equipamentos. O contrato WebSocket original permanece somente leitura. O projeto v2 define variáveis e ligações de desenho; não contém lógica física ou executável. Consulte [Editor de processo](process-editor.md). As restrições de ausência de POST descritas abaixo referem-se ao contrato original de `/api/tags`.
+
 Atualização 0.2.0: o módulo `frontend/src/editor` acrescenta um documento HMI versionado, histórico local e representação Fabric.js. Consulte [o contrato do editor](editor.md). O backend e o contrato de tags descritos abaixo permanecem inalterados.
 
 O sistema é desenvolvido em incrementos locais, com contratos versionados e separação entre engenharia de telas e operação.

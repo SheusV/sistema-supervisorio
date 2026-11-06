@@ -64,7 +64,7 @@ test("edits, exports and reopens the same screen with bindings and layer order",
   });
   await page.getByRole("button", { name: "Operação", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Tanque", exact: true }),
+    page.getByRole("button", { name: "Tanque", exact: true, includeHidden: true }),
   ).toBeDisabled();
   await expect(page.getByLabel("Valores em operação")).toContainText(
     "TQ-002: 42 %",

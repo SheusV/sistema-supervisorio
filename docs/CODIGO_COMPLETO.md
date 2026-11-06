@@ -1,4 +1,4 @@
-# Código completo — versão 0.3.0
+# Código completo — versão 0.4.0
 Cópia integral dos arquivos autorais; lockfile e capturas disponíveis separadamente.
 
 ## .dockerignore
@@ -125,6 +125,39 @@ public class HostedHeaders extends OncePerRequestFilter {
             + "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; "
             + "connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
         chain.doFilter(request, response);
+    }
+}
+````
+
+## backend/src/main/java/br/com/scada/api/ProjectSimulationController.java
+````
+package br.com.scada.api;
+
+import br.com.scada.simulation.ProjectSimulation;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.json.JsonMapper;
+import java.io.IOException;
+
+@RestController
+public class ProjectSimulationController {
+    private final JsonMapper mapper = JsonMapper.builder()
+        .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+        .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS).build();
+
+    @PostMapping(value = "/api/simulation/evaluate", consumes = "application/json")
+    public ProjectSimulation.Result evaluate(HttpServletRequest request) throws IOException {
+        byte[] body = request.getInputStream().readNBytes(65_537);
+        if (body.length > 65_536) throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE);
+        try {
+            return ProjectSimulation.evaluate(mapper.readValue(body, ProjectSimulation.Request.class));
+        } catch (RuntimeException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Configuração ou valor inválido para simulação.");
+        }
     }
 }
 ````
@@ -265,6 +298,49 @@ public class ScadaApplication {
 }
 ````
 
+## backend/src/main/java/br/com/scada/simulation/ProjectSimulation.java
+````
+package br.com.scada.simulation;
+
+import java.util.*;
+
+/** Stateless manual simulation: no shared state, devices, addresses or executable expressions. */
+public final class ProjectSimulation {
+    private ProjectSimulation() {}
+    public record Variable(String name, String dataType, String unit, Object initial, Double min, Double max) {}
+    public record Request(List<Variable> variables, Map<String, Object> values) {}
+    public record Result(String source, Map<String, Object> values) {}
+
+    public static Result evaluate(Request request) {
+        if (request == null || request.variables() == null || request.values() == null || request.variables().size() > 32
+                || request.values().size() > 32) throw invalid();
+        Map<String, Object> result = new LinkedHashMap<>();
+        for (Variable variable : request.variables()) {
+            if (variable == null || variable.name() == null || !variable.name().matches("[A-Z][A-Z0-9_.]{0,63}")
+                    || Set.of("TQ001.LEVEL", "P001.RUNNING", "TQ001.TEMPERATURE").contains(variable.name())
+                    || result.containsKey(variable.name()) || variable.unit() == null || variable.unit().length() > 16
+                    || variable.unit().chars().anyMatch(c -> c < 32) || variable.min() == null || variable.max() == null || !Double.isFinite(variable.min()) || !Double.isFinite(variable.max())
+                    || variable.min() < -1_000_000 || variable.max() > 1_000_000 || variable.min() >= variable.max()) throw invalid();
+            validateValue(variable, variable.initial());
+            Object value = request.values().containsKey(variable.name()) ? request.values().get(variable.name()) : variable.initial();
+            validateValue(variable, value);
+            result.put(variable.name(), value);
+        }
+        if (!result.keySet().containsAll(request.values().keySet())) throw invalid();
+        return new Result("SIMULATED", result);
+    }
+    private static void validateValue(Variable variable, Object value) {
+        if ("BOOLEAN".equals(variable.dataType())) {
+            if (!(value instanceof Boolean)) throw invalid();
+        } else if ("DOUBLE".equals(variable.dataType())) {
+            if (!(value instanceof Number number) || !Double.isFinite(number.doubleValue())
+                    || number.doubleValue() < variable.min() || number.doubleValue() > variable.max()) throw invalid();
+        } else throw invalid();
+    }
+    private static IllegalArgumentException invalid() { return new IllegalArgumentException("Tags, tipos ou valores fora dos limites da simulação."); }
+}
+````
+
 ## backend/src/main/java/br/com/scada/simulation/TankSimulator.java
 ````
 package br.com.scada.simulation;
@@ -394,6 +470,52 @@ class HostedHeadersTest {
 }
 ````
 
+## backend/src/test/java/br/com/scada/ProjectSimulationTest.java
+````
+package br.com.scada;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import java.net.URI;
+import java.net.http.*;
+import tools.jackson.databind.json.JsonMapper;
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+class ProjectSimulationTest {
+    @LocalServerPort int port;
+    private final HttpClient client = HttpClient.newHttpClient();
+    private final String variables = "\"variables\":[{\"name\":\"M1.RUN\",\"dataType\":\"BOOLEAN\",\"unit\":\"\",\"initial\":false,\"min\":0,\"max\":1},{\"name\":\"T1.LEVEL\",\"dataType\":\"DOUBLE\",\"unit\":\"%\",\"initial\":25,\"min\":0,\"max\":100}]";
+    private HttpResponse<String> post(String body) throws Exception {
+        return client.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/simulation/evaluate"))
+            .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
+    }
+    @Test void validatesManualCommandsAndDoesNotShareValuesBetweenRequests() throws Exception {
+        var response = post("{" + variables + ",\"values\":{\"M1.RUN\":true,\"T1.LEVEL\":70}}");
+        assertEquals(200, response.statusCode());
+        var json = JsonMapper.builder().build().readTree(response.body());
+        assertTrue(json.get("values").get("M1.RUN").asBoolean());
+        assertEquals(70, json.get("values").get("T1.LEVEL").asInt());
+        var fresh = post("{" + variables + ",\"values\":{}}");
+        assertFalse(JsonMapper.builder().build().readTree(fresh.body()).get("values").get("M1.RUN").asBoolean());
+    }
+    @Test void rejectsUnknownTagsWrongTypesAndOutOfRangeValues() throws Exception {
+        for (String values : new String[]{"{\"M1.RUN\":1}", "{\"T1.LEVEL\":101}", "{\"T1.LEVEL\":-1}", "{\"UNKNOWN\":1}", "{\"M1.RUN\":null}"})
+            assertEquals(400, post("{" + variables + ",\"values\":" + values + "}").statusCode());
+        assertEquals(400, post("{" + variables + ",\"values\":{},\"script\":\"anything\"}").statusCode());
+    }
+    @Test void boundsRequestSizeAndRejectsMalformedDocuments() throws Exception {
+        assertEquals(413, post(" ".repeat(65_537)).statusCode());
+        assertEquals(400, post("{}").statusCode());
+        assertEquals(400, post("{").statusCode());
+        assertEquals(400, post("{" + variables.replace("\"min\":0", "\"min\":\"0\"") + ",\"values\":{}}").statusCode());
+        assertEquals(400, post("{" + variables.replace("\"min\":0,", "") + ",\"values\":{}}").statusCode());
+        assertEquals(400, post("{" + variables + ",\"values\":{}} {}").statusCode());
+    }
+}
+````
+
 ## backend/src/test/java/br/com/scada/ScadaIntegrationTest.java
 ````
 package br.com.scada;
@@ -495,6 +617,15 @@ class TankSimulatorTest {
 ## CHANGELOG.md
 ````
 # Histórico de versões
+
+## 0.4.0 — 06/11/2026
+
+- Válvulas, motores, sensores, botões, entradas numéricas e figuras na biblioteca.
+- Tubulações e sinais ancorados a portas, com indicação de estado por tag booleana.
+- Tags de projeto tipadas, valores iniciais/faixas editáveis, cores e escala do tanque.
+- Comandos de simulação manual validados pelo Java, sem estado compartilhado entre abas.
+- Exemplo de processo conectado; projeto v2 com importação v1 preservada.
+- Simulação manual explícita: sem cálculo hidráulico, lógica automática ou comandos físicos.
 
 ## 0.3.0 — 06/11/2026
 
@@ -610,6 +741,8 @@ Referência: https://fabricjs.com/docs/getting-started/installing/
 ## docs/architecture.md
 ````
 # Arquitetura — incremento 0
+
+Atualização 0.4.0: `ProjectSimulation` e `ProjectSimulationController` acrescentam `POST /api/simulation/evaluate`, uma validação sem estado de tags e comandos manuais de cada editor. O cliente guarda os valores aceitos em memória; não há estado compartilhado nem escrita em equipamentos. O contrato WebSocket original permanece somente leitura. O projeto v2 define variáveis e ligações de desenho; não contém lógica física ou executável. Consulte [Editor de processo](process-editor.md). As restrições de ausência de POST descritas abaixo referem-se ao contrato original de `/api/tags`.
 
 Atualização 0.2.0: o módulo `frontend/src/editor` acrescenta um documento HMI versionado, histórico local e representação Fabric.js. Consulte [o contrato do editor](editor.md). O backend e o contrato de tags descritos abaixo permanecem inalterados.
 
@@ -732,7 +865,7 @@ Se Docker estiver instalado, `docker build -t nexo-scada .` constrói a imagem e
 
 ## Limites de segurança
 
-A publicação é uma demonstração pública com dados sintéticos e consultas de leitura. Não há login, dados privados, uploads no servidor, conexão OT ou comandos físicos. Projetos importados são processados apenas no navegador. TLS é terminado pelo provedor; o perfil hosted usa cabeçalhos encaminhados exclusivamente atrás desse proxy.
+A publicação é uma demonstração pública com dados sintéticos. As tags compartilhadas permanecem somente leitura; o endpoint de simulação manual valida definições e valores próprios sem guardar estado entre requisições. Não há login, dados privados, upload de projeto no servidor, conexão OT ou comandos físicos. Projetos importados são processados no navegador; somente definições/valores de tags manuais são enviados ao Java. TLS é terminado pelo provedor; o perfil hosted usa cabeçalhos encaminhados exclusivamente atrás desse proxy.
 
 Qualquer evolução que inclua persistência compartilhada, dados reais ou administração remota exige autenticação, autorização e revisão específica antes de publicação.
 
@@ -741,7 +874,9 @@ Referências oficiais: https://render.com/docs/docker ; https://render.com/docs/
 
 ## docs/editor.md
 ````
-# Editor de telas — contrato v1
+# Editor de telas — base v1 e organização
+
+A versão 0.4.0 mantém a leitura do formato v1 e acrescenta o formato v2 com tags próprias, ligações, cores e comandos manuais. Consulte o [contrato v2 e guia de processo](process-editor.md). As regras abaixo descrevem a base v1, preservada para importação.
 
 O editor usa Fabric.js 7.4.0 para seleção e transformação, mas o arquivo salvo é um modelo de domínio próprio. Não se importa JSON nativo do Fabric nem se executam classes indicadas pelo arquivo.
 
@@ -784,7 +919,7 @@ O histórico guarda até 60 revisões; uma nova alteração após desfazer limpa
 
 ## Limites deste incremento
 
-Uma tela por projeto, quatro tipos de componente, sem grupos permanentes, importação de imagens ou servidor de projetos. A edição não grava tags nem substitui automaticamente o sinótico fixo de Supervisão.
+Na base v1: uma tela por projeto e quatro tipos de componente. A versão 0.4.0 amplia a biblioteca e permite comandos em tags próprias de simulação, conforme o guia de processo. Grupos permanentes, importação de imagens e servidor de projetos ainda não estão disponíveis. O sinótico fixo de Supervisão continua separado do editor.
 
 ## Seleção múltipla — 0.3.0
 
@@ -799,12 +934,61 @@ Alinhamento, distribuição, movimento e exclusão conjunta geram uma revisão p
 Referência da biblioteca: https://fabricjs.com/docs/getting-started/installing/
 ````
 
+## docs/process-editor.md
+````
+# Editor de processo — versão 0.4.0
+
+## Experimente
+
+1. Abra Editor e clique em **Exemplo de processo**. Desfazer recupera a tela anterior.
+2. Entre em **Operação**. Aguarde a confirmação da simulação Java.
+3. Clique no botão desenhado **Ligar / desligar linha**, ou em **Alternar LINHA.HABILITADA**. Bomba, motor, válvula e tubulações compartilham essa tag e refletem seu estado.
+4. Informe um valor entre 0 e 100 em **TANQUE.NIVEL** e clique em Aplicar. O nível do tanque acompanha o valor. Clicar na entrada numérica desenhada leva ao campo correspondente.
+5. Volte à Edição para criar outros equipamentos, tags e ligações. O modo manual reinicia com os valores iniciais ao entrar novamente em Operação.
+
+## Monte sua tela
+
+O nome pode ser alterado acima do desenho. A biblioteca contém tanque, bomba, válvula, motor, sensor, indicador, texto, botão, entrada numérica, retângulo e elipse. Objetos podem ser movidos, redimensionados, girados, coloridos, alinhados, vinculados e excluídos. O tanque tem escala mínima/máxima configurável. Texto aceita cor; figuras aceitam uma tag booleana para indicação de estado.
+
+Em **Tags do projeto**, crie até 32 variáveis BOOLEAN ou DOUBLE. Cada variável possui nome, unidade, valor inicial e limites. Os nomes usam letras maiúsculas, números, ponto e sublinhado. As três tags da demonstração são reservadas. Use Editar tag para ajustar unidade, valor inicial e faixa; nome e tipo permanecem estáveis para preservar os vínculos. Excluir uma tag limpa seus vínculos; Desfazer recupera a alteração inteira.
+
+No painel Propriedades, **Tag vinculada** apresenta somente tags compatíveis. Tanques, sensores, indicadores e entradas aceitam números. Bombas, válvulas, motores, botões e figuras aceitam booleanos. Botões e entradas aceitam somente tags próprias, pois as tags transmitidas pelo WebSocket permanecem somente leitura.
+
+Em **Ligações**, escolha origem, destino, porta de saída, porta de entrada e tipo. Portas disponíveis: esquerda, direita, topo e base. Tubulação usa linha contínua; sinal usa linha tracejada. Uma tag booleana opcional indica o estado da ligação. Os caminhos são ortogonais automáticos e acompanham movimento, escala e rotação. Não há edição de pontos intermediários ou desvio automático de obstáculos. Excluir um objeto remove suas ligações; Desfazer recupera objetos e ligações juntos.
+
+## Funcionamento da simulação manual
+
+O navegador envia a definição das tags e os valores propostos ao Java por `POST /api/simulation/evaluate`. O servidor valida nomes, tipos, limites e tamanho da requisição e devolve os valores aceitos, identificados como SIMULATED. Só então a tela atualiza os componentes. As respostas são verificadas também no frontend.
+
+O endpoint não guarda estado entre requisições: uma aba não modifica outra, o simulador compartilhado de demonstração ou equipamentos físicos. O estado manual permanece apenas na instância aberta do editor. Sair do editor, voltar à edição ou recarregar reinicia os valores. Exportação salva definições e valores iniciais, não os valores de operação.
+
+Os valores mostrados são os últimos valores manuais aceitos, não medições contínuas. Uma falha ou timeout de comando torna os valores próprios indisponíveis até Reconectar simulação. Durante uma requisição, os controles ficam bloqueados. Respostas atrasadas de um projeto anterior são descartadas.
+
+Tubulações não implementam fluxo físico. Compartilhar uma tag cria uma associação explícita de estado; não calcula vazão, pressão, balanço de massa, sequências automáticas ou intertravamentos. Este incremento não contém linguagem de programação, scripts, expressões livres, drivers ou escrita em CLPs.
+
+## Contrato de projeto v2
+
+O formato v1 permanece aceito. Ao editar, o projeto passa a v2, mantendo os componentes existentes. Projetos v2 não são compatíveis com versões antigas do aplicativo.
+
+- `schemaVersion`: 2; nome e tela 1200 × 720 seguem os limites anteriores.
+- `components`: até 100, com campos v1 e tipos adicionais da biblioteca. Campos opcionais: `color` no formato hexadecimal #RRGGBB; `rangeMin` e `rangeMax`, ambos obrigatórios quando uma escala é informada e com mínimo menor que máximo.
+- `variables`: até 32 registros com exatamente `name`, `dataType`, `unit`, `initial`, `min`, `max`. Nomes únicos de até 64 caracteres; unidades até 16; números finitos entre −1.000.000 e 1.000.000; valores iniciais dentro da faixa.
+- `connections`: até 100 registros com exatamente `id`, `from`, `to`, `fromPort`, `toPort`, `kind`, `binding`. IDs únicos; dois objetos existentes e distintos; portas left/right/top/bottom; tipo pipe/signal; vínculo booleano ou null.
+- Limite total do arquivo: 256 KiB. Nenhuma URL, imagem remota, script, campo desconhecido ou desserialização Fabric é aceita.
+
+O endpoint Java aceita JSON de até 64 KiB com `variables` e `values`. `values` é um mapa de nomes para valores; nomes ausentes usam o valor inicial. Tags desconhecidas, tipos incorretos e valores fora da faixa resultam em 400; corpo excedente resulta em 413. Um documento inválido não altera nenhum estado compartilhado.
+
+## Validação
+
+Testes cobrem importação/exportação, rejeição de ligações órfãs, nomes reservados, tipos incompatíveis, cores inválidas, exclusão com ligações, edição das tags, comandos Java, clique no botão desenhado, limites numéricos, isolamento entre abas e falha de comunicação. Consulte o relatório de validação.
+````
+
 ## docs/roadmap.md
 ````
 # Próximos incrementos
 
 1. Etapa 0 validada tecnicamente: backend, frontend e fluxo WebSocket real, incluindo reconexão após interrupção do transporte. Revisão visual pelo usuário disponível.
-2. Editor HMI inicial entregue em 0.2.0; seleção múltipla, movimento conjunto, alinhamento e distribuição entregues em 0.3.0. Próxima evolução: grupos permanentes e importação segura de imagens.
+2. Editor: base em 0.2.0; seleção/alinhamento em 0.3.0; ligações, biblioteca ampliada, tags próprias e comandos manuais em 0.4.0. Prioridade seguinte: regras explícitas de simulação automática e experiência de ligação direta no canvas, com testes de comportamento. Grupos permanentes e imagens entram depois, sem substituir essa prioridade funcional.
 3. PostgreSQL/Flyway, projetos persistidos, autenticação, perfis e auditoria; testes com Testcontainers.
 4. Drivers de leitura, primeiro contra servidores OPC UA/Modbus/MQTT simulados, com qualidade e timeouts testados.
 5. Alarmes e histórico com ECharts.
@@ -817,7 +1001,7 @@ Conexão com CLP físico, comandos de escrita e uso em produção exigem fases e
 
 ## docs/validation.md
 ````
-# Relatório de validação — versão 0.3.0
+# Relatório de validação — versão 0.4.0
 
 Data: 06/11/2026. Ambiente: Windows, Node.js 24.22.1, Java 21.0.13, Microsoft Edge.
 
@@ -829,13 +1013,18 @@ Editor integrado e validado com o simulador Java. A supervisão existente perman
 
 - TypeScript: compilação sem erros.
 - Vite: build de produção aprovado; editor carregado separadamente da tela inicial.
-- Vitest: **32 testes aprovados em 5 arquivos**.
-- Playwright/Edge: **8 testes aprovados**, com o frontend atualizado e o simulador Java local; os mesmos oito testes passaram no endereço público após a publicação da versão 0.3.0.
+- Vitest: **50 testes aprovados em 6 arquivos**.
+- Playwright/Edge: **10 testes aprovados**, incluindo criação de tags/ligações e comandos contra o Java local.
 - Dependências npm: instalação concluída; auditoria reportou zero vulnerabilidades no momento da instalação.
-- Backend sem alterações neste incremento: os **5 testes Java** e o pacote integrado foram aprovados na preparação de hospedagem. O Dockerfile executa novamente os testes Java/frontend em cada build.
+- Backend: **8 testes Java aprovados**, incluindo isolamento por requisição, tipos, faixas, corpo excedente, campos desconhecidos e JSON malformado. O Dockerfile executa novamente os testes Java/frontend em cada build.
 - Docker não está instalado localmente. A hospedagem usa a imagem Linux construída pelo Render em https://nexo-scada-demo.onrender.com.
 
 ## Cobertura do editor
+
+- Projeto v2 com tags próprias, componentes ampliados, cores, escalas e ligações; importação v1 preservada.
+- Exclusão de equipamento remove ligações; Desfazer recupera tudo. Vínculos incompatíveis, órfãos, nomes reservados e cores inválidas são rejeitados.
+- Criação e edição de tags, nome da tela, comandos reais de simulação Java, botão no canvas, limite numérico e isolamento entre abas.
+- Falha na API manual torna valores próprios indisponíveis e oferece reconexão. Tubulações não calculam vazão.
 
 - Seleção múltipla pela lista, movimento conjunto no canvas, preservação de rotação e vínculos.
 - Seis alinhamentos, distribuição com dimensões diferentes, limites de movimento e rejeição atômica de posições inválidas ou espaço insuficiente.
@@ -855,6 +1044,8 @@ Editor integrado e validado com o simulador Java. A supervisão existente perman
 Os testes de contrato usam mensagens controladas; três testes de navegador usam o backend real: supervisão, reconexão do transporte e operação do editor. A restrição de importar conteúdo fora da raiz do servidor Vite foi respeitada: o teste do exemplo lê o arquivo diretamente como dado local de teste, sem ampliar as permissões do servidor web.
 
 ## Capturas
+
+- `screenshots/processo-operacao.png`: processo conectado e comandos de simulação da versão 0.4.0.
 
 - `screenshots/editor-selecao-multipla.png`: painel de alinhamento e distribuição da versão 0.3.0.
 
@@ -943,7 +1134,7 @@ test("edits, exports and reopens the same screen with bindings and layer order",
   });
   await page.getByRole("button", { name: "Operação", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Tanque", exact: true }),
+    page.getByRole("button", { name: "Tanque", exact: true, includeHidden: true }),
   ).toBeDisabled();
   await expect(page.getByLabel("Valores em operação")).toContainText(
     "TQ-002: 42 %",
@@ -1109,7 +1300,7 @@ test("aligns and distributes a selection, undoes once and reopens its JSON", asy
   await page.screenshot({ path: "../docs/screenshots/editor-selecao-multipla.png", fullPage: true });
   await page.getByRole("button", { name: "Operação", exact: true }).click();
   await expect(page.getByRole("button", { name: "Alinhar à esquerda", exact: true })).toHaveCount(0);
-  await expect(page.getByText("Edição bloqueada durante a operação.")).toBeVisible();
+  await expect(page.getByLabel("Propriedades do componente")).toBeHidden();
 });
 test("moves a multi-selection together on the canvas and preserves rotation", async ({ page }) => {
   const rotated = structuredClone(project); rotated.components[1].angle = 30;
@@ -1128,6 +1319,89 @@ test("moves a multi-selection together on the canvas and preserves rotation", as
   expect(result.components[2]).toEqual(project.components[2]);
   await page.getByRole("button", { name: "Desfazer", exact: true }).click();
   expect((await exported(page)).components).toEqual(rotated.components);
+});
+````
+
+## frontend/e2e/process.spec.ts
+````
+import { test, expect } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+
+test("creates a tag and anchored connection, preserves them in JSON and undoes deletion", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1100 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await page.getByText("Tags do projeto", { exact: false }).first().click();
+  await page.getByLabel("Nome da tag", { exact: true }).fill("VALVULA.ABERTA");
+  await page.getByRole("button", { name: "Criar tag", exact: true }).click();
+  await page.getByRole("button", { name: "Editar tag VALVULA.ABERTA", exact: true }).click();
+  await page.getByLabel("Valor inicial", { exact: true }).selectOption("1");
+  await page.getByRole("button", { name: "Salvar tag", exact: true }).click();
+  await page.getByLabel("Nome da tela", { exact: true }).fill("Minha linha de processo");
+  await page.getByLabel("Nome da tela", { exact: true }).press("Tab");
+  await page.getByRole("button", { name: "Válvula", exact: true }).click();
+  await page.getByLabel("Tag vinculada").selectOption("VALVULA.ABERTA");
+  await page.getByLabel("Cor do componente").fill("#bc7c28");
+  await page.locator("summary").filter({ hasText: "Ligações" }).click();
+  await page.getByLabel("Origem da ligação").selectOption({ label: "P-001" });
+  await page.getByLabel("Destino da ligação").selectOption({ label: "Válvula" });
+  await page.getByLabel("Tag da ligação").selectOption("VALVULA.ABERTA");
+  await page.getByRole("button", { name: "Criar ligação", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Excluir ligação 1" })).toBeVisible();
+  const pending = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Salvar projeto" }).click();
+  const file = await pending;
+  const data = JSON.parse(await readFile((await file.path())!, "utf8"));
+  expect(data.schemaVersion).toBe(2);
+  expect(data.name).toBe("Minha linha de processo");
+  expect(data.variables[0]).toMatchObject({ name: "VALVULA.ABERTA", initial: true });
+  expect(data.connections[0]).toMatchObject({ binding: "VALVULA.ABERTA", fromPort: "right", toPort: "left" });
+  expect(data.components.at(-1)).toMatchObject({ kind: "valve", color: "#bc7c28" });
+  await page.getByRole("button", { name: "Excluir componente", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Excluir ligação 1" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Desfazer", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Excluir ligação 1" })).toBeVisible();
+  await page.getByLabel("Arquivo de projeto").setInputFiles({ name: "process.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(data)) });
+  await expect(page.getByRole("button", { name: "Excluir ligação 1" })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("runs real Java commands, updates bound equipment and isolates another browser", async ({ page, context }) => {
+  await page.setViewportSize({ width: 1600, height: 1200 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await page.getByRole("button", { name: "Exemplo de processo", exact: true }).click();
+  await page.getByRole("button", { name: "Operação", exact: true }).click();
+  await expect(page.getByText("Simulação pronta", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Alternar LINHA.HABILITADA", exact: true }).click();
+  await expect(page.getByLabel("Valor de LINHA.HABILITADA", { exact: true })).toHaveText("true");
+  await expect(page.getByTestId("runtime-valve")).toContainText("true");
+  await page.getByLabel("Novo valor de TANQUE.NIVEL", { exact: true }).fill("72");
+  await page.getByRole("button", { name: "Aplicar TANQUE.NIVEL", exact: true }).click();
+  await expect(page.getByTestId("runtime-tank")).toHaveText("TQ-101: 72 %");
+  await page.getByLabel("Novo valor de TANQUE.NIVEL", { exact: true }).fill("101");
+  await page.getByRole("button", { name: "Aplicar TANQUE.NIVEL", exact: true }).click();
+  await expect(page.getByTestId("runtime-tank")).toHaveText("TQ-101: 72 %");
+  const other = await context.newPage();
+  await other.goto("/");
+  await other.getByRole("button", { name: "Editor", exact: true }).click();
+  await other.getByRole("button", { name: "Exemplo de processo", exact: true }).click();
+  await other.getByRole("button", { name: "Operação", exact: true }).click();
+  await expect(other.getByLabel("Valor de LINHA.HABILITADA", { exact: true })).toHaveText("false");
+  await expect(other.getByTestId("runtime-tank")).toHaveText("TQ-101: 35 %");
+  await other.close();
+  await page.getByLabel("Novo valor de TANQUE.NIVEL", { exact: true }).fill("72");
+  await page.locator(".upper-canvas").scrollIntoViewIfNeeded();
+  const area = (await page.locator(".upper-canvas").boundingBox())!;
+  const zoom = Number(await page.getByLabel("Zoom", { exact: true }).inputValue()) / 100;
+  await page.mouse.click(area.x + 430 * zoom, area.y + 560 * zoom);
+  await expect(page.getByLabel("Valor de LINHA.HABILITADA", { exact: true })).toHaveText("false");
+  await page.screenshot({ path: "../docs/screenshots/processo-operacao.png", fullPage: true });
+  await page.route("**/api/simulation/evaluate", route => route.abort());
+  await page.getByRole("button", { name: "Alternar LINHA.HABILITADA", exact: true }).click();
+  await expect(page.getByTestId("runtime-valve")).toContainText("Indisponível");
+  await expect(page.getByRole("button", { name: "Reconectar simulação", exact: true })).toBeVisible();
 });
 ````
 
@@ -1199,7 +1473,7 @@ test("recovers the real Java stream after a transport interruption", async ({ pa
 ````
 {
   "name": "scada-hmi",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -1377,14 +1651,14 @@ export function App() {
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.3.0 · Engenharia</small>
+            <small>v0.4.0 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
         <header>
           <span>
             Projetos <span className="slash">/</span>{" "}
-            <strong>Tanque TQ-001</strong>
+            <strong>{page === "Editor" ? editorHistory.present.name : "Tanque TQ-001"}</strong>
           </span>
           <span className="simulation">◉ SIMULAÇÃO</span>
         </header>
@@ -1400,7 +1674,7 @@ export function App() {
                     : page}
               </h1>
               <p>
-                Tanque TQ-001 <span className="separator">•</span>{" "}
+                {page === "Editor" ? editorHistory.present.name : "Tanque TQ-001"} <span className="separator">•</span>{" "}
                 {page === "Supervisão"
                   ? "Acompanhamento em tempo real"
                   : page === "Editor"
@@ -1581,6 +1855,21 @@ export function App() {
                 Selecionar todos. Arraste o conjunto para mover; no painel
                 Propriedades, alinhe pelas bordas ou centros. Com três objetos
                 ou mais, distribua os espaços. Desfazer recupera a ação inteira.
+              </p>
+              <h3>Como ligar equipamentos e definir valores?</h3>
+              <p>
+                Abra Tags do projeto para criar variáveis BOOLEAN ou DOUBLE,
+                com valor inicial e faixa permitida. Vincule os objetos pelo
+                painel Propriedades. Em Ligações, escolha equipamentos e portas
+                para criar tubulações ou sinais; uma tag booleana pode indicar
+                seu estado. Exemplo de processo carrega uma linha pronta.
+              </p>
+              <p>
+                Em Operação, botões alternam tags próprias e entradas numéricas
+                acessam os campos de valor. Os comandos são validados pelo Java
+                e não afetam outras abas. Voltar à edição ou sair do editor
+                reinicia a simulação manual. As tubulações não calculam vazão,
+                pressão ou lógica automática; essas regras ainda não existem.
               </p>
               <h3>Como salvar e recuperar o projeto?</h3>
               <p>
@@ -1957,6 +2246,7 @@ export function Process({
   font-weight: 600;
   color: #3e5265;
 }
+.screen-title > input { flex: 1; min-width: 0; max-width: 75%; font: inherit; font-weight: 600; color: #3e5265; background: white; border: 1px solid #d8e1e8; padding: 4px 6px; border-radius: 3px; }
 .canvas-scroll {
   padding: 18px;
   overflow: auto;
@@ -2197,6 +2487,34 @@ main:has(.editor) {
   background: #1b4f6d;
   color: #fff;
 }
+.project-tools { border-bottom: 1px solid #dce4eb; padding: 8px 14px; }
+.editor-layout.operating-layout { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+.operating-layout .component-library, .operating-layout .properties { display: none; }
+.operating-layout .canvas-container { margin-inline: auto; }
+.project-tools details { padding: 8px 0; }
+.project-tools summary { cursor: pointer; font-size: 12px; font-weight: 600; color: #344b60; }
+.project-tools summary span { margin-left: 10px; color: #718596; font-weight: 400; }
+.project-tools p, .simulation-console p { font-size: 12px; color: #64798a; line-height: 1.6; }
+.project-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.project-form label { display: grid; gap: 5px; font-size: 11px; color: #536b7d; flex: 1 1 140px; }
+.project-form input, .project-form select, .simulation-console input { min-width: 0; width: 100%; padding: 8px; border: 1px solid #c8d5df; border-radius: 4px; background: white; color: #25384b; }
+.project-items { list-style: none; padding: 0; margin: 12px 0; }
+.project-items li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid #e5ebef; padding: 8px 0; font-size: 11px; overflow-wrap: anywhere; }
+.simulation-console { padding: 18px; background: #f2f8f7; border-bottom: 1px solid #c7ded8; }
+.simulation-values { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 12px; }
+.simulation-values > div { display: grid; gap: 8px; background: white; border: 1px solid #d3e1dd; padding: 12px; min-width: 0; }
+.simulation-values strong { font-size: 12px; overflow-wrap: anywhere; }
+.simulation-values output { font-size: 18px; color: #256b61; }
+.simulation-values form { display: flex; flex-wrap: wrap; gap: 6px; }
+.library-symbol.motor:after, .library-symbol.valve:after, .library-symbol.sensor:after, .library-symbol.button:after, .library-symbol.setpoint:after { position: absolute; inset: 4px 0; text-align: center; font-size: 13px; }
+.library-symbol.motor { border-radius: 50%; }
+.library-symbol.motor:after { content: "M"; }
+.library-symbol.valve:after { content: "⋈"; }
+.library-symbol.sensor:after { content: "S"; }
+.library-symbol.button:after { content: "I/O"; font-size: 10px; }
+.library-symbol.setpoint:after { content: "SP"; }
+.library-symbol.ellipse { border-radius: 50%; }
+@media (max-width: 720px) { .toolbar-files { flex-wrap: wrap; } }
 @media (min-width: 721px) and (max-width: 850px) {
   .main:has(.editor) {
     width: calc(100% - 185px);
@@ -2207,12 +2525,17 @@ main:has(.editor) {
 ## frontend/src/editor/Editor.tsx
 ````
 import { useEffect, useRef, useState, type Dispatch } from "react";
-import { ActiveSelection, Canvas, Pattern } from "fabric";
+import { ActiveSelection, Canvas, Pattern, Path, type FabricObject } from "fabric";
 import { arrange, layoutLabels, moveTogether, type LayoutAction } from "./layout";
+import { ProjectTools } from "./ProjectTools";
+import { processExample } from "./processExample";
+import { useProjectSimulation } from "./useProjectSimulation";
 import type { Snapshot } from "../tags/model";
 import type { Connection } from "../tags/useTags";
 import {
-  bindings,
+  availableBindings,
+  removeComponents,
+  type Port,
   componentNames,
   createComponent,
   MAX_COMPONENTS,
@@ -2257,11 +2580,29 @@ export default function Editor({
   const [snap, setSnap] = useState(true);
   const [message, setMessage] = useState("");
   const [sceneRevision, setSceneRevision] = useState(0);
+  const simulation = useProjectSimulation(project.variables ?? [], !editing);
+  const lines = useRef<Path[]>([]);
+  const drawLinesRef = useRef<() => void>(() => {});
+  const commandRef = useRef<(id: string) => void>(() => {});
+  const valueFor = (binding: string | null): number | boolean | null => {
+    if (!binding) return null;
+    if (project.variables?.some(tag => tag.name === binding)) return simulation.ready ? simulation.values[binding] ?? null : null;
+    const tag = snapshot?.tags.find(tag => tag.name === binding);
+    return connection === "live" && tag?.quality === "GOOD" ? tag.value : null;
+  };
+  const unitFor = (binding: string | null) => project.variables?.find(tag => tag.name === binding)?.unit
+    ?? snapshot?.tags.find(tag => tag.name === binding)?.unit ?? (binding === "TQ001.LEVEL" ? "%" : "");
+  commandRef.current = id => {
+    const item = project.components.find(item => item.id === id);
+    if (!item?.binding || !simulation.ready || simulation.busy) return;
+    if (item.kind === "button" && typeof simulation.values[item.binding] === "boolean") simulation.write(item.binding, !simulation.values[item.binding]);
+    if (item.kind === "setpoint") document.getElementById(`setpoint-${item.binding}`)?.focus();
+  };
   const selected = selectedIds.length === 1 ? project.components.find((item) => item.id === selectedIds[0]) : undefined;
   const state = useRef({ project, editing, snap });
   state.current = { project, editing, snap };
   const change = (next: HmiProject) => {
-    dispatch({ type: "change", project: next });
+    dispatch({ type: "change", project: { ...next, schemaVersion: 2, variables: next.variables ?? [], connections: next.connections ?? [] } });
     setSceneRevision(value => value + 1);
     onDirty(true);
   };
@@ -2289,13 +2630,18 @@ export default function Editor({
     instance.on("selection:created", syncSelection);
     instance.on("selection:updated", syncSelection);
     instance.on("selection:cleared", () => setSelectedIds([]));
+    instance.on("mouse:up", ({ target }) => {
+      if (!state.current.editing) { const id = identify(target); if (id) commandRef.current(id); }
+    });
     instance.on("object:moving", ({ target }) => {
-      if (!state.current.snap) return;
-      target.set({
+      if (state.current.snap) target.set({
         left: Math.round(target.left / 20) * 20,
         top: Math.round(target.top / 20) * 20,
       });
+      drawLinesRef.current();
     });
+    instance.on("object:scaling", () => drawLinesRef.current());
+    instance.on("object:rotating", () => drawLinesRef.current());
     instance.on("object:modified", ({ target }) => {
       if (!state.current.editing) return;
       if (target instanceof ActiveSelection) {
@@ -2337,6 +2683,33 @@ export default function Editor({
     };
   }, []);
 
+  drawLinesRef.current = () => {
+    const instance = canvas.current;
+    if (!instance) return;
+    instance.remove(...lines.current);
+    lines.current = [];
+    function port(object: FabricObject, side: Port) {
+      object.setCoords();
+      const points = object.getCoords();
+      const [a, b] = side === "top" ? [points[0], points[1]] : side === "right" ? [points[1], points[2]] : side === "bottom" ? [points[2], points[3]] : [points[3], points[0]];
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    }
+    for (const line of project.connections ?? []) {
+      const source = widgets.current.get(line.from)?.root, destination = widgets.current.get(line.to)?.root;
+      if (!source || !destination) continue;
+      const a = port(source, line.fromPort), b = port(destination, line.toPort);
+      const path = line.fromPort === "left" || line.fromPort === "right"
+        ? `M ${a.x} ${a.y} L ${(a.x + b.x) / 2} ${a.y} L ${(a.x + b.x) / 2} ${b.y} L ${b.x} ${b.y}`
+        : `M ${a.x} ${a.y} L ${a.x} ${(a.y + b.y) / 2} L ${b.x} ${(a.y + b.y) / 2} L ${b.x} ${b.y}`;
+      const value = valueFor(line.binding);
+      const object = new Path(path, { fill: "", stroke: editing || value === true ? "#318f9b" : "#94a3b0", strokeWidth: line.kind === "pipe" ? 7 : 2,
+        strokeDashArray: line.kind === "signal" || (!editing && line.binding && value === null) ? [8, 5] : undefined,
+        selectable: false, evented: false, strokeLineCap: "round", objectCaching: false });
+      lines.current.push(object); instance.add(object); instance.sendObjectToBack(object);
+    }
+    instance.requestRenderAll();
+  };
+
   useEffect(() => {
     const instance = canvas.current;
     if (!instance) return;
@@ -2355,16 +2728,18 @@ export default function Editor({
       : "#ffffff";
     instance.discardActiveObject();
     instance.remove(...instance.getObjects());
+    lines.current = [];
     widgets.current.clear();
     for (const item of project.components) {
-      const widget = createWidget(item);
-      widget.root.set({ selectable: editing, evented: editing });
+      const widget = createWidget(item, unitFor(item.binding));
+      widget.root.set({ selectable: editing, evented: editing || item.kind === "button" || item.kind === "setpoint", hoverCursor: !editing && (item.kind === "button" || item.kind === "setpoint") ? "pointer" : "move" });
       widget.update(null, editing);
       widgets.current.set(item.id, widget);
       instance.add(widget.root);
     }
     const ids = editing ? active.filter(id => widgets.current.has(id)) : [];
     activate(ids);
+    drawLinesRef.current();
     instance.requestRenderAll();
     // Selection changes do not rebuild the scene; document changes do.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2384,13 +2759,12 @@ export default function Editor({
   useEffect(() => {
     if (editing) return;
     for (const item of project.components) {
-      const tag = snapshot?.tags.find((tag) => tag.name === item.binding);
-      const value =
-        connection === "live" && tag?.quality === "GOOD" ? tag.value : null;
+      const value = valueFor(item.binding);
       widgets.current.get(item.id)?.update(value, false);
     }
     canvas.current?.requestRenderAll();
-  }, [snapshot, connection, editing, project]);
+    drawLinesRef.current();
+  }, [snapshot, connection, editing, project, simulation.values, simulation.ready]);
 
   const fit = () => {
     if (host.current)
@@ -2436,6 +2810,7 @@ export default function Editor({
       const next = parseProject(
         JSON.stringify({
           ...project,
+          schemaVersion: 2, variables: project.variables ?? [], connections: project.connections ?? [],
           components: project.components.map((item) =>
             item.id === selected.id ? { ...item, ...values } : item,
           ),
@@ -2527,7 +2902,7 @@ export default function Editor({
           <button
             disabled={!editing}
             onClick={() => {
-              change({ ...project, name: "Nova tela", components: [] });
+              change({ ...project, name: "Nova tela", components: [], variables: [], connections: [] });
               setSelectedIds([]);
               setMessage("Tela criada. Desfazer recupera a tela anterior.");
             }}
@@ -2540,6 +2915,7 @@ export default function Editor({
           >
             Abrir JSON
           </button>
+          <button disabled={!editing} onClick={() => { change(processExample()); setSelectedIds([]); setMessage("Exemplo carregado. Abra Operação para testar os comandos. Desfazer recupera a tela anterior."); }}>Exemplo de processo</button>
           <button className="primary-action" onClick={save}>
             Salvar projeto
           </button>
@@ -2556,7 +2932,22 @@ export default function Editor({
           />
         </div>
       </div>
-      <div className="editor-layout">
+      {editing && <ProjectTools project={project} change={change} report={setMessage} />}
+      {!editing && !!project.variables?.length && <section className="simulation-console" aria-label="Comandos da simulação">
+        <h2>Simulação manual do projeto</h2>
+        <p>Valores validados pelo Java, isolados neste navegador. Comandos alteram tags e seus objetos vinculados; tubulações são ligações gráficas, sem cálculo de vazão.</p>
+        <p role="status">{simulation.busy ? "Validando no Java…" : simulation.ready ? "Simulação pronta" : simulation.error || "Conectando ao simulador…"}</p>
+        {simulation.error && <button disabled={simulation.busy} onClick={simulation.retry}>Reconectar simulação</button>}
+        <div className="simulation-values">{project.variables.map(variable => <div key={variable.name}>
+          <strong>{variable.name}</strong><output aria-label={`Valor de ${variable.name}`}>{simulation.ready ? `${String(simulation.values[variable.name])} ${variable.unit}` : "Indisponível"}</output>
+          {variable.dataType === "BOOLEAN" ? <button disabled={!simulation.ready || simulation.busy} onClick={() => simulation.write(variable.name, !simulation.values[variable.name])}>Alternar {variable.name}</button>
+            : <form onSubmit={event => { event.preventDefault(); const field = new FormData(event.currentTarget).get("value"); if (typeof field === "string" && field.trim()) simulation.write(variable.name, Number(field)); }}>
+              <input id={`setpoint-${variable.name}`} key={String(simulation.values[variable.name])} aria-label={`Novo valor de ${variable.name}`} name="value" type="number" step="any" min={variable.min} max={variable.max} defaultValue={Number(simulation.values[variable.name] ?? variable.initial)} required disabled={!simulation.ready || simulation.busy} />
+              <button disabled={!simulation.ready || simulation.busy}>Aplicar {variable.name}</button>
+            </form>}
+        </div>)}</div>
+      </section>}
+      <div className={`editor-layout ${editing ? "" : "operating-layout"}`}>
         <aside
           className="component-library"
           aria-label="Biblioteca de componentes"
@@ -2599,7 +2990,11 @@ export default function Editor({
         </aside>
         <div className="editor-workspace">
           <div className="screen-title">
-            <span>{project.name}</span>
+            {editing ? <input aria-label="Nome da tela" key={project.name} defaultValue={project.name} maxLength={80} onBlur={event => {
+              if (event.target.value === project.name) return;
+              try { change(parseProject(JSON.stringify({ ...project, name: event.target.value }))); setMessage(""); }
+              catch (error) { setMessage((error as Error).message); }
+            }} /> : <span>{project.name}</span>}
             <span>1200 × 720 px</span>
           </div>
           <div
@@ -2642,24 +3037,20 @@ export default function Editor({
           <div className="editor-hint">
             {editing
               ? "Shift + clique para selecionar vários objetos, ou arraste uma área vazia. A seleção múltipla permite mover e alinhar. Valores ilustrativos em edição."
-              : "Operação • Somente leitura • Valores do simulador em tempo real"}
+              : "Operação • Tags de demonstração em leitura • Comandos apenas nas tags próprias de simulação"}
           </div>
           {!editing && (
             <div className="runtime-readings" aria-label="Valores em operação">
               {project.components
                 .filter((item) => item.binding)
                 .map((item) => {
-                  const tag = snapshot?.tags.find(
-                    (tag) => tag.name === item.binding,
-                  );
-                  const valid =
-                    connection === "live" && tag?.quality === "GOOD";
+                  const value = valueFor(item.binding);
                   return (
                     <span key={item.id} data-testid={`runtime-${item.id}`}>
                       {item.label}:{" "}
                       <strong>
-                        {valid
-                          ? `${String(tag.value)} ${tag.unit}`
+                        {value !== null
+                          ? `${String(value)} ${unitFor(item.binding)}`
                           : "Indisponível"}
                       </strong>
                     </span>
@@ -2687,7 +3078,7 @@ export default function Editor({
                 }}>{layoutLabels[action]}</button>)}
             </div>
             <button className="delete-component" onClick={() => {
-              change({ ...project, components: project.components.filter(item => !selectedIds.includes(item.id)) });
+              change(removeComponents(project, selectedIds));
               setSelectedIds([]);
             }}>Excluir selecionados</button>
           </div>}
@@ -2761,11 +3152,16 @@ export default function Editor({
                   }
                 >
                   <option value="">Sem vínculo</option>
-                  {bindings[selected.kind].map((tag) => (
+                  {availableBindings(selected.kind, project.variables).map((tag) => (
                     <option key={tag}>{tag}</option>
                   ))}
                 </select>
               </label>
+              <label>Cor do componente<input aria-label="Cor do componente" type="color" value={selected.color ?? "#318f9b"} onChange={e => patch({ color: e.target.value })} /></label>
+              {selected.kind === "tank" && <div className="geometry-fields">
+                <label>Escala mínima<input key={`min-${selected.id}-${selected.rangeMin}`} aria-label="Escala mínima" type="number" defaultValue={selected.rangeMin ?? 0} onBlur={e => patch({ rangeMin: Number(e.target.value), rangeMax: selected.rangeMax ?? 100 })} /></label>
+                <label>Escala máxima<input key={`max-${selected.id}-${selected.rangeMax}`} aria-label="Escala máxima" type="number" defaultValue={selected.rangeMax ?? 100} onBlur={e => patch({ rangeMin: selected.rangeMin ?? 0, rangeMax: Number(e.target.value) })} /></label>
+              </div>}
               <p className="property-note">
                 {selected.kind === "tank"
                   ? "A tag controla o nível de 0 a 100%."
@@ -2773,7 +3169,9 @@ export default function Editor({
                     ? "A tag booleana controla o estado visual."
                     : selected.kind === "indicator"
                       ? "Exibe o valor e a unidade da tag."
-                      : "Texto fixo da tela."}
+                    : selected.kind === "button" ? "Em Operação, clique no botão para alternar a tag booleana de simulação."
+                    : selected.kind === "setpoint" ? "Em Operação, clique para acessar o campo de valor da tag."
+                    : "Vínculo opcional para estado ou leitura. Cores e dimensões são configuráveis."}
               </p>
               <h3>Ordem de exibição</h3>
               <div className="layer-actions">
@@ -2783,12 +3181,7 @@ export default function Editor({
               <button
                 className="delete-component"
                 onClick={() => {
-                  change({
-                    ...project,
-                    components: project.components.filter(
-                      (item) => item.id !== selected.id,
-                    ),
-                  });
+                  change(removeComponents(project, [selected.id]));
                   setSelectedIds([]);
                 }}
               >
@@ -2948,6 +3341,90 @@ export function moveTogether(project: HmiProject, ids: string[], dx: number, dy:
 }
 ````
 
+## frontend/src/editor/process.test.ts
+````
+import { describe, expect, it } from "vitest";
+import { availableBindings, parseProject, removeComponents, serializeProject } from "./project";
+import { processExample } from "./processExample";
+
+describe("process projects", () => {
+  it("round trips variables, connections, colors and numeric scales", () => {
+    const project = processExample();
+    Object.assign(project.components[3], { color: "#aabbcc", rangeMin: -20, rangeMax: 150 });
+    expect(parseProject(serializeProject(project))).toEqual(project);
+  });
+  it.each([
+    ["dangling connection", (p: any) => p.connections[0].to = "missing"],
+    ["self connection", (p: any) => p.connections[0].to = p.connections[0].from],
+    ["wrong line type", (p: any) => p.connections[0].kind = "script"],
+    ["coerced port", (p: any) => p.connections[0].fromPort = ["left"]],
+    ["numeric flow state", (p: any) => p.connections[0].binding = "TANQUE.NIVEL"],
+    ["unknown binding", (p: any) => p.components[0].binding = "MISSING"],
+    ["reserved tag", (p: any) => p.variables[0].name = "P001.RUNNING"],
+    ["prototype tag", (p: any) => p.variables[0].name = "__proto__"],
+    ["repeated tag", (p: any) => p.variables.push(p.variables[0])],
+    ["too many tags", (p: any) => p.variables = Array(33).fill(p.variables[0])],
+    ["invalid range", (p: any) => p.variables[1].max = -1],
+    ["wrong initial type", (p: any) => p.variables[0].initial = "false"],
+    ["invalid color", (p: any) => p.components[0].color = "url(https://example.com)"],
+    ["unknown property", (p: any) => p.components[0].action = "eval"],
+    ["zero scale", (p: any) => { p.components[3].rangeMin = 1; p.components[3].rangeMax = 1; }],
+  ])("rejects %s atomically", (_name, mutate) => {
+    const project = processExample(); mutate(project);
+    expect(() => parseProject(JSON.stringify(project))).toThrow();
+  });
+  it("only allows typed bindings and writable custom tags for controls", () => {
+    const variables = processExample().variables;
+    expect(availableBindings("button", variables)).toEqual(["LINHA.HABILITADA"]);
+    expect(availableBindings("setpoint", variables)).toEqual(["TANQUE.NIVEL", "TEMP.VALOR"]);
+    expect(availableBindings("tank", variables)).not.toContain("LINHA.HABILITADA");
+  });
+  it("removes dependent lines when deleting equipment and preserves other links", () => {
+    const project = processExample();
+    const next = removeComponents(project, ["valve"]);
+    expect(next.connections?.map(line => line.id)).toEqual(["signal1", "signal2"]);
+    expect(project.connections).toHaveLength(4);
+    expect(parseProject(serializeProject(next))).toEqual(next);
+  });
+});
+````
+
+## frontend/src/editor/processExample.ts
+````
+import { createComponent, type HmiProject, type ComponentKind } from "./project";
+
+/** Demonstrates shared tag bindings; the drawing is not a hydraulic solver. */
+export function processExample(): HmiProject {
+  function component(id: string, kind: ComponentKind, label: string, x: number, y: number, binding: string | null) {
+    return { ...createComponent(kind, 0), id, label, x, y, binding };
+  }
+  return {
+    schemaVersion: 2, name: "Linha de transferência — simulação manual", screen: { width: 1200, height: 720 },
+    variables: [
+      { name: "LINHA.HABILITADA", dataType: "BOOLEAN", unit: "", initial: false, min: 0, max: 1 },
+      { name: "TANQUE.NIVEL", dataType: "DOUBLE", unit: "%", initial: 35, min: 0, max: 100 },
+      { name: "TEMP.VALOR", dataType: "DOUBLE", unit: "°C", initial: 25, min: -20, max: 150 },
+    ],
+    components: [
+      { ...component("title", "text", "LINHA DE TRANSFERÊNCIA", 80, 50, null), width: 450 },
+      component("pump", "pump", "P-101", 70, 260, "LINHA.HABILITADA"),
+      component("valve", "valve", "XV-101", 350, 260, "LINHA.HABILITADA"),
+      component("tank", "tank", "TQ-101", 650, 180, "TANQUE.NIVEL"),
+      component("sensor", "sensor", "TT-101", 970, 230, "TEMP.VALOR"),
+      component("motor", "motor", "M-101", 70, 480, "LINHA.HABILITADA"),
+      component("command", "button", "Ligar / desligar linha", 350, 500, "LINHA.HABILITADA"),
+      component("level-input", "setpoint", "Ajustar nível", 650, 500, "TANQUE.NIVEL"),
+    ],
+    connections: [
+      { id: "pipe1", from: "pump", to: "valve", fromPort: "right", toPort: "left", kind: "pipe", binding: "LINHA.HABILITADA" },
+      { id: "pipe2", from: "valve", to: "tank", fromPort: "right", toPort: "left", kind: "pipe", binding: "LINHA.HABILITADA" },
+      { id: "signal1", from: "tank", to: "sensor", fromPort: "right", toPort: "left", kind: "signal", binding: null },
+      { id: "signal2", from: "motor", to: "pump", fromPort: "top", toPort: "bottom", kind: "signal", binding: "LINHA.HABILITADA" },
+    ],
+  };
+}
+````
+
 ## frontend/src/editor/project.test.ts
 ````
 import { describe, expect, it } from "vitest";
@@ -2978,7 +3455,7 @@ describe("project files", () => {
     expect(parseProject(serializeProject(project))).toEqual(project);
   });
   it.each([
-    ["unsupported version", (p: any) => (p.schemaVersion = 2)],
+    ["unsupported version", (p: any) => (p.schemaVersion = 99)],
     [
       "remote assets",
       (p: any) => (p.components[0].src = "https://example.com/image.svg"),
@@ -3062,7 +3539,16 @@ describe("editing history", () => {
 ````
 import type { TagName } from "../tags/model";
 
-export type ComponentKind = "tank" | "pump" | "indicator" | "text";
+export type ComponentKind = "tank" | "pump" | "indicator" | "text" | "valve" | "motor" | "sensor" | "button" | "setpoint" | "rectangle" | "ellipse";
+export interface ProjectVariable {
+  name: string; dataType: "BOOLEAN" | "DOUBLE"; unit: string;
+  initial: number | boolean; min: number; max: number;
+}
+export type Port = "left" | "right" | "top" | "bottom";
+export interface ConnectionLine {
+  id: string; from: string; to: string; fromPort: Port; toPort: Port;
+  kind: "pipe" | "signal"; binding: string | null;
+}
 export interface HmiComponent {
   id: string;
   kind: ComponentKind;
@@ -3072,25 +3558,34 @@ export interface HmiComponent {
   width: number;
   height: number;
   angle: number;
-  binding: TagName | null;
+  binding: string | null;
+  color?: string;
+  rangeMin?: number;
+  rangeMax?: number;
 }
 export interface HmiProject {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   name: string;
   screen: { width: 1200; height: 720 };
   components: HmiComponent[];
+  variables?: ProjectVariable[];
+  connections?: ConnectionLine[];
 }
 export const componentNames: Record<ComponentKind, string> = {
   tank: "Tanque",
   pump: "Bomba",
   indicator: "Indicador",
   text: "Texto",
+  valve: "Válvula", motor: "Motor", sensor: "Sensor", button: "Botão",
+  setpoint: "Entrada numérica", rectangle: "Retângulo", ellipse: "Elipse",
 };
 export const bindings: Record<ComponentKind, TagName[]> = {
   tank: ["TQ001.LEVEL"],
   pump: ["P001.RUNNING"],
   indicator: ["TQ001.TEMPERATURE", "TQ001.LEVEL"],
   text: [],
+  valve: ["P001.RUNNING"], motor: ["P001.RUNNING"], sensor: ["TQ001.TEMPERATURE", "TQ001.LEVEL"],
+  button: [], setpoint: [], rectangle: [], ellipse: [],
 };
 export const MAX_COMPONENTS = 100;
 export const MAX_PROJECT_BYTES = 262144;
@@ -3131,12 +3626,12 @@ export function exampleProject(): HmiProject {
   };
 }
 
-function record(input: unknown, keys: string[]): Record<string, unknown> {
+function record(input: unknown, keys: string[], optional: string[] = []): Record<string, unknown> {
   if (!input || typeof input !== "object" || Array.isArray(input))
     throw new Error("Estrutura de projeto inválida.");
   const object = input as Record<string, unknown>;
   if (
-    Object.keys(object).length !== keys.length ||
+    Object.keys(object).some(key => !keys.includes(key) && !optional.includes(key)) ||
     keys.some((key) => !Object.hasOwn(object, key))
   ) {
     throw new Error("O projeto contém campos ausentes ou não suportados.");
@@ -3183,9 +3678,28 @@ export function parseProject(raw: string): HmiProject {
     "name",
     "screen",
     "components",
-  ]);
-  if (project.schemaVersion !== 1)
+  ], ["variables", "connections"]);
+  if (project.schemaVersion !== 1 && project.schemaVersion !== 2)
     throw new Error("Versão de projeto não suportada.");
+  if (project.schemaVersion === 1 && (project.variables !== undefined || project.connections !== undefined))
+    throw new Error("Tags próprias e ligações exigem projeto versão 2.");
+  const variables: ProjectVariable[] = [];
+  if (project.schemaVersion === 2) {
+    if (!Array.isArray(project.variables) || project.variables.length > 32 || !Array.isArray(project.connections))
+      throw new Error("Defina até 32 tags de simulação e uma lista de ligações.");
+    for (const raw of project.variables) {
+      const v = record(raw, ["name", "dataType", "unit", "initial", "min", "max"]);
+      const name = text(v.name, 64);
+      if (!/^[A-Z][A-Z0-9_.]{0,63}$/.test(name) || ["TQ001.LEVEL", "P001.RUNNING", "TQ001.TEMPERATURE"].includes(name) || variables.some(tag => tag.name === name))
+        throw new Error("Nome de tag inválido, reservado ou repetido. Use letras maiúsculas, números, ponto e sublinhado.");
+      const min = number(v.min, -1000000, 1000000), max = number(v.max, -1000000, 1000000);
+      if (min >= max || typeof v.unit !== "string" || v.unit.length > 16 || /[\u0000-\u001f]/.test(v.unit)) throw new Error("Faixa ou unidade da tag inválida.");
+      if (v.dataType !== "DOUBLE" && v.dataType !== "BOOLEAN") throw new Error("Tipo de tag inválido.");
+      if (v.dataType === "BOOLEAN" ? typeof v.initial !== "boolean" : typeof v.initial !== "number" || !Number.isFinite(v.initial) || v.initial < min || v.initial > max)
+        throw new Error("Valor inicial fora do tipo ou faixa da tag.");
+      variables.push({ name, dataType: v.dataType, unit: v.unit, initial: v.initial as number | boolean, min, max });
+    }
+  }
   const screen = record(project.screen, ["width", "height"]);
   if (screen.width !== 1200 || screen.height !== 720)
     throw new Error("A tela deve ter 1200 × 720 px.");
@@ -3206,7 +3720,7 @@ export function parseProject(raw: string): HmiProject {
       "height",
       "angle",
       "binding",
-    ]);
+    ], project.schemaVersion === 2 ? ["color", "rangeMin", "rangeMax"] : []);
     const id = text(item.id, 80);
     if (!/^[a-zA-Z0-9_-]+$/.test(id) || ids.has(id))
       throw new Error("Identificador de componente inválido ou repetido.");
@@ -3219,9 +3733,19 @@ export function parseProject(raw: string): HmiProject {
     const kind = item.kind as ComponentKind;
     if (
       item.binding !== null &&
-      !bindings[kind].includes(item.binding as TagName)
+      !availableBindings(kind, variables).includes(item.binding as string)
     )
       throw new Error("A tag é incompatível com este componente.");
+    const appearance: Pick<HmiComponent, "color" | "rangeMin" | "rangeMax"> = {};
+    if (item.color !== undefined) {
+      if (typeof item.color !== "string" || !/^#[0-9a-fA-F]{6}$/.test(item.color)) throw new Error("Cor inválida.");
+      appearance.color = item.color;
+    }
+    if (item.rangeMin !== undefined || item.rangeMax !== undefined) {
+      appearance.rangeMin = number(item.rangeMin, -1000000, 1000000);
+      appearance.rangeMax = number(item.rangeMax, -1000000, 1000000);
+      if (appearance.rangeMin >= appearance.rangeMax) throw new Error("A escala máxima deve ser maior que a mínima.");
+    }
     return {
       id,
       kind,
@@ -3231,15 +3755,42 @@ export function parseProject(raw: string): HmiProject {
       width: number(item.width, 40, 500),
       height: number(item.height, 32, 500),
       angle: number(item.angle, -180, 180),
-      binding: item.binding as TagName | null,
+      binding: item.binding as string | null,
+      ...appearance,
     };
   });
+  const connections: ConnectionLine[] = [];
+  if (project.schemaVersion === 2) {
+    const rawLines = project.connections as unknown[];
+    if (rawLines.length > 100) throw new Error("Limite de 100 ligações por tela.");
+    for (const raw of rawLines) {
+      const line = record(raw, ["id", "from", "to", "fromPort", "toPort", "kind", "binding"]);
+      const id = text(line.id, 80);
+      if (!/^[a-zA-Z0-9_-]+$/.test(id) || connections.some(c => c.id === id)) throw new Error("Identificador de ligação inválido ou repetido.");
+      if (typeof line.from !== "string" || typeof line.to !== "string" || !ids.has(line.from) || !ids.has(line.to) || line.from === line.to)
+        throw new Error("A ligação deve unir dois objetos existentes e distintos.");
+      if (typeof line.fromPort !== "string" || typeof line.toPort !== "string" || typeof line.kind !== "string" || !["left", "right", "top", "bottom"].includes(line.fromPort) || !["left", "right", "top", "bottom"].includes(line.toPort) || !["pipe", "signal"].includes(line.kind))
+        throw new Error("Porta ou tipo de ligação inválido.");
+      if (line.binding !== null && !availableBindings("pump", variables).includes(line.binding as string)) throw new Error("A ligação exige tag booleana.");
+      connections.push({ id, from: line.from, to: line.to, fromPort: line.fromPort as Port, toPort: line.toPort as Port, kind: line.kind as ConnectionLine["kind"], binding: line.binding as string | null });
+    }
+  }
   return {
-    schemaVersion: 1,
+    schemaVersion: project.schemaVersion,
     name: text(project.name, 80),
     screen: { width: 1200, height: 720 },
     components,
+    ...(project.schemaVersion === 2 ? { variables, connections } : {}),
   };
+}
+export function availableBindings(kind: ComponentKind, variables: ProjectVariable[] = []): string[] {
+  const numeric = ["tank", "indicator", "sensor", "setpoint"].includes(kind);
+  const boolean = ["pump", "valve", "motor", "button", "rectangle", "ellipse"].includes(kind);
+  return [...bindings[kind], ...variables.filter(tag => numeric ? tag.dataType === "DOUBLE" : boolean && tag.dataType === "BOOLEAN").map(tag => tag.name)];
+}
+export function removeComponents(project: HmiProject, ids: string[]): HmiProject {
+  return { ...project, components: project.components.filter(item => !ids.includes(item.id)),
+    ...(project.connections ? { connections: project.connections.filter(line => !ids.includes(line.from) && !ids.includes(line.to)) } : {}) };
 }
 export function serializeProject(project: HmiProject): string {
   return JSON.stringify(parseProject(JSON.stringify(project)), null, 2);
@@ -3281,6 +3832,129 @@ export function projectReducer(
 }
 ````
 
+## frontend/src/editor/ProjectTools.tsx
+````
+import { useState } from "react";
+import { availableBindings, parseProject, type HmiProject, type ProjectVariable, type Port } from "./project";
+
+interface Props { project: HmiProject; change: (next: HmiProject) => void; report: (message: string) => void; }
+export function ProjectTools({ project, change, report }: Props) {
+  const [name, setName] = useState("MOTOR.RUN");
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [type, setType] = useState<"BOOLEAN" | "DOUBLE">("BOOLEAN");
+  const [unit, setUnit] = useState("");
+  const [initial, setInitial] = useState("0");
+  const [min, setMin] = useState("0"), [max, setMax] = useState("100");
+  const [from, setFrom] = useState(""), [to, setTo] = useState("");
+  const [fromPort, setFromPort] = useState<Port>("right"), [toPort, setToPort] = useState<Port>("left");
+  const [kind, setKind] = useState<"pipe" | "signal">("pipe");
+  const [binding, setBinding] = useState("");
+  function commit(next: HmiProject) {
+    try { change(parseProject(JSON.stringify({ ...next, schemaVersion: 2, variables: next.variables ?? [], connections: next.connections ?? [] }))); report(""); return true; }
+    catch (error) { report((error as Error).message); return false; }
+  }
+  function removeVariable(variable: ProjectVariable) {
+    commit({ ...project, variables: project.variables?.filter(v => v.name !== variable.name),
+      components: project.components.map(item => item.binding === variable.name ? { ...item, binding: null } : item),
+      connections: project.connections?.map(line => line.binding === variable.name ? { ...line, binding: null } : line) });
+  }
+  const ports: Record<Port, string> = { left: "Esquerda", right: "Direita", top: "Topo", bottom: "Base" };
+  return <div className="project-tools">
+    <details>
+      <summary>Tags do projeto <span>{project.variables?.length ?? 0} / 32</span></summary>
+      <p>Variáveis manuais da sua simulação. BOOLEAN comanda estados; DOUBLE representa valores numéricos. As três tags da demonstração permanecem somente leitura.</p>
+      <form className="project-form" onSubmit={event => {
+        event.preventDefault();
+        if (![initial, min, max].every(value => value.trim())) { report("Preencha os valores da tag."); return; }
+        const variable: ProjectVariable = { name: name.trim(), dataType: type, unit,
+          initial: type === "BOOLEAN" ? initial === "1" : Number(initial), min: type === "BOOLEAN" ? 0 : Number(min), max: type === "BOOLEAN" ? 1 : Number(max) };
+        const saved = commit({ ...project, variables: editingName ? project.variables?.map(v => v.name === editingName ? variable : v) : [...project.variables ?? [], variable] });
+        if (saved) setEditingName(null);
+      }}>
+        <label>Nome da tag<input aria-label="Nome da tag" value={name} maxLength={64} disabled={!!editingName} onChange={e => setName(e.target.value)} required /></label>
+        <label>Tipo<select aria-label="Tipo da tag" value={type} disabled={!!editingName} onChange={e => { setType(e.target.value as typeof type); setInitial("0"); }}><option>BOOLEAN</option><option>DOUBLE</option></select></label>
+        <label>Valor inicial{type === "BOOLEAN" ? <select aria-label="Valor inicial" value={initial} onChange={e => setInitial(e.target.value)}><option value="0">Desligado / falso</option><option value="1">Ligado / verdadeiro</option></select>
+          : <input aria-label="Valor inicial" type="number" step="any" value={initial} onChange={e => setInitial(e.target.value)} required />}</label>
+        {type === "DOUBLE" && <>
+          <label>Mínimo<input aria-label="Mínimo da tag" type="number" step="any" value={min} onChange={e => setMin(e.target.value)} required /></label>
+          <label>Máximo<input aria-label="Máximo da tag" type="number" step="any" value={max} onChange={e => setMax(e.target.value)} required /></label>
+          <label>Unidade<input aria-label="Unidade da tag" value={unit} maxLength={16} onChange={e => setUnit(e.target.value)} /></label>
+        </>}
+        <button type="submit" disabled={!editingName && (project.variables?.length ?? 0) >= 32}>{editingName ? "Salvar tag" : "Criar tag"}</button>
+        {editingName && <button type="button" onClick={() => setEditingName(null)}>Cancelar edição da tag</button>}
+      </form>
+      <ul className="project-items">{project.variables?.map(variable => <li key={variable.name}>
+        <span><strong>{variable.name}</strong> · {variable.dataType} · Inicial: {String(variable.initial)} {variable.unit} {variable.dataType === "DOUBLE" && `(${variable.min} a ${variable.max})`}</span>
+        <div><button onClick={() => { setEditingName(variable.name); setName(variable.name); setType(variable.dataType); setUnit(variable.unit); setInitial(typeof variable.initial === "boolean" ? variable.initial ? "1" : "0" : String(variable.initial)); setMin(String(variable.min)); setMax(String(variable.max)); }}>Editar tag {variable.name}</button>{" "}<button onClick={() => { removeVariable(variable); if (editingName === variable.name) setEditingName(null); }}>Excluir tag {variable.name}</button></div>
+      </li>)}</ul>
+      <p>Excluir uma tag remove seus vínculos; Desfazer recupera tudo. Os valores de operação não são exportados, apenas o valor inicial.</p>
+    </details>
+    <details>
+      <summary>Ligações <span>{project.connections?.length ?? 0} / 100</span></summary>
+      <p>Escolha origem, destino e as portas. Tubulações e sinais acompanham o movimento dos objetos. Vincule uma tag booleana para indicar o estado da linha; a ligação gráfica não calcula vazão.</p>
+      <form className="project-form" onSubmit={event => { event.preventDefault(); commit({ ...project, connections: [...project.connections ?? [], { id: crypto.randomUUID(), from, to, fromPort, toPort, kind, binding: binding || null }] }); }}>
+        <label>Origem<select aria-label="Origem da ligação" value={from} onChange={e => setFrom(e.target.value)} required><option value="">Selecione</option>{project.components.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+        <label>Porta de saída<select aria-label="Porta de saída" value={fromPort} onChange={e => setFromPort(e.target.value as Port)}>{Object.entries(ports).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label>Destino<select aria-label="Destino da ligação" value={to} onChange={e => setTo(e.target.value)} required><option value="">Selecione</option>{project.components.filter(item => item.id !== from).map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+        <label>Porta de entrada<select aria-label="Porta de entrada" value={toPort} onChange={e => setToPort(e.target.value as Port)}>{Object.entries(ports).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label>Tipo<select aria-label="Tipo da ligação" value={kind} onChange={e => setKind(e.target.value as typeof kind)}><option value="pipe">Tubulação</option><option value="signal">Sinal</option></select></label>
+        <label>Tag de estado<select aria-label="Tag da ligação" value={binding} onChange={e => setBinding(e.target.value)}><option value="">Sem vínculo</option>{availableBindings("pump", project.variables).map(tag => <option key={tag}>{tag}</option>)}</select></label>
+        <button type="submit" disabled={(project.connections?.length ?? 0) >= 100}>Criar ligação</button>
+      </form>
+      <ul className="project-items">{project.connections?.map((line, index) => <li key={line.id}><span>{project.components.find(item => item.id === line.from)?.label} → {project.components.find(item => item.id === line.to)?.label} · {line.kind === "pipe" ? "Tubulação" : "Sinal"} · {line.binding ?? "Sem vínculo"}</span><button onClick={() => commit({ ...project, connections: project.connections?.filter(item => item.id !== line.id) })}>Excluir ligação {index + 1}</button></li>)}</ul>
+    </details>
+  </div>;
+}
+````
+
+## frontend/src/editor/useProjectSimulation.ts
+````
+import { useEffect, useRef, useState } from "react";
+import type { ProjectVariable } from "./project";
+
+export function useProjectSimulation(variables: ProjectVariable[], enabled: boolean) {
+  const [values, setValues] = useState<Record<string, number | boolean>>({});
+  const [ready, setReady] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const generation = useRef(0);
+  const pending = useRef(false);
+  const config = JSON.stringify(variables);
+  async function evaluate(next: Record<string, number | boolean>, epoch = generation.current) {
+    if (!enabled || pending.current) return;
+    pending.current = true; setBusy(true); setError("");
+    try {
+      const response = await fetch("/api/simulation/evaluate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ variables, values: next }), signal: AbortSignal.timeout(8000),
+      });
+      if (!response.ok) throw new Error(response.status === 400 ? "O Java recusou o valor ou a configuração das tags." : "Não foi possível comunicar com o simulador Java.");
+      const data = await response.json();
+      if (data.source !== "SIMULATED" || !data.values || Object.keys(data.values).length !== variables.length
+          || variables.some(v => !Object.hasOwn(data.values, v.name) || (v.dataType === "BOOLEAN"
+            ? typeof data.values[v.name] !== "boolean" : typeof data.values[v.name] !== "number" || !Number.isFinite(data.values[v.name]) || data.values[v.name] < v.min || data.values[v.name] > v.max)))
+        throw new Error("Resposta inválida do simulador.");
+      if (epoch === generation.current) { setValues(data.values); setReady(true); }
+    } catch (cause) {
+      if (epoch === generation.current) { setReady(false); setError(cause instanceof Error && cause.name !== "TimeoutError" ? cause.message : "Simulador sem resposta. Tente reconectar."); }
+    } finally {
+      if (epoch === generation.current) { pending.current = false; setBusy(false); }
+    }
+  }
+  useEffect(() => {
+    const epoch = ++generation.current;
+    pending.current = false; setReady(false); setValues({}); setBusy(false); setError("");
+    if (enabled && variables.length) void evaluate({}, epoch);
+    return () => { generation.current++; };
+    // Configuration changes start a fresh, isolated manual simulation.
+  }, [config, enabled]);
+  return { values, ready, busy, error,
+    write: (name: string, value: number | boolean) => { if (ready) void evaluate({ ...values, [name]: value }); },
+    retry: () => void evaluate(values),
+  };
+}
+````
+
 ## frontend/src/editor/widgets.ts
 ````
 import {
@@ -3289,6 +3963,9 @@ import {
   Group,
   Rect,
   Triangle,
+  Ellipse,
+  Polygon,
+  Line,
   type FabricObject,
 } from "fabric";
 import type { HmiComponent } from "./project";
@@ -3309,7 +3986,8 @@ export interface Widget {
   root: Group;
   update: (value: number | boolean | null, editing: boolean) => void;
 }
-export function createWidget(item: HmiComponent): Widget {
+export function createWidget(item: HmiComponent, customUnit?: string): Widget {
+  const accent = item.color ?? "#318f9b";
   const width = item.kind === "tank" ? 180 : item.kind === "text" ? 240 : 160;
   const height = item.kind === "tank" ? 260 : item.kind === "text" ? 48 : 130;
   const base = new Rect({
@@ -3320,6 +3998,7 @@ export function createWidget(item: HmiComponent): Widget {
     strokeWidth: 0,
   });
   const heading = label(item.label, 12, 10, item.kind === "text" ? 18 : 14);
+  if (item.kind === "text") heading.set({ fill: item.color ?? ink });
   heading.set({ scaleX: Math.min(1, (width - 24) / heading.width) });
   // A fixed bounding box keeps live measurements from changing the equipment geometry.
   const children: FabricObject[] = [base, heading];
@@ -3343,16 +4022,17 @@ export function createWidget(item: HmiComponent): Widget {
       top: 112,
       width: 132,
       height: 94,
-      fill: "#318f9b",
+      fill: accent,
       strokeWidth: 0,
     });
     const valueLabel = label("50.0 %", 49, 115, 23);
     const quality = label("Prévia", 23, 228, 11);
-    children.push(vessel, water, valueLabel, quality);
+    children.push(new Line([3, 130, 21, 130], { stroke: accent, strokeWidth: 5 }), new Line([159, 130, 177, 130], { stroke: accent, strokeWidth: 5 }), vessel, water, valueLabel, quality);
     // Group construction changes child coordinates from canvas space to group space.
     update = (value, editing) => {
       const available = typeof value === "number";
-      const level = editing ? 50 : available ? value : 0;
+      const minimum = item.rangeMin ?? 0, maximum = item.rangeMax ?? 100;
+      const level = editing ? 50 : available ? Math.max(0, Math.min(100, (value - minimum) * 100 / (maximum - minimum))) : 0;
       const bottom = 206 - height / 2;
       water.set({
         top: bottom - level * 1.62,
@@ -3360,7 +4040,7 @@ export function createWidget(item: HmiComponent): Widget {
         visible: editing || available,
       });
       valueLabel.set({
-        text: editing ? "50.0 %" : available ? `${value.toFixed(1)} %` : "—",
+        text: editing ? "50.0 %" : available ? `${value.toFixed(1)} ${customUnit ?? "%"}` : "—",
       });
       quality.set({
         text: editing
@@ -3370,11 +4050,11 @@ export function createWidget(item: HmiComponent): Widget {
             : "INDISPONÍVEL",
       });
     };
-  } else if (item.kind === "pump") {
+  } else if (["pump", "valve", "motor", "button"].includes(item.kind)) {
     const body = new Circle({
       ...origin,
       left: 54,
-      top: 36,
+      top: 40,
       radius: 25,
       fill: "#e5f0ee",
       stroke: "#588c83",
@@ -3389,25 +4069,33 @@ export function createWidget(item: HmiComponent): Widget {
       fill: "#588c83",
     });
     const status = label("Prévia de edição", 17, 106, 11);
-    children.push(body, rotor, status);
+    const symbol = item.kind === "valve"
+      ? new Polygon([{ x: 0, y: 0 }, { x: 66, y: 42 }, { x: 66, y: 0 }, { x: 0, y: 42 }], { ...origin, left: 45, top: 43, fill: accent, stroke: ink, strokeWidth: 1 })
+      : item.kind === "button" ? new Rect({ ...origin, left: 12, top: 36, width: 136, height: 54, rx: 6, ry: 6, fill: accent }) : body;
+    const centerLabel = label(item.kind === "motor" ? "M" : "Alternar", item.kind === "motor" ? 67 : 45, 49, item.kind === "motor" ? 24 : 16);
+    if (item.kind === "pump" || item.kind === "valve") children.push(
+      new Line([3, 65, item.kind === "pump" ? 54 : 45, 65], { stroke: accent, strokeWidth: 5 }),
+      new Line([item.kind === "pump" ? 104 : 111, 65, 157, 65], { stroke: accent, strokeWidth: 5 }),
+    );
+    children.push(symbol, ...(item.kind === "pump" ? [rotor] : item.kind === "motor" || item.kind === "button" ? [centerLabel] : []), status);
     update = (value, editing) => {
       const active = editing || value === true;
-      body.set({
-        stroke: active ? "#27826f" : "#8494a3",
-        fill: active ? "#dcefe9" : "#edf0f3",
+      symbol.set({
+        stroke: active ? accent : "#8494a3",
+        fill: active ? accent : "#edf0f3",
       });
-      rotor.set({ fill: active ? "#27826f" : "#8494a3" });
+      rotor.set({ fill: active ? "#ffffff" : "#8494a3" });
       status.set({
         text: editing
           ? "Prévia de edição"
           : value === null
             ? "INDISPONÍVEL"
             : value
-              ? "EM OPERAÇÃO"
-              : "PARADA",
+              ? item.kind === "valve" ? "ABERTA" : "LIGADO"
+              : item.kind === "valve" ? "FECHADA" : "DESLIGADO",
       });
     };
-  } else if (item.kind === "indicator") {
+  } else if (["indicator", "sensor", "setpoint"].includes(item.kind)) {
     const panel = new Rect({
       ...origin,
       left: 2,
@@ -3415,7 +4103,7 @@ export function createWidget(item: HmiComponent): Widget {
       width: 155,
       height: 61,
       fill: "#f5f8fa",
-      stroke: "#b6c5d1",
+      stroke: accent,
       rx: 4,
       ry: 4,
     });
@@ -3423,7 +4111,7 @@ export function createWidget(item: HmiComponent): Widget {
     const quality = label("Prévia de edição", 12, 108, 10);
     children.push(panel, valueLabel, quality);
     update = (value, editing) => {
-      const unit = item.binding === "TQ001.LEVEL" ? "%" : "°C";
+      const unit = customUnit ?? (item.binding === "TQ001.LEVEL" ? "%" : "°C");
       valueLabel.set({
         text: editing
           ? `25.0 ${unit}`
@@ -3439,6 +4127,11 @@ export function createWidget(item: HmiComponent): Widget {
             : "SIMULADO",
       });
     };
+  } else if (item.kind === "rectangle" || item.kind === "ellipse") {
+    const shape = item.kind === "rectangle" ? new Rect({ ...origin, left: 8, top: 34, width: 144, height: 88, fill: accent, strokeWidth: 0 })
+      : new Ellipse({ ...origin, left: 8, top: 34, rx: 72, ry: 44, fill: accent, strokeWidth: 0 });
+    children.push(shape);
+    update = (value, editing) => shape.set({ fill: editing || !item.binding || value === true ? accent : value === false ? "#c6d0d8" : "#edf0f3" });
   }
   const root = new Group(children, {
     ...origin,
@@ -4440,12 +5133,15 @@ Consulte o [guia de publicação](../docs/deployment.md). Serviço publicado em 
 ````
 # NEXO — Supervisão e engenharia de telas
 
-Plataforma SCADA/HMI com backend Java e interface web. A versão **0.3.0** acrescenta seleção múltipla, movimentação conjunta, alinhamento e distribuição ao editor de telas.
+Plataforma SCADA/HMI com backend Java e interface web. A versão **0.4.0** acrescenta ligações entre equipamentos, tags próprias e comandos de simulação manual ao editor de telas.
 
 ## Recursos disponíveis
 
 - Supervisão de nível, bomba e temperatura, com atualizações por WebSocket.
-- Editor com tanque, bomba, indicador e texto.
+- Editor com tanque, bomba, válvula, motor, sensor, indicador, texto, botão, entrada numérica, retângulo e elipse.
+- Tubulações e sinais entre portas dos objetos, acompanhando movimento e transformação.
+- Tags próprias BOOLEAN/DOUBLE com unidade, valor inicial e faixa; comandos manuais validados pelo Java e isolados por aba.
+- Nome da tela, cores e escala do tanque configuráveis; exemplo de processo conectado.
 - Posicionamento livre, ajuste à grade, dimensões, rotação e ordem de exibição.
 - Seleção múltipla, movimento conjunto e alinhamento pelas bordas ou centros; distribuição de espaçamento com três ou mais objetos.
 - Vínculos com tags compatíveis e modos separados de Edição e Operação.
@@ -4506,11 +5202,13 @@ Veja o [guia de publicação](docs/deployment.md) para configurar a conta, gerar
 
 ## Usar o editor
 
+Para testar a nova entrega, abra **Editor → Exemplo de processo → Operação**. Use o botão desenhado para ligar/desligar a linha e o campo **TANQUE.NIVEL** para ajustar o nível. Para construir sua própria tela, use **Tags do projeto**, **Ligações** e **Tag vinculada**. Veja o [guia de processo](docs/process-editor.md).
+
 1. Abra **Editor** e mantenha o modo **Edição**.
 2. Insira um componente pela biblioteca ou selecione um dos objetos do exemplo.
 3. Arraste para mover. Use as alças para redimensionar e girar; valores exatos também podem ser informados no painel Propriedades.
-4. Selecione a tag vinculada. Tanques aceitam nível; bombas aceitam estado booleano; indicadores aceitam nível ou temperatura.
-5. Use **Operação** para visualizar os valores recebidos do servidor. As alterações ficam bloqueadas nesse modo.
+4. Selecione a tag vinculada. Objetos numéricos aceitam tags DOUBLE; equipamentos de estado aceitam BOOLEAN. Botões e entradas numéricas usam somente tags próprias.
+5. Use **Operação** para visualizar valores e comandar tags próprias de simulação. A geometria fica bloqueada nesse modo; as tags da demonstração continuam somente leitura.
 6. Use **Salvar projeto** para exportar o JSON. **Abrir JSON** recupera componentes, geometria, ordem e vínculos. **Nova tela** abre uma tela vazia; Desfazer recupera a anterior.
 
 As alterações são mantidas ao navegar entre as páginas, mas não são gravadas automaticamente no servidor ou no navegador. Antes de recarregar ou fechar, exporte o arquivo. A tela fixa de Supervisão é independente do projeto aberto no editor.
@@ -4571,6 +5269,8 @@ scripts/          Inicialização no Windows
 O código completo também está reunido em `docs/CODIGO_COMPLETO.md`; os arquivos individuais são a fonte editável. Nenhuma fonte tipográfica ou imagem externa é necessária para operar a interface.
 
 ## Contrato e comportamento
+
+- `POST /api/simulation/evaluate`: validação sem estado dos valores manuais de tags próprias; nenhum comando físico ou alteração do simulador compartilhado. Tubulações não calculam vazão nem lógica automática.
 
 - `GET /api/health`: saúde e modo do serviço de simulação, versão de backend 0.1.0.
 - `GET /api/tags` e `WS /ws/tags`: snapshots versionados de três tags.
@@ -4675,6 +5375,8 @@ exit $LASTEXITCODE
 Este repositório público contém uma demonstração de simulação. O perfil local permanece limitado ao computador; o perfil hosted foi preparado para publicação atrás do proxy HTTPS do provedor, com cabeçalhos de segurança e origem WebSocket restrita. Não há autenticação/RBAC, dados privados ou comandos de escrita para equipamentos físicos. Não está pronto para operação industrial. Consulte [os limites da publicação](docs/deployment.md).
 
 ## Antes de cada envio
+
+O endpoint de simulação manual `/api/simulation/evaluate` valida valores de tags próprias, sem persistência ou mutação de estado compartilhado. Limita o corpo a 64 KiB, a 32 tags, nomes/tipos/faixas permitidos e rejeita campos desconhecidos. Ele não aceita endereços de dispositivos, scripts ou comandos físicos. A interface só atualiza valores após resposta válida; falhas tornam os valores manuais indisponíveis até reconexão. Os projetos continuam sendo lidos no navegador; apenas definições de tags e valores da simulação são enviados ao Java.
 
 - Revisar a lista de arquivos e o diff do commit.
 - Nunca registrar tokens, senhas, chaves privadas, certificados privados ou credenciais de equipamentos.

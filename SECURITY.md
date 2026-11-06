@@ -1,6 +1,6 @@
 # Segurança do projeto
 
-Este repositório público contém um protótipo local de simulação. Não contém autenticação/RBAC ou TLS e não está pronto para exposição na internet ou operação industrial. Não há comandos de escrita para equipamentos físicos.
+Este repositório público contém uma demonstração de simulação. O perfil local permanece limitado ao computador; o perfil hosted foi preparado para publicação atrás do proxy HTTPS do provedor, com cabeçalhos de segurança e origem WebSocket restrita. Não há autenticação/RBAC, dados privados ou comandos de escrita para equipamentos físicos. Não está pronto para operação industrial. Consulte [os limites da publicação](docs/deployment.md).
 
 ## Antes de cada envio
 

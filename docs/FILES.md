@@ -1,8 +1,10 @@
 # Inventário de arquivos autorais
 
+- .dockerignore
 - .gitattributes
 - .gitignore
 - backend/pom.xml
+- backend/src/main/java/br/com/scada/api/HostedHeaders.java
 - backend/src/main/java/br/com/scada/api/ScadaController.java
 - backend/src/main/java/br/com/scada/api/TagSocket.java
 - backend/src/main/java/br/com/scada/api/WebConfiguration.java
@@ -10,13 +12,17 @@
 - backend/src/main/java/br/com/scada/simulation/TankSimulator.java
 - backend/src/main/java/br/com/scada/tag/TagSnapshot.java
 - backend/src/main/java/br/com/scada/tag/TagValue.java
+- backend/src/main/resources/application-hosted.properties
 - backend/src/main/resources/application.properties
+- backend/src/test/java/br/com/scada/HostedHeadersTest.java
 - backend/src/test/java/br/com/scada/ScadaIntegrationTest.java
 - backend/src/test/java/br/com/scada/TankSimulatorTest.java
 - CHANGELOG.md
+- Dockerfile
 - docs/adr/0001-stack.md
 - docs/adr/0002-editor.md
 - docs/architecture.md
+- docs/deployment.md
 - docs/editor.md
 - docs/roadmap.md
 - docs/validation.md
@@ -47,6 +53,8 @@
 - frontend/vite.config.ts
 - infrastructure/README.md
 - README.md
+- render.yaml
+- scripts/Build-Package.ps1
 - scripts/Start-Backend.ps1
 - scripts/Start-Frontend.ps1
 - SECURITY.md

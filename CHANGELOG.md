@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## Preparação de hospedagem — 06/11/2026
+
+- Interface integrada ao pacote Java, perfil hosted e cabeçalhos de segurança.
+- Dockerfile com testes durante o build e execução sem privilégios.
+- Configuração Render Free com publicação automática da main após conexão da conta.
+- Pacote validado localmente: 21 testes frontend, 5 Java e 6 de navegador.
+- Criação do serviço público e build da imagem no provedor ainda pendentes.
+
 ## 0.2.0 — 06/11/2026
 
 - Editor Fabric.js com biblioteca de tanque, bomba, indicador e texto.

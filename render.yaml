@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: nexo-scada-demo
+    runtime: docker
+    repo: https://github.com/SheusV/sistema-supervisorio
+    branch: main
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: hosted

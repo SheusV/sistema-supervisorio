@@ -1,7 +1,7 @@
-# Infraestrutura — Etapa 0
+# Infraestrutura
 
 Backend em 127.0.0.1:8080; frontend Vite em 127.0.0.1:5173. Não há banco, broker, contêiner ou equipamento industrial necessário nesta etapa.
 
-Acesso pela rede local será preparado com autenticação, TLS, proxy reverso e regras de firewall explícitas. Não publicar este servidor de desenvolvimento na internet. O perfil atual é local e não possui login. Nenhuma regra de firewall ou configuração global do computador foi alterada.
+Não publicar o servidor de desenvolvimento na internet. Para hospedagem, o Dockerfile da raiz reúne interface e Java em um serviço. O render.yaml prepara uma demonstração gratuita, com atualizações da main após conectar a conta ao GitHub. O perfil hosted usa o proxy HTTPS do provedor. Não há dados privados ou equipamentos físicos.
 
-PostgreSQL + Flyway e Testcontainers entram quando houver persistência; adicionar Docker Compose neste momento não validaria nenhum comportamento do incremento.
+Consulte o [guia de publicação](../docs/deployment.md). A criação do serviço público ainda está pendente. PostgreSQL e Flyway entram quando houver persistência.

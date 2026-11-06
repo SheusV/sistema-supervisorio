@@ -1,6 +1,37 @@
 # Código completo — versão 0.2.0
 Cópia integral dos arquivos autorais; lockfile e capturas disponíveis separadamente.
 
+## .dockerignore
+````
+**
+!Dockerfile
+!backend/
+!backend/pom.xml
+!backend/src/
+!backend/src/**
+!frontend/
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/index.html
+!frontend/tsconfig.json
+!frontend/vite.config.ts
+!frontend/playwright.config.ts
+!frontend/src/
+!frontend/src/**
+!frontend/e2e/
+!frontend/e2e/**
+!examples/
+!examples/water-tank/
+!examples/water-tank/project.json
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/credentials.json
+````
+
 ## .gitattributes
 ````
 * text=auto
@@ -11,7 +42,6 @@ Cópia integral dos arquivos autorais; lockfile e capturas disponíveis separada
 *.md text eol=lf
 *.ps1 text eol=crlf
 *.png binary
-
 ````
 
 ## .gitignore
@@ -38,7 +68,6 @@ credentials.json
 secrets/
 *.tsbuildinfo
 .idea/
-
 ````
 
 ## backend/pom.xml
@@ -56,8 +85,48 @@ secrets/
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
   </dependencies>
   <build><plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin></plugins></build>
+  <profiles>
+    <profile>
+      <id>web-ui</id>
+      <build><resources>
+        <resource><directory>src/main/resources</directory></resource>
+        <resource><directory>../frontend/dist</directory><targetPath>static</targetPath></resource>
+      </resources></build>
+    </profile>
+  </profiles>
 </project>
+````
 
+## backend/src/main/java/br/com/scada/api/HostedHeaders.java
+````
+package br.com.scada.api;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+import java.io.IOException;
+
+/** Browser restrictions for the public simulation, served behind a TLS proxy. */
+@Component
+@Profile("hosted")
+public class HostedHeaders extends OncePerRequestFilter {
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                                    FilterChain chain) throws ServletException, IOException {
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        response.setHeader("Referrer-Policy", "no-referrer");
+        response.setHeader("X-Frame-Options", "DENY");
+        response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+        response.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; "
+            + "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; "
+            + "connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+        chain.doFilter(request, response);
+    }
+}
 ````
 
 ## backend/src/main/java/br/com/scada/api/ScadaController.java
@@ -83,7 +152,6 @@ public class ScadaController {
     @GetMapping("/api/tags")
     public TagSnapshot tags() { return simulator.current(); }
 }
-
 ````
 
 ## backend/src/main/java/br/com/scada/api/TagSocket.java
@@ -152,7 +220,6 @@ public class TagSocket extends TextWebSocketHandler {
         session.close(CloseStatus.SERVER_ERROR);
     }
 }
-
 ````
 
 ## backend/src/main/java/br/com/scada/api/WebConfiguration.java
@@ -179,7 +246,6 @@ public class WebConfiguration implements WebSocketConfigurer {
         registry.addHandler(socket, "/ws/tags").setAllowedOrigins(origins);
     }
 }
-
 ````
 
 ## backend/src/main/java/br/com/scada/ScadaApplication.java
@@ -197,7 +263,6 @@ public class ScadaApplication {
         SpringApplication.run(ScadaApplication.class, args);
     }
 }
-
 ````
 
 ## backend/src/main/java/br/com/scada/simulation/TankSimulator.java
@@ -242,7 +307,6 @@ public class TankSimulator {
         return new TagValue(name, type, value, unit, Quality.GOOD, now, now, Source.SIMULATED, false);
     }
 }
-
 ````
 
 ## backend/src/main/java/br/com/scada/tag/TagSnapshot.java
@@ -254,7 +318,6 @@ import java.util.List;
 public record TagSnapshot(int schemaVersion, long sequence, List<TagValue> tags) {
     public TagSnapshot { tags = List.copyOf(tags); }
 }
-
 ````
 
 ## backend/src/main/java/br/com/scada/tag/TagValue.java
@@ -271,7 +334,21 @@ public record TagValue(String name, DataType dataType, Object value, String unit
     public enum Quality { GOOD, BAD, UNCERTAIN, STALE }
     public enum Source { SIMULATED }
 }
+````
 
+## backend/src/main/resources/application-hosted.properties
+````
+# Public simulation profile. Never enable industrial drivers here.
+server.address=0.0.0.0
+server.port=${PORT:8080}
+server.forward-headers-strategy=framework
+scada.allowed-origins=${PUBLIC_ORIGIN:${RENDER_EXTERNAL_URL:http://localhost:8080}}
+server.tomcat.threads.max=40
+server.tomcat.max-connections=200
+server.tomcat.accept-count=50
+server.servlet.session.cookie.secure=true
+server.servlet.session.cookie.http-only=true
+server.servlet.session.cookie.same-site=strict
 ````
 
 ## backend/src/main/resources/application.properties
@@ -282,7 +359,39 @@ server.port=8080
 scada.allowed-origins=http://localhost:5173,http://127.0.0.1:5173
 scada.simulation-period-ms=1000
 server.error.include-message=never
+````
 
+## backend/src/test/java/br/com/scada/HostedHeadersTest.java
+````
+package br.com.scada;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.test.context.ActiveProfiles;
+import java.net.URI;
+import java.net.http.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+@ActiveProfiles("hosted")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = "server.address=127.0.0.1")
+class HostedHeadersTest {
+    @LocalServerPort int port;
+
+    @Test void simulationResponsesHaveBrowserProtectionHeaders() throws Exception {
+        var response = HttpClient.newHttpClient().send(
+            HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/health")).build(),
+            HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, response.statusCode());
+        assertEquals("nosniff", response.headers().firstValue("X-Content-Type-Options").orElseThrow());
+        assertEquals("DENY", response.headers().firstValue("X-Frame-Options").orElseThrow());
+        var policy = response.headers().firstValue("Content-Security-Policy").orElseThrow();
+        assertTrue(policy.contains("script-src 'self'"));
+        assertTrue(policy.contains("object-src 'none'"));
+        assertFalse(policy.contains("unsafe-eval"));
+    }
+}
 ````
 
 ## backend/src/test/java/br/com/scada/ScadaIntegrationTest.java
@@ -346,7 +455,6 @@ class ScadaIntegrationTest {
 
     private URI uri(String path) { return URI.create("http://127.0.0.1:" + port + path); }
 }
-
 ````
 
 ## backend/src/test/java/br/com/scada/TankSimulatorTest.java
@@ -382,12 +490,19 @@ class TankSimulatorTest {
         assertTrue(on && off);
     }
 }
-
 ````
 
 ## CHANGELOG.md
 ````
 # Histórico de versões
+
+## Preparação de hospedagem — 06/11/2026
+
+- Interface integrada ao pacote Java, perfil hosted e cabeçalhos de segurança.
+- Dockerfile com testes durante o build e execução sem privilégios.
+- Configuração Render Free com publicação automática da main após conexão da conta.
+- Pacote validado localmente: 21 testes frontend, 5 Java e 6 de navegador.
+- Criação do serviço público e build da imagem no provedor ainda pendentes.
 
 ## 0.2.0 — 06/11/2026
 
@@ -403,7 +518,35 @@ class TankSimulatorTest {
 - Simulador de nível, bomba e temperatura.
 - Sinótico React, lista de tags, reconexão e ajuda F1.
 - Testes de contrato, interface e comunicação com o backend.
+````
 
+## Dockerfile
+````
+FROM node:24-bookworm-slim AS frontend
+WORKDIR /build/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY frontend/ ./
+COPY examples/ /build/examples/
+RUN npm test && npm run build
+
+FROM maven:3.9.11-eclipse-temurin-21 AS backend
+WORKDIR /build
+COPY backend/pom.xml backend/pom.xml
+RUN mvn -B -ntp -f backend/pom.xml dependency:go-offline
+COPY backend/src/ backend/src/
+COPY --from=frontend /build/frontend/dist/ frontend/dist/
+RUN mvn -B -ntp -f backend/pom.xml -Pweb-ui verify
+
+FROM eclipse-temurin:21-jre-jammy AS runtime
+WORKDIR /app
+RUN groupadd --gid 10001 scada && useradd --uid 10001 --gid scada --no-create-home scada
+COPY --from=backend --chown=scada:scada /build/backend/target/scada-platform-0.1.0.jar /app/scada.jar
+USER scada
+ENV SPRING_PROFILES_ACTIVE=hosted
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError"
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app/scada.jar"]
 ````
 
 ## docs/adr/0001-stack.md
@@ -436,7 +579,6 @@ São dois processos de desenvolvimento locais. O alvo futuro permanece um servid
 - https://registry.npmjs.org/react/latest
 - https://registry.npmjs.org/vite/latest
 - https://registry.npmjs.org/typescript/latest
-
 ````
 
 ## docs/adr/0002-editor.md
@@ -456,7 +598,6 @@ Neste incremento, persistência significa exportação de arquivo local. Não h�
 Grupos, imagens/SVG, expressões e plugins estão fora desse contrato. Serão incluídos somente com requisitos e validações específicos.
 
 Referência: https://fabricjs.com/docs/getting-started/installing/
-
 ````
 
 ## docs/architecture.md
@@ -512,7 +653,83 @@ Somente loopback por padrão. REST usa a mesma origem pelo proxy, sem CORS liber
 SVG do sinótico é código próprio estático. Não há upload, importação de SVG, expressões livres, eval ou execução de plugins. A sanitização de arquivos será requisito do editor, não uma promessa desta implementação.
 
 SCADA não substitui intertravamentos, segurança ou controle determinístico de CLPs. Escrita física permanece fora do escopo até fase específica aprovada e validada.
+````
 
+## docs/deployment.md
+````
+# Publicação da demonstração
+
+## Arquitetura de hospedagem
+
+O Dockerfile constrói o frontend, executa seus testes e inclui o resultado no JAR Java pelo perfil Maven `web-ui`. O servidor atende a página, `/api` e `/ws` no mesmo domínio. O navegador escolhe automaticamente WSS quando a página usa HTTPS.
+
+O contêiner final contém somente Java e a aplicação; executa como usuário sem privilégios. `.dockerignore` usa uma lista de inclusão, deixando ferramentas locais, Git, arquivos de ambiente e credenciais fora do contexto de build.
+
+O perfil Spring `hosted` escuta a porta fornecida pelo provedor. O perfil local continua limitado a loopback. As variáveis utilizadas são de configuração, não de autenticação:
+
+| Variável | Origem / finalidade |
+| --- | --- |
+| PORT | Porta fornecida pela hospedagem |
+| SPRING_PROFILES_ACTIVE | hosted |
+| RENDER_EXTERNAL_URL | Domínio HTTPS fornecido pelo Render |
+| PUBLIC_ORIGIN | Opcional; origem exata ao usar domínio próprio |
+
+Não colocar chaves ou tokens no repositório, Dockerfile ou frontend. Esta demonstração não precisa de credenciais de equipamentos ou APIs externas.
+
+## Render
+
+1. Criar/acessar uma conta Render e conectar o GitHub, limitando o acesso a `SheusV/sistema-supervisorio`.
+2. Criar um Blueprint a partir desse repositório para usar `render.yaml`, ou criar um Web Service com runtime Docker, branch main e Dockerfile na raiz.
+3. Revisar o plano Free e seus limites na conta antes de confirmar. Não é plano de produção e pode haver quotas/condições de cobrança da conta.
+4. Usar `/api/health` como verificação de saúde. Não cadastrar banco de dados nesta etapa.
+5. Aguardar a compilação e conferir HTTPS, WebSocket, editor e exportação de JSON na URL retornada pelo provedor.
+
+O arquivo de configuração preparado não significa que o serviço já existe. A conexão da conta, criação do serviço e verificação da publicação são etapas obrigatórias.
+
+## Atualizações
+
+A configuração usa `autoDeployTrigger: commit` na branch main. Isso requer conectar o GitHub ao Render; a opção de publicar apenas por uma URL pública de repositório não habilita deploy automático.
+
+Fluxo: alteração em branch → testes e revisão de segredos → integração na main → Render reconstrói a imagem → testes Java/frontend dentro do build → verificação de saúde → nova versão na mesma URL. Se o build falhar, corrigir antes de considerar a nova versão publicada. Testes de navegador continuam sendo executados antes do envio.
+
+O simulador reinicia em cada deploy. Documentos do editor ficam no navegador até exportação; não há persistência no servidor. Exporte alterações antes de atualizar a página. Conexões WebSocket podem cair durante a troca de versão e o cliente tenta reconectar.
+
+## Plano gratuito
+
+O serviço gratuito pode suspender após inatividade e levar cerca de um minuto para retomar. Existem limites de horas, banda e builds. A oferta e os valores devem ser conferidos na conta. Não prometer disponibilidade industrial nem usar estratégias de tráfego artificial para evitar a suspensão.
+
+## Teste local do pacote
+
+Com dependências já instaladas, na raiz do projeto:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Build-Package.ps1
+java -jar backend/target/scada-platform-0.1.0.jar
+```
+
+Abra http://127.0.0.1:8080. Este modo mantém o perfil local. Para testar o perfil de hospedagem, mantendo o acesso restrito ao computador:
+
+```powershell
+java -jar backend/target/scada-platform-0.1.0.jar --spring.profiles.active=hosted --server.address=127.0.0.1 --server.port=8081 --scada.allowed-origins=http://127.0.0.1:8081
+```
+
+Os testes de navegador podem apontar para o pacote:
+
+```powershell
+Set-Location frontend
+$env:E2E_BASE_URL = 'http://127.0.0.1:8081'
+npm.cmd run test:e2e
+```
+
+Se Docker estiver instalado, `docker build -t nexo-scada .` constrói a imagem e `docker run --rm -p 127.0.0.1:8080:8080 nexo-scada` inicia a demonstração no computador. Docker não estava instalado no ambiente da preparação; não presumir validação da imagem até concluir um build real no provedor.
+
+## Limites de segurança
+
+A publicação é uma demonstração pública com dados sintéticos e consultas de leitura. Não há login, dados privados, uploads no servidor, conexão OT ou comandos físicos. Projetos importados são processados apenas no navegador. TLS é terminado pelo provedor; o perfil hosted usa cabeçalhos encaminhados exclusivamente atrás desse proxy.
+
+Qualquer evolução que inclua persistência compartilhada, dados reais ou administração remota exige autenticação, autorização e revisão específica antes de publicação.
+
+Referências oficiais: https://render.com/docs/docker ; https://render.com/docs/deploys ; https://render.com/docs/websocket ; https://render.com/docs/free
 ````
 
 ## docs/editor.md
@@ -563,7 +780,6 @@ O histórico guarda até 60 revisões; uma nova alteração após desfazer limpa
 Uma tela por projeto, quatro tipos de componente, sem seleção múltipla, grupos, importação de imagens ou servidor de projetos. A edição não grava tags nem substitui automaticamente o sinótico fixo de Supervisão.
 
 Referência da biblioteca: https://fabricjs.com/docs/getting-started/installing/
-
 ````
 
 ## docs/roadmap.md
@@ -580,7 +796,6 @@ Referência da biblioteca: https://fabricjs.com/docs/getting-started/installing/
 8. Extensões versionadas e critérios de segurança de plugins.
 
 Conexão com CLP físico, comandos de escrita e uso em produção exigem fases específicas posteriores. Nenhum desses recursos foi implementado nesta entrega.
-
 ````
 
 ## docs/validation.md
@@ -600,7 +815,9 @@ Editor integrado e validado com o simulador Java. A supervisão existente perman
 - Vitest: **21 testes aprovados em 4 arquivos**.
 - Playwright/Edge: **6 testes aprovados**.
 - Dependências npm: instalação concluída; auditoria reportou zero vulnerabilidades no momento da instalação.
-- Backend 0.1.0 sem alterações neste incremento: iniciado normalmente e utilizado nos testes reais. Seus 4 testes Java foram aprovados na entrega anterior.
+- Backend: **5 testes Java aprovados**, incluindo cabeçalhos do perfil hosted.
+- Pacote integrado: build com perfil Maven web-ui aprovado; os 6 testes de navegador também passaram contra o JAR em modo hosted na porta local 8081.
+- Docker não está instalado neste ambiente. Build Linux da imagem, HTTPS público e implantação no provedor ainda não foram validados.
 
 ## Cobertura do editor
 
@@ -629,13 +846,11 @@ Os testes de contrato usam mensagens controladas; três testes de navegador usam
 Não foram validados Linux, carga, uso entre computadores, persistência em servidor ou equipamentos industriais. O projeto permanece em memória até ser exportado. Imagens/SVG, grupos, alinhamento múltiplo e conexões industriais não fazem parte desta versão.
 
 A validação de reconexão interrompe o transporte WebSocket e verifica sua recuperação; não equivale a um teste de reinício manual do processo Java. Não há certificação de segurança ou disponibilidade industrial.
-
 ````
 
 ## examples/water-tank/project.json
 ````
 {"schemaVersion":1,"name":"Tanque TQ-001","screen":{"width":1200,"height":720},"components":[{"id":"title","kind":"text","label":"ALIMENTAÇÃO / TQ-001","x":100,"y":64,"width":360,"height":48,"angle":0,"binding":null},{"id":"tank","kind":"tank","label":"TQ-001","x":510,"y":190,"width":180,"height":260,"angle":0,"binding":"TQ001.LEVEL"},{"id":"pump","kind":"pump","label":"P-001","x":180,"y":310,"width":160,"height":130,"angle":0,"binding":"P001.RUNNING"},{"id":"temperature","kind":"indicator","label":"TT-001","x":860,"y":240,"width":160,"height":130,"angle":0,"binding":"TQ001.TEMPERATURE"}]}
-
 ````
 
 ## frontend/e2e/editor.spec.ts
@@ -779,7 +994,6 @@ test("moves equipment with the mouse and operates using the Java stream", async 
     fullPage: true,
   });
 });
-
 ````
 
 ## frontend/e2e/interface.spec.ts
@@ -825,7 +1039,6 @@ test("interface with controlled test frames: updates, disconnects and remains re
   await expect(page.getByRole("status")).toHaveText("Sem conexão");
   await expect(page.getByTestId("level-value")).toContainText("—");
 });
-
 ````
 
 ## frontend/e2e/supervision.spec.ts
@@ -873,7 +1086,6 @@ test("recovers the real Java stream after a transport interruption", async ({ pa
   expect(connections).toBeGreaterThan(1);
   await expect(page.getByTestId("level-value")).not.toContainText("—");
 });
-
 ````
 
 ## frontend/index.html
@@ -891,7 +1103,6 @@ test("recovers the real Java stream after a transport interruption", async ({ pa
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
 ````
 
 ## frontend/package.json
@@ -930,7 +1141,6 @@ test("recovers the real Java stream after a transport interruption", async ({ pa
     "vitest": "5.1.0"
   }
 }
-
 ````
 
 ## frontend/playwright.config.ts
@@ -939,14 +1149,13 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: process.env.E2E_BASE_URL || "http://127.0.0.1:5173",
     browserName: "chromium",
     channel: "msedge",
   },
   timeout: 30000,
   reporter: "list",
 });
-
 ````
 
 ## frontend/src/App.test.tsx
@@ -993,7 +1202,6 @@ describe("supervision", () => {
     expect(screen.getByText("Primeiros passos")).toBeInTheDocument();
   });
 });
-
 ````
 
 ## frontend/src/App.tsx
@@ -1304,7 +1512,6 @@ export function App() {
     </div>
   );
 }
-
 ````
 
 ## frontend/src/components/Process.tsx
@@ -1438,7 +1645,6 @@ export function Process({
     </svg>
   );
 }
-
 ````
 
 ## frontend/src/editor/editor.css
@@ -1890,7 +2096,6 @@ main:has(.editor) {
     width: calc(100% - 185px);
   }
 }
-
 ````
 
 ## frontend/src/editor/Editor.tsx
@@ -2463,7 +2668,6 @@ export default function Editor({
     </section>
   );
 }
-
 ````
 
 ## frontend/src/editor/project.test.ts
@@ -2574,7 +2778,6 @@ describe("editing history", () => {
     expect(state.past).toHaveLength(60);
   });
 });
-
 ````
 
 ## frontend/src/editor/project.ts
@@ -2798,7 +3001,6 @@ export function projectReducer(
     };
   return state;
 }
-
 ````
 
 ## frontend/src/editor/widgets.ts
@@ -2980,7 +3182,6 @@ export function createWidget(item: HmiComponent): Widget {
   });
   return { root, update };
 }
-
 ````
 
 ## frontend/src/main.tsx
@@ -2995,7 +3196,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <App />
   </React.StrictMode>,
 );
-
 ````
 
 ## frontend/src/styles.css
@@ -3651,7 +3851,6 @@ kbd {
     display: none;
   }
 }
-
 ````
 
 ## frontend/src/tags/model.test.ts
@@ -3680,7 +3879,6 @@ describe("tag contract", () => {
     expect(() => parseSnapshot(JSON.stringify(data))).toThrow();
   });
 });
-
 ````
 
 ## frontend/src/tags/model.ts
@@ -3744,7 +3942,6 @@ export function parseSnapshot(raw: string): Snapshot {
   }
   return frame as Snapshot;
 }
-
 ````
 
 ## frontend/src/tags/useTags.test.tsx
@@ -3792,7 +3989,6 @@ it("reconnects, accepts reset sequences after restart and rejects stale streams"
   act(() => vi.advanceTimersByTime(20000));
   expect(FakeSocket.sockets).toHaveLength(count);
 });
-
 ````
 
 ## frontend/src/tags/useTags.ts
@@ -3857,7 +4053,6 @@ export function useTags() {
   }, []);
   return { snapshot, connection };
 }
-
 ````
 
 ## frontend/src/test/fixture.ts
@@ -3899,7 +4094,6 @@ export function frame(sequence = 1, level = 42): Snapshot {
     ],
   };
 }
-
 ````
 
 ## frontend/src/test/setup.ts
@@ -3908,7 +4102,6 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 afterEach(cleanup);
-
 ````
 
 ## frontend/tsconfig.json
@@ -3928,7 +4121,6 @@ afterEach(cleanup);
   },
   "include": ["src", "vite.config.ts", "playwright.config.ts", "e2e"]
 }
-
 ````
 
 ## frontend/vite.config.ts
@@ -3953,19 +4145,17 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
   },
 });
-
 ````
 
 ## infrastructure/README.md
 ````
-# Infraestrutura — Etapa 0
+# Infraestrutura
 
 Backend em 127.0.0.1:8080; frontend Vite em 127.0.0.1:5173. Não há banco, broker, contêiner ou equipamento industrial necessário nesta etapa.
 
-Acesso pela rede local será preparado com autenticação, TLS, proxy reverso e regras de firewall explícitas. Não publicar este servidor de desenvolvimento na internet. O perfil atual é local e não possui login. Nenhuma regra de firewall ou configuração global do computador foi alterada.
+Não publicar o servidor de desenvolvimento na internet. Para hospedagem, o Dockerfile da raiz reúne interface e Java em um serviço. O render.yaml prepara uma demonstração gratuita, com atualizações da main após conectar a conta ao GitHub. O perfil hosted usa o proxy HTTPS do provedor. Não há dados privados ou equipamentos físicos.
 
-PostgreSQL + Flyway e Testcontainers entram quando houver persistência; adicionar Docker Compose neste momento não validaria nenhum comportamento do incremento.
-
+Consulte o [guia de publicação](../docs/deployment.md). A criação do serviço público ainda está pendente. PostgreSQL e Flyway entram quando houver persistência.
 ````
 
 ## README.md
@@ -4027,7 +4217,13 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-Interrompa cada processo com Ctrl+C. A aplicação escuta somente no computador local; implantação compartilhada com autenticação e TLS será uma etapa posterior.
+Interrompa cada processo com Ctrl+C. Esses servidores de desenvolvimento escutam somente no computador local.
+
+## Publicação da demonstração
+
+O pacote de hospedagem reúne interface e Java em um único serviço. `Dockerfile` e `render.yaml` preparam a demonstração pública no Render, com atualizações automáticas a partir da branch main após conectar o GitHub. A criação do serviço e a verificação da URL pública ainda estão pendentes.
+
+Veja o [guia de publicação](docs/deployment.md) para configurar a conta, gerar o pacote e entender os limites do plano gratuito. A demonstração usa apenas dados simulados; autenticação e uso com dados reais serão etapas posteriores.
 
 ## Usar o editor
 
@@ -4116,7 +4312,47 @@ Importação segura de imagens, agrupamento e alinhamento, persistência Postgre
 - **Projeto rejeitado:** confira o formato documentado em `docs/editor.md`. A tela atual é preservada quando o arquivo é inválido.
 
 No Linux, use JDK 21, Maven e Node 24: `mvn spring-boot:run` em `backend` e `npm ci` seguido de `npm run dev` em `frontend`. A validação desta versão foi realizada no Windows.
+````
 
+## render.yaml
+````
+services:
+  - type: web
+    name: nexo-scada-demo
+    runtime: docker
+    repo: https://github.com/SheusV/sistema-supervisorio
+    branch: main
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: hosted
+````
+
+## scripts/Build-Package.ps1
+````
+$ErrorActionPreference = 'Stop'
+$projectRoot = Split-Path $PSScriptRoot -Parent
+Set-Location (Join-Path $projectRoot 'frontend')
+$npmCommand = Get-Command npm.cmd -ErrorAction SilentlyContinue
+$portableNpm = Join-Path $projectRoot '.tools/package/bin/npm-cli.js'
+foreach ($task in @('test', 'build')) {
+    if ($npmCommand) { & $npmCommand.Source run $task }
+    elseif (Test-Path $portableNpm) { & node $portableNpm run $task }
+    else { throw 'Instale Node.js 24 com npm antes de empacotar.' }
+    if ($LASTEXITCODE) { exit $LASTEXITCODE }
+}
+Set-Location $projectRoot
+$portableJava = Join-Path $projectRoot '.tools/jdk-21.0.13+9'
+if (-not $env:JAVA_HOME -and (Test-Path $portableJava)) { $env:JAVA_HOME = $portableJava }
+$mavenCommand = Get-Command mvn.cmd -ErrorAction SilentlyContinue
+$maven = if ($mavenCommand) { $mavenCommand.Source } else { Join-Path $projectRoot '.tools/apache-maven-3.9.11/bin/mvn.cmd' }
+if (-not (Test-Path $maven)) { throw 'Instale Maven 3.9.11 ou superior.' }
+& $maven -B -ntp -f backend/pom.xml "-Dmaven.repo.local=$projectRoot/.tools/m2" -Pweb-ui clean verify
+exit $LASTEXITCODE
 ````
 
 ## scripts/Start-Backend.ps1
@@ -4131,7 +4367,6 @@ $maven = if ($mavenCommand) { $mavenCommand.Source } else { Join-Path $projectRo
 if (-not (Test-Path $maven)) { throw 'Instale Maven 3.9.11 ou superior e adicione sua pasta bin ao PATH. Consulte o README.' }
 & $maven -B -ntp -f backend/pom.xml "-Dmaven.repo.local=$projectRoot/.tools/m2" spring-boot:run
 exit $LASTEXITCODE
-
 ````
 
 ## scripts/Start-Frontend.ps1
@@ -4150,14 +4385,13 @@ if ($npmCommand) {
     & node $portableNpm run dev
 }
 exit $LASTEXITCODE
-
 ````
 
 ## SECURITY.md
 ````
 # Segurança do projeto
 
-Este repositório público contém um protótipo local de simulação. Não contém autenticação/RBAC ou TLS e não está pronto para exposição na internet ou operação industrial. Não há comandos de escrita para equipamentos físicos.
+Este repositório público contém uma demonstração de simulação. O perfil local permanece limitado ao computador; o perfil hosted foi preparado para publicação atrás do proxy HTTPS do provedor, com cabeçalhos de segurança e origem WebSocket restrita. Não há autenticação/RBAC, dados privados ou comandos de escrita para equipamentos físicos. Não está pronto para operação industrial. Consulte [os limites da publicação](docs/deployment.md).
 
 ## Antes de cada envio
 
@@ -4177,5 +4411,4 @@ gitleaks git --redact .
 A varredura inicial foi realizada com Gitleaks 8.30.1. A ausência de alertas não garante ausência absoluta de segredos; a revisão dos arquivos continua necessária. Não há bloqueio automático de novos commits configurado nesta etapa.
 
 Se uma credencial for publicada por engano, revogá-la/rotacioná-la imediatamente. Apagar somente o arquivo mais recente não remove o segredo do histórico. Não inclua credenciais ao relatar problemas em issues públicas.
-
 ````

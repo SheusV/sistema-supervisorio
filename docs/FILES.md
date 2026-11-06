@@ -1,4 +1,5 @@
 # Inventário de arquivos autorais
+
 - .gitattributes
 - .gitignore
 - backend/pom.xml
@@ -12,11 +13,15 @@
 - backend/src/main/resources/application.properties
 - backend/src/test/java/br/com/scada/ScadaIntegrationTest.java
 - backend/src/test/java/br/com/scada/TankSimulatorTest.java
+- CHANGELOG.md
 - docs/adr/0001-stack.md
+- docs/adr/0002-editor.md
 - docs/architecture.md
+- docs/editor.md
 - docs/roadmap.md
 - docs/validation.md
 - examples/water-tank/project.json
+- frontend/e2e/editor.spec.ts
 - frontend/e2e/interface.spec.ts
 - frontend/e2e/supervision.spec.ts
 - frontend/index.html
@@ -25,6 +30,11 @@
 - frontend/src/App.test.tsx
 - frontend/src/App.tsx
 - frontend/src/components/Process.tsx
+- frontend/src/editor/editor.css
+- frontend/src/editor/Editor.tsx
+- frontend/src/editor/project.test.ts
+- frontend/src/editor/project.ts
+- frontend/src/editor/widgets.ts
 - frontend/src/main.tsx
 - frontend/src/styles.css
 - frontend/src/tags/model.test.ts

@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useReducer, useState } from "react";
 import { useTags } from "./tags/useTags";
 import { Process } from "./components/Process";
 import type { TagName } from "./tags/model";
+import { exampleProject, projectReducer } from "./editor/project";
+const Editor = lazy(() => import("./editor/Editor"));
 
 const labels = {
   connecting: "Conectando",
@@ -11,6 +13,20 @@ const labels = {
 };
 export function App() {
   const [page, setPage] = useState("Supervisão");
+  const [editorHistory, editorDispatch] = useReducer(
+    projectReducer,
+    undefined,
+    () => ({ past: [], present: exampleProject(), future: [] }),
+  );
+  const [editorDirty, setEditorDirty] = useState(true);
+  useEffect(() => {
+    if (!editorHistory.past.length || !editorDirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [editorHistory, editorDirty]);
   const { snapshot, connection } = useTags();
   useEffect(() => {
     const help = (e: KeyboardEvent) => {
@@ -45,26 +61,25 @@ export function App() {
         </a>
         <div className="workspace-label">ÁREA DE TRABALHO</div>
         <nav aria-label="Navegação principal">
-          {["Supervisão", "Tags", "Ajuda"].map((item, i) => (
+          {["Supervisão", "Editor", "Tags", "Ajuda"].map((item, i) => (
             <button
               key={item}
               aria-current={page === item ? "page" : undefined}
               onClick={() => setPage(item)}
             >
-              <span aria-hidden="true">{["▦", "≋", "?"][i]}</span>
+              <span aria-hidden="true">{["▦", "⊞", "≋", "?"][i]}</span>
               {item}
             </button>
           ))}
         </nav>
         <div className="future">
           <span>PRÓXIMAS ETAPAS</span>
-          <p>Editor visual</p>
           <p>Alarmes e histórico</p>
           <p>Laboratório PID</p>
         </div>
         <div className="sidebar-footer">
           <span className="small-dot" /> Ambiente local{" "}
-          <small>Etapa 0 · v0.1.0</small>
+          <small>v0.2.0 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -78,15 +93,21 @@ export function App() {
         <main>
           <div className="page-heading">
             <div>
-              <div className="eyebrow">PROJETO DE DEMONSTRAÇÃO</div>
+              <div className="eyebrow">UNIDADE DE PROCESSO / 01</div>
               <h1>
-                {page === "Supervisão" ? "Visão geral do processo" : page}
+                {page === "Supervisão"
+                  ? "Visão geral do processo"
+                  : page === "Editor"
+                    ? "Editor de telas"
+                    : page}
               </h1>
               <p>
                 Tanque TQ-001 <span className="separator">•</span>{" "}
                 {page === "Supervisão"
                   ? "Acompanhamento em tempo real"
-                  : "Ambiente de desenvolvimento local"}
+                  : page === "Editor"
+                    ? "Composição e configuração de sinóticos"
+                    : "Configuração do projeto"}
               </p>
             </div>
             <span role="status" className={`connection ${connection}`}>
@@ -98,7 +119,7 @@ export function App() {
             <div className="notice" role="alert">
               {snapshot
                 ? "Atualizações interrompidas. Valores indisponíveis até a reconexão automática."
-                : "Aguardando dados do backend Java em localhost:8080."}
+                : "Aguardando conexão com o servidor de dados."}
             </div>
           )}
           {page === "Supervisão" && (
@@ -164,15 +185,26 @@ export function App() {
               <div className="info-strip">
                 <span>ⓘ</span>
                 <p>
-                  <strong>Um ambiente seguro para explorar.</strong> Todos os
-                  valores são gerados pelo simulador. Nenhum equipamento físico
-                  está conectado.
+                  <strong>Origem dos dados: simulador local.</strong> Ciclo de
+                  enchimento e descarga com atualização a cada segundo.
                 </p>
                 <button onClick={() => setPage("Ajuda")}>
-                  Conhecer o projeto →
+                  Ajuda de operação
                 </button>
               </div>
             </>
+          )}
+          {page === "Editor" && (
+            <Suspense fallback={<p>Carregando editor…</p>}>
+              <Editor
+                history={editorHistory}
+                dispatch={editorDispatch}
+                snapshot={snapshot}
+                connection={connection}
+                dirty={editorDirty}
+                onDirty={setEditorDirty}
+              />
+            </Suspense>
           )}
           {page === "Tags" && (
             <section className="panel tag-panel">
@@ -212,9 +244,9 @@ export function App() {
             <section className="panel help">
               <h2>Primeiros passos</h2>
               <p>
-                Esta é a Etapa 0: uma tela de operação conectada a um simulador
-                Java. A ajuda está incluída no aplicativo e não depende de
-                serviços externos.
+                Use Supervisão para acompanhar o processo e Editor para compor
+                telas. A ajuda está disponível localmente, sem serviços
+                externos.
               </p>
               <h3>Como funciona o tanque?</h3>
               <p>
@@ -231,10 +263,26 @@ export function App() {
               </p>
               <h3>O que vem depois?</h3>
               <p>
-                Editor com Fabric.js, persistência PostgreSQL/Flyway,
-                autenticação e perfis, drivers de leitura, alarmes e laboratório
-                de controle serão entregas separadas. Não há comandos para
-                dispositivos físicos nesta versão.
+                Persistência de projetos no servidor, autenticação e perfis,
+                drivers de leitura, alarmes e laboratório de controle serão
+                entregas separadas. Não há comandos para dispositivos físicos
+                nesta versão.
+              </p>
+              <h3>Como montar uma tela?</h3>
+              <p>
+                No Editor, insira tanques, bombas, indicadores e textos. Arraste
+                para posicionar e use as alças para redimensionar ou girar.
+                Selecione a tag no painel Propriedades. Edição usa valores
+                ilustrativos; Operação usa as tags do simulador e bloqueia
+                alterações.
+              </p>
+              <h3>Como salvar e recuperar o projeto?</h3>
+              <p>
+                Salvar projeto exporta um arquivo JSON. Abrir JSON recupera a
+                tela, as dimensões e os vínculos. As alterações permanecem ao
+                navegar entre as páginas, mas não sobrevivem ao recarregamento
+                sem exportação. Desfazer e Refazer mantêm até 60 alterações. A
+                importação aceita apenas o formato de projeto documentado.
               </p>
               <h3>Atalho de ajuda</h3>
               <p>

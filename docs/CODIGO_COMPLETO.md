@@ -1,4 +1,4 @@
-# Código completo — Etapa 0
+# Código completo — versão 0.2.0
 Cópia integral dos arquivos autorais; lockfile e capturas disponíveis separadamente.
 
 ## .gitattributes
@@ -385,6 +385,27 @@ class TankSimulatorTest {
 
 ````
 
+## CHANGELOG.md
+````
+# Histórico de versões
+
+## 0.2.0 — 06/11/2026
+
+- Editor Fabric.js com biblioteca de tanque, bomba, indicador e texto.
+- Arraste, ajuste à grade, tamanho, rotação, propriedades e ordem de exibição.
+- Edição e Operação separadas, com vínculo às tags simuladas existentes.
+- Arquivo JSON versionado, validação estrita, exportação/importação e histórico de 60 alterações.
+- Documentação de uso revisada e textos de interface orientados à operação.
+
+## 0.1.0 — 06/11/2026
+
+- Backend Java com saúde, consulta de tags e WebSocket.
+- Simulador de nível, bomba e temperatura.
+- Sinótico React, lista de tags, reconexão e ajuda F1.
+- Testes de contrato, interface e comunicação com o backend.
+
+````
+
 ## docs/adr/0001-stack.md
 ````
 # ADR 0001 — stack e limites da Etapa 0
@@ -418,11 +439,33 @@ São dois processos de desenvolvimento locais. O alvo futuro permanece um servid
 
 ````
 
+## docs/adr/0002-editor.md
+````
+# ADR 0002 — editor de telas e persistência de arquivos
+
+Status: implementado na versão 0.2.0.
+
+Fabric.js 7.4.0 fornece seleção e transformação de objetos. A dependência é fixada no lockfile e carregada em um módulo separado ao abrir o editor. O backend e o contrato de tags permanecem compatíveis com 0.1.0.
+
+O documento HMI é a fonte da geometria, ordem e vínculos. Objetos Fabric são uma representação desse documento. Valores recebidos do servidor atualizam somente a representação em Operação; não entram no histórico nem no arquivo exportado.
+
+Foi escolhido um formato JSON próprio, com versão e validação estrita, em vez de importar cenas nativas da biblioteca. Isso mantém o contrato pequeno, revisável e independente de mecanismos de construção de classes ou carregamento de URLs.
+
+Neste incremento, persistência significa exportação de arquivo local. Não há gravação automática no servidor. Navegação interna preserva o documento em memória; recarregar exige abrir um JSON exportado.
+
+Grupos, imagens/SVG, expressões e plugins estão fora desse contrato. Serão incluídos somente com requisitos e validações específicos.
+
+Referência: https://fabricjs.com/docs/getting-started/installing/
+
+````
+
 ## docs/architecture.md
 ````
 # Arquitetura — incremento 0
 
-O pedido inicial é a fonte do escopo. Os documentos fornecidos são referências de evolução, não uma autorização para implementar todas as fases.
+Atualização 0.2.0: o módulo `frontend/src/editor` acrescenta um documento HMI versionado, histórico local e representação Fabric.js. Consulte [o contrato do editor](editor.md). O backend e o contrato de tags descritos abaixo permanecem inalterados.
+
+O sistema é desenvolvido em incrementos locais, com contratos versionados e separação entre engenharia de telas e operação.
 
 ## Fluxo de dados
 
@@ -472,12 +515,63 @@ SCADA não substitui intertravamentos, segurança ou controle determinístico de
 
 ````
 
+## docs/editor.md
+````
+# Editor de telas — contrato v1
+
+O editor usa Fabric.js 7.4.0 para seleção e transformação, mas o arquivo salvo é um modelo de domínio próprio. Não se importa JSON nativo do Fabric nem se executam classes indicadas pelo arquivo.
+
+## Modelo
+
+- `schemaVersion`: 1.
+- `name`: nome de 1 a 80 caracteres.
+- `screen`: largura 1200 e altura 720.
+- `components`: até 100 componentes, na ordem de fundo para frente.
+
+Cada componente contém exatamente: `id`, `kind`, `label`, `x`, `y`, `width`, `height`, `angle` e `binding`.
+
+| Campo | Regra |
+| --- | --- |
+| id | Único, até 80 caracteres alfanuméricos, hífen ou sublinhado |
+| kind | tank, pump, indicator ou text |
+| label | 1–64 caracteres; renderizado como texto, sem HTML |
+| x / y | 0–1160 / 0–688 pixels |
+| width / height | 40–500 / 32–500 pixels |
+| angle | −180 a 180 graus |
+| binding | Tag compatível ou null |
+
+Componentes rotacionados ou próximos das bordas podem ultrapassar os limites visuais da tela e serão recortados pelo canvas. O painel permite reposicioná-los. Coordenadas e dimensões são finitas; valores fora dos limites são rejeitados.
+
+Tanques vinculam `TQ001.LEVEL`; bombas vinculam `P001.RUNNING`; indicadores vinculam nível ou temperatura; textos não possuem vínculo. Novas tags e tipos exigem ampliação explícita do contrato.
+
+## Segurança da importação
+
+Limite de arquivo: 256 KiB, validado antes da leitura e novamente no parser. O parser rejeita campos inesperados, tipos não suportados, IDs repetidos, números inválidos e vínculos incompatíveis. Não há URLs, imagens, scripts, expressões livres, eval, importação SVG ou desserialização arbitrária. Objetos Fabric são construídos exclusivamente pelo código da aplicação.
+
+O projeto é validado por completo antes da substituição da tela. Falhas mantêm a tela atual. Abrir um projeto válido é uma ação reversível pelo histórico. Os valores das tags e credenciais não são exportados.
+
+## Edição e operação
+
+Edição usa valores ilustrativos e mantém seleção, arraste, redimensionamento e rotação. Ajustar à grade arredonda a posição para múltiplos de 20 px; dimensões exatas podem ser informadas no painel. A ordem dos componentes determina a sobreposição.
+
+Operação mantém a geometria e bloqueia seleção/alteração. Somente dados GOOD de uma conexão ativa são apresentados. Sem vínculo, com qualidade ruim ou com desconexão, aparece indisponibilidade. Receber uma medição não altera o documento nem seu histórico.
+
+O histórico guarda até 60 revisões; uma nova alteração após desfazer limpa o caminho de refazer. O estado permanece durante a navegação interna. Exportação JSON é necessária para recuperação após recarga. O aviso de saída depende do comportamento do navegador e não substitui a exportação.
+
+## Limites deste incremento
+
+Uma tela por projeto, quatro tipos de componente, sem seleção múltipla, grupos, importação de imagens ou servidor de projetos. A edição não grava tags nem substitui automaticamente o sinótico fixo de Supervisão.
+
+Referência da biblioteca: https://fabricjs.com/docs/getting-started/installing/
+
+````
+
 ## docs/roadmap.md
 ````
 # Próximos incrementos
 
 1. Etapa 0 validada tecnicamente: backend, frontend e fluxo WebSocket real, incluindo reconexão após interrupção do transporte. Revisão visual pelo usuário disponível.
-2. Editor HMI com Fabric.js, modelo de tela versionado, bindings restritos, undo/redo, salvar/abrir e importação de arquivos validada.
+2. Editor HMI inicial entregue em 0.2.0: Fabric.js, componentes básicos, transformação, vínculos restritos, undo/redo e salvar/abrir JSON validado. Próxima evolução: grupos, alinhamento múltiplo e importação segura de imagens.
 3. PostgreSQL/Flyway, projetos persistidos, autenticação, perfis e auditoria; testes com Testcontainers.
 4. Drivers de leitura, primeiro contra servidores OPC UA/Modbus/MQTT simulados, com qualidade e timeouts testados.
 5. Alarmes e histórico com ECharts.
@@ -491,60 +585,200 @@ Conexão com CLP físico, comandos de escrita e uso em produção exigem fases e
 
 ## docs/validation.md
 ````
-# Relatório de validação — 06/11/2026
+# Relatório de validação — versão 0.2.0
 
-## Resultado atualizado
+Data: 06/11/2026. Ambiente: Windows, Node.js 24.22.1, Java 21.0.13, Microsoft Edge.
 
-**Etapa 0 validada tecnicamente em Windows.** Backend iniciado pelo script Start-Backend.ps1, frontend iniciado e dados do simulador Java recebidos no navegador.
+## Resultado
 
-- Maven `clean test`: BUILD SUCCESS, 4 testes, zero falhas, erros ou testes ignorados.
-- `/api/health` e `/api/tags`: HTTP 200, status UP e modo SIMULATION.
-- Dois testes Playwright com backend real aprovados: atualização, navegação/F1, tela de 390 px e recuperação após interrupção do transporte WebSocket.
-- O teste de reconexão encaminha mensagens do Java real e fecha a conexão ativa; não substitui as medições.
-- A primeira versão desse teste fechava a conexão já descartada pelo React StrictMode. Foi corrigida para fechar a conexão ativa e passou. Não foi necessário alterar o código da aplicação.
+Editor integrado e validado com o simulador Java. A supervisão existente permanece funcional. Nenhum equipamento físico foi conectado.
 
-## Frontend validado
+## Verificações realizadas
 
-- Instalação npm com lockfile: concluída; auditoria no momento da instalação reportou zero vulnerabilidades.
-- TypeScript e build de produção Vite: aprovados.
-- Vitest: 6 testes aprovados em 3 arquivos. Cobrem contrato, rejeição de dados inválidos, atualização do tanque, qualidade ruim, desconexão, navegação/F1, silêncio, reconexão e reinício da sequência.
-- Playwright/Edge: 1 teste de interface com mensagens controladas aprovado. Verifica atualização, navegação, F1, perda de conexão e ausência de transbordamento horizontal em 390 px.
-- Servidor Vite iniciado e HTTP 200 confirmado.
+- TypeScript: compilação sem erros.
+- Vite: build de produção aprovado; editor carregado separadamente da tela inicial.
+- Vitest: **21 testes aprovados em 4 arquivos**.
+- Playwright/Edge: **6 testes aprovados**.
+- Dependências npm: instalação concluída; auditoria reportou zero vulnerabilidades no momento da instalação.
+- Backend 0.1.0 sem alterações neste incremento: iniciado normalmente e utilizado nos testes reais. Seus 4 testes Java foram aprovados na entrega anterior.
 
-## Histórico do bloqueio — resolvido
+## Cobertura do editor
 
-- Maven/Java: dependências foram obtidas, mas a compilação falhou com `java.nio.file.AccessDeniedException` em `WindowsLinkSupport.getRealPath`, inclusive ao resolver o caminho de um JAR e limpar `backend/target`. Teste isolado com `Path.toRealPath` reproduziu a falha na leitura do próprio `pom.xml`.
-- Duas solicitações adicionais de leitura foram concedidas, mas não removeram essa restrição do executor.
-- A execução autorizada fora do ambiente restrito resolveu a falha. Os quatro testes Java passaram e o Spring Boot iniciou normalmente.
-- Os dois testes Playwright com backend real (`supervision.spec.ts`) passaram.
-- Nenhuma validação em CLPs físicos, rede local entre máquinas, Linux, carga ou ambiente de produção foi feita.
+- Arquivo de exemplo distribuído aceito pelo parser.
+- Preservação de geometria, rotação, rótulo, ordem e vínculo ao exportar e reabrir.
+- Rejeição de campos desconhecidos, URLs, scripts, estruturas inválidas, IDs repetidos, limites excedidos e tags incompatíveis.
+- Histórico de 60 revisões, desfazer/refazer e descarte do caminho de refazer após nova edição.
+- Inserção de componente, propriedades, ordem de exibição e download JSON no navegador.
+- Reabertura do JSON exportado sem perder o vínculo.
+- Arraste com mouse e ajuste à grade; desfazer retorna à posição anterior.
+- Operação com valores recebidos do Java real; biblioteca e propriedades bloqueadas nesse modo.
+- Navegação interna preserva o documento; arquivo inválido preserva a tela atual.
+- Tela estreita sem transbordamento horizontal da página.
+
+Os testes de contrato usam mensagens controladas; três testes de navegador usam o backend real: supervisão, reconexão do transporte e operação do editor. A restrição de importar conteúdo fora da raiz do servidor Vite foi respeitada: o teste do exemplo lê o arquivo diretamente como dado local de teste, sem ampliar as permissões do servidor web.
 
 ## Capturas
 
-`screenshots/desktop-java-live.png` mostra a tela conectada ao simulador Java real.
+- `screenshots/editor-v0.2.png`: edição e reabertura de projeto com dados controlados.
+- `screenshots/editor-operacao-java.png`: editor em Operação com o simulador Java.
+- `screenshots/desktop-java-live.png`: supervisão conectada ao Java.
+- Arquivos terminados em `test-data.png`: interface com dados controlados.
 
-`screenshots/desktop-test-data.png` e `screenshots/mobile-test-data.png` usam mensagens injetadas exclusivamente pelo teste Playwright. O código normal da aplicação não contém esse fallback. O indicador Conectado nessas capturas refere-se ao fluxo controlado do teste, não a um backend Java validado.
+## Limites
 
-## Critério de pronto
+Não foram validados Linux, carga, uso entre computadores, persistência em servidor ou equipamentos industriais. O projeto permanece em memória até ser exportado. Imagens/SVG, grupos, alinhamento múltiplo e conexões industriais não fazem parte desta versão.
 
-**Critério técnico da Etapa 0 atendido:** backend e frontend iniciaram e o tanque recebeu os dados do simulador Java via WebSocket. Comandos e checklist de revisão estão no README. Não foi testado reinício manual do processo Java com navegador aberto: a reconexão foi verificada por interrupção do transporte, e sequência reiniciada por teste unitário. Nenhum avanço para equipamentos físicos foi feito.
+A validação de reconexão interrompe o transporte WebSocket e verifica sua recuperação; não equivale a um teste de reinício manual do processo Java. Não há certificação de segurança ou disponibilidade industrial.
 
 ````
 
 ## examples/water-tank/project.json
 ````
-{
-  "schemaVersion": 1,
-  "id": "water-tank",
-  "name": "Tanque TQ-001",
-  "mode": "SIMULATION",
-  "description": "Referência declarativa da tela fixa da Etapa 0. Importação pelo editor será implementada posteriormente.",
-  "components": [
-    {"id": "tank", "type": "tank", "bindings": {"level": "TQ001.LEVEL"}},
-    {"id": "pump", "type": "pump", "bindings": {"running": "P001.RUNNING"}},
-    {"id": "temperature", "type": "indicator", "bindings": {"value": "TQ001.TEMPERATURE"}}
-  ]
-}
+{"schemaVersion":1,"name":"Tanque TQ-001","screen":{"width":1200,"height":720},"components":[{"id":"title","kind":"text","label":"ALIMENTAÇÃO / TQ-001","x":100,"y":64,"width":360,"height":48,"angle":0,"binding":null},{"id":"tank","kind":"tank","label":"TQ-001","x":510,"y":190,"width":180,"height":260,"angle":0,"binding":"TQ001.LEVEL"},{"id":"pump","kind":"pump","label":"P-001","x":180,"y":310,"width":160,"height":130,"angle":0,"binding":"P001.RUNNING"},{"id":"temperature","kind":"indicator","label":"TT-001","x":860,"y":240,"width":160,"height":130,"angle":0,"binding":"TQ001.TEMPERATURE"}]}
+
+````
+
+## frontend/e2e/editor.spec.ts
+````
+import { test, expect } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+import { frame } from "../src/test/fixture";
+
+test("edits, exports and reopens the same screen with bindings and layer order", async ({
+  page,
+}) => {
+  await page.routeWebSocket("**/ws/tags", (stream) =>
+    stream.send(JSON.stringify(frame())),
+  );
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await expect(page.getByLabel("Editor de telas")).toBeVisible();
+  await page.getByRole("button", { name: "Tanque", exact: true }).click();
+  await expect(page.getByLabel("Identificação", { exact: true })).toHaveValue(
+    "Tanque",
+  );
+  await page.getByLabel("Identificação", { exact: true }).fill("TQ-002");
+  await page.getByLabel("X", { exact: true }).click();
+  await page.getByLabel("X", { exact: true }).fill("340");
+  await page.getByLabel("Y", { exact: true }).click();
+  await page.getByLabel("Y", { exact: true }).fill("220");
+  await page.getByLabel("Largura", { exact: true }).click();
+  await page.getByLabel("Largura", { exact: true }).fill("230");
+  await page.getByLabel("Rotação", { exact: true }).click();
+  await page.getByLabel("Rotação", { exact: true }).fill("30");
+  await page.getByLabel("Tag vinculada").click();
+  await expect(page.getByLabel("Rotação", { exact: true })).toHaveValue("30");
+  await page.getByRole("button", { name: "Desfazer", exact: true }).click();
+  await expect(page.getByLabel("Rotação", { exact: true })).toHaveValue("0");
+  await page.getByRole("button", { name: "Refazer", exact: true }).click();
+  await expect(page.getByLabel("Rotação", { exact: true })).toHaveValue("30");
+  await page.getByRole('button', { name: 'Para trás', exact: true }).click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Salvar projeto" }).click();
+  const file = await download;
+  const data = JSON.parse(await readFile((await file.path())!, "utf8"));
+  expect(data.components).toHaveLength(5);
+  expect(data.components[3]).toMatchObject({
+    label: "TQ-002",
+    x: 340,
+    y: 220,
+    width: 230,
+    angle: 30,
+    binding: "TQ001.LEVEL",
+  });
+  await page.getByRole("button", { name: "Excluir componente" }).click();
+  await page
+    .getByLabel("Arquivo de projeto")
+    .setInputFiles({
+      name: "projeto.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(data)),
+    });
+  await page
+    .getByRole("button", { name: "Tanque TQ-002", exact: true })
+    .click();
+  await expect(page.getByLabel("X", { exact: true })).toHaveValue("340");
+  await expect(page.getByLabel("Rotação", { exact: true })).toHaveValue("30");
+  await page.screenshot({
+    path: "../docs/screenshots/editor-v0.2.png",
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Operação", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Tanque", exact: true }),
+  ).toBeDisabled();
+  await expect(page.getByLabel("Valores em operação")).toContainText(
+    "TQ-002: 42 %",
+  );
+  await page.getByRole("button", { name: "Tags", exact: true }).click();
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Tanque TQ-002", exact: true }),
+  ).toBeVisible();
+});
+
+test("rejects unsafe project fields without replacing the current screen", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await page
+    .getByLabel("Arquivo de projeto")
+    .setInputFiles({
+      name: "malformed.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(
+        '{"schemaVersion":1,"src":"https://example.com/active.svg"}',
+      ),
+    });
+  await expect(
+    page.getByText("O projeto contém campos ausentes ou não suportados."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Tanque TQ-001", exact: true }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
+test("moves equipment with the mouse and operates using the Java stream", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto("/");
+  await expect(page.getByRole("status")).toHaveText("Conectado");
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Tanque TQ-001", exact: true })
+    .click();
+  const scale =
+    Number(await page.getByLabel("Zoom", { exact: true }).inputValue()) / 100;
+  const area = (await page.locator(".upper-canvas").boundingBox())!;
+  await page.mouse.move(area.x + 600 * scale, area.y + 320 * scale);
+  await page.mouse.down();
+  await page.mouse.move(area.x + 690 * scale, area.y + 370 * scale, {
+    steps: 8,
+  });
+  await page.mouse.up();
+  await expect(page.getByLabel("X", { exact: true })).toHaveValue("600");
+  await expect(page.getByLabel("Y", { exact: true })).toHaveValue("240");
+  await page.getByRole("button", { name: "Desfazer", exact: true }).click();
+  await expect(page.getByLabel("X", { exact: true })).toHaveValue("510");
+  await page.getByRole("button", { name: "Operação", exact: true }).click();
+  const readings = page.getByLabel("Valores em operação");
+  await expect(readings).not.toContainText("Indisponível");
+  const initial = await readings.textContent();
+  await expect(readings).not.toHaveText(initial!);
+  await page.screenshot({
+    path: "../docs/screenshots/editor-operacao-java.png",
+    fullPage: true,
+  });
+});
 
 ````
 
@@ -664,7 +898,7 @@ test("recovers the real Java stream after a transport interruption", async ({ pa
 ````
 {
   "name": "scada-hmi",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -678,21 +912,22 @@ test("recovers the real Java stream after a transport interruption", async ({ pa
     "preview": "vite preview"
   },
   "dependencies": {
+    "fabric": "7.4.0",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "6.2.1",
-    "vite": "8.3.6",
-    "typescript": "7.0.2",
+    "@playwright/test": "1.65.0",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "@types/node": "26.6.6",
-    "vitest": "5.1.0",
+    "@vitejs/plugin-react": "6.2.1",
     "jsdom": "31.0.0",
-    "@testing-library/react": "16.3.3",
-    "@testing-library/jest-dom": "7.0.1",
-    "@playwright/test": "1.65.0"
+    "typescript": "7.0.2",
+    "vite": "8.3.6",
+    "vitest": "5.1.0"
   }
 }
 
@@ -763,10 +998,12 @@ describe("supervision", () => {
 
 ## frontend/src/App.tsx
 ````
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useReducer, useState } from "react";
 import { useTags } from "./tags/useTags";
 import { Process } from "./components/Process";
 import type { TagName } from "./tags/model";
+import { exampleProject, projectReducer } from "./editor/project";
+const Editor = lazy(() => import("./editor/Editor"));
 
 const labels = {
   connecting: "Conectando",
@@ -776,6 +1013,20 @@ const labels = {
 };
 export function App() {
   const [page, setPage] = useState("Supervisão");
+  const [editorHistory, editorDispatch] = useReducer(
+    projectReducer,
+    undefined,
+    () => ({ past: [], present: exampleProject(), future: [] }),
+  );
+  const [editorDirty, setEditorDirty] = useState(true);
+  useEffect(() => {
+    if (!editorHistory.past.length || !editorDirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [editorHistory, editorDirty]);
   const { snapshot, connection } = useTags();
   useEffect(() => {
     const help = (e: KeyboardEvent) => {
@@ -810,26 +1061,25 @@ export function App() {
         </a>
         <div className="workspace-label">ÁREA DE TRABALHO</div>
         <nav aria-label="Navegação principal">
-          {["Supervisão", "Tags", "Ajuda"].map((item, i) => (
+          {["Supervisão", "Editor", "Tags", "Ajuda"].map((item, i) => (
             <button
               key={item}
               aria-current={page === item ? "page" : undefined}
               onClick={() => setPage(item)}
             >
-              <span aria-hidden="true">{["▦", "≋", "?"][i]}</span>
+              <span aria-hidden="true">{["▦", "⊞", "≋", "?"][i]}</span>
               {item}
             </button>
           ))}
         </nav>
         <div className="future">
           <span>PRÓXIMAS ETAPAS</span>
-          <p>Editor visual</p>
           <p>Alarmes e histórico</p>
           <p>Laboratório PID</p>
         </div>
         <div className="sidebar-footer">
           <span className="small-dot" /> Ambiente local{" "}
-          <small>Etapa 0 · v0.1.0</small>
+          <small>v0.2.0 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -843,15 +1093,21 @@ export function App() {
         <main>
           <div className="page-heading">
             <div>
-              <div className="eyebrow">PROJETO DE DEMONSTRAÇÃO</div>
+              <div className="eyebrow">UNIDADE DE PROCESSO / 01</div>
               <h1>
-                {page === "Supervisão" ? "Visão geral do processo" : page}
+                {page === "Supervisão"
+                  ? "Visão geral do processo"
+                  : page === "Editor"
+                    ? "Editor de telas"
+                    : page}
               </h1>
               <p>
                 Tanque TQ-001 <span className="separator">•</span>{" "}
                 {page === "Supervisão"
                   ? "Acompanhamento em tempo real"
-                  : "Ambiente de desenvolvimento local"}
+                  : page === "Editor"
+                    ? "Composição e configuração de sinóticos"
+                    : "Configuração do projeto"}
               </p>
             </div>
             <span role="status" className={`connection ${connection}`}>
@@ -863,7 +1119,7 @@ export function App() {
             <div className="notice" role="alert">
               {snapshot
                 ? "Atualizações interrompidas. Valores indisponíveis até a reconexão automática."
-                : "Aguardando dados do backend Java em localhost:8080."}
+                : "Aguardando conexão com o servidor de dados."}
             </div>
           )}
           {page === "Supervisão" && (
@@ -929,15 +1185,26 @@ export function App() {
               <div className="info-strip">
                 <span>ⓘ</span>
                 <p>
-                  <strong>Um ambiente seguro para explorar.</strong> Todos os
-                  valores são gerados pelo simulador. Nenhum equipamento físico
-                  está conectado.
+                  <strong>Origem dos dados: simulador local.</strong> Ciclo de
+                  enchimento e descarga com atualização a cada segundo.
                 </p>
                 <button onClick={() => setPage("Ajuda")}>
-                  Conhecer o projeto →
+                  Ajuda de operação
                 </button>
               </div>
             </>
+          )}
+          {page === "Editor" && (
+            <Suspense fallback={<p>Carregando editor…</p>}>
+              <Editor
+                history={editorHistory}
+                dispatch={editorDispatch}
+                snapshot={snapshot}
+                connection={connection}
+                dirty={editorDirty}
+                onDirty={setEditorDirty}
+              />
+            </Suspense>
           )}
           {page === "Tags" && (
             <section className="panel tag-panel">
@@ -977,9 +1244,9 @@ export function App() {
             <section className="panel help">
               <h2>Primeiros passos</h2>
               <p>
-                Esta é a Etapa 0: uma tela de operação conectada a um simulador
-                Java. A ajuda está incluída no aplicativo e não depende de
-                serviços externos.
+                Use Supervisão para acompanhar o processo e Editor para compor
+                telas. A ajuda está disponível localmente, sem serviços
+                externos.
               </p>
               <h3>Como funciona o tanque?</h3>
               <p>
@@ -996,10 +1263,26 @@ export function App() {
               </p>
               <h3>O que vem depois?</h3>
               <p>
-                Editor com Fabric.js, persistência PostgreSQL/Flyway,
-                autenticação e perfis, drivers de leitura, alarmes e laboratório
-                de controle serão entregas separadas. Não há comandos para
-                dispositivos físicos nesta versão.
+                Persistência de projetos no servidor, autenticação e perfis,
+                drivers de leitura, alarmes e laboratório de controle serão
+                entregas separadas. Não há comandos para dispositivos físicos
+                nesta versão.
+              </p>
+              <h3>Como montar uma tela?</h3>
+              <p>
+                No Editor, insira tanques, bombas, indicadores e textos. Arraste
+                para posicionar e use as alças para redimensionar ou girar.
+                Selecione a tag no painel Propriedades. Edição usa valores
+                ilustrativos; Operação usa as tags do simulador e bloqueia
+                alterações.
+              </p>
+              <h3>Como salvar e recuperar o projeto?</h3>
+              <p>
+                Salvar projeto exporta um arquivo JSON. Abrir JSON recupera a
+                tela, as dimensões e os vínculos. As alterações permanecem ao
+                navegar entre as páginas, mas não sobrevivem ao recarregamento
+                sem exportação. Desfazer e Refazer mantêm até 60 alterações. A
+                importação aceita apenas o formato de projeto documentado.
               </p>
               <h3>Atalho de ajuda</h3>
               <p>
@@ -1154,6 +1437,1548 @@ export function Process({
       </text>
     </svg>
   );
+}
+
+````
+
+## frontend/src/editor/editor.css
+````
+.editor {
+  border: 1px solid #d7e0e8;
+  background: #fff;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.editor button {
+  border: 1px solid #d6dfe7;
+  background: white;
+  color: #344b60;
+  border-radius: 4px;
+  padding: 8px 11px;
+  font-size: 11px;
+}
+.editor button:hover:not(:disabled) {
+  border-color: #7795aa;
+  background: #f4f8fb;
+}
+.editor button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #dce4eb;
+  flex-wrap: wrap;
+}
+.mode-switch {
+  display: flex;
+}
+.mode-switch button {
+  border-radius: 0;
+}
+.mode-switch button:first-child {
+  border-radius: 4px 0 0 4px;
+}
+.mode-switch button:last-child {
+  border-radius: 0 4px 4px 0;
+}
+.mode-switch button[aria-pressed="true"] {
+  background: #203b54;
+  color: #fff;
+  border-color: #203b54;
+}
+.toolbar-divider {
+  height: 22px;
+  border-left: 1px solid #dce4eb;
+  margin: 0 5px;
+}
+.toolbar-files {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.save-state {
+  font-size: 10px;
+  color: #7b8997;
+  margin-right: 6px;
+}
+.editor .primary-action {
+  background: #245f80;
+  color: #fff;
+  border-color: #245f80;
+}
+.editor-layout {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) 210px;
+  min-height: 540px;
+}
+.component-library {
+  border-right: 1px solid #dce4eb;
+  padding: 17px 12px;
+}
+.editor h2 {
+  font-size: 12px;
+  margin: 0 0 10px;
+  font-weight: 650;
+}
+.component-library > p {
+  font-size: 10px;
+  color: #8493a1;
+  margin: 0 0 17px;
+}
+.library-items {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+.library-items button {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 4px;
+}
+.library-symbol {
+  display: block;
+  width: 24px;
+  height: 29px;
+  border: 2px solid #7992a4;
+  border-radius: 5px;
+  position: relative;
+}
+.library-symbol.tank:after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 2px;
+  right: 2px;
+  height: 10px;
+  background: #579ca3;
+}
+.library-symbol.pump {
+  border-radius: 50%;
+  height: 24px;
+  margin-bottom: 5px;
+}
+.library-symbol.pump:after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 4px;
+  border-left: 10px solid #7992a4;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+.library-symbol.indicator {
+  height: 19px;
+  width: 29px;
+  margin: 5px 0;
+}
+.library-symbol.indicator:after {
+  content: "25";
+  position: absolute;
+  font-size: 10px;
+  left: 5px;
+  top: 2px;
+}
+.library-symbol.text {
+  border: 0;
+  border-radius: 0;
+}
+.library-symbol.text:after {
+  content: "T";
+  font-family: Georgia, serif;
+  font-size: 29px;
+  position: absolute;
+  top: -3px;
+  left: 3px;
+}
+.editor .layers-heading {
+  margin-top: 26px;
+  display: flex;
+  justify-content: space-between;
+}
+.layers-heading span {
+  color: #8595a3;
+  font-weight: 400;
+}
+.layer-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 380px;
+  overflow: auto;
+}
+.layer-list li {
+  margin-bottom: 5px;
+}
+.layer-list button {
+  width: 100%;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-color: transparent;
+}
+.layer-list button[aria-pressed="true"] {
+  background: #eaf2f8;
+  border-color: #c3d9e9;
+}
+.layer-kind {
+  display: block;
+  color: #8a9bab;
+  font-size: 9px;
+  margin-bottom: 3px;
+}
+.editor-workspace {
+  min-width: 0;
+  background: #e9eef3;
+  display: flex;
+  flex-direction: column;
+}
+.screen-title {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 17px;
+  font-size: 10px;
+  color: #718395;
+  border-bottom: 1px solid #d8e1e8;
+  background: #f6f8fa;
+}
+.screen-title span:first-child {
+  font-weight: 600;
+  color: #3e5265;
+}
+.canvas-scroll {
+  padding: 18px;
+  overflow: auto;
+  min-height: 360px;
+  flex: 1;
+}
+.canvas-scroll .canvas-container {
+  box-shadow: 0 1px 7px #1f35451a;
+  background: white;
+}
+.canvas-scroll.editing .canvas-container {
+  background-image: radial-gradient(#c5d0d8 0.8px, transparent 0.8px);
+  background-size: 14px 14px;
+}
+.canvas-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: #f5f7f9;
+  border-top: 1px solid #d5dfe8;
+  font-size: 10px;
+  color: #6d8093;
+  flex-wrap: wrap;
+}
+.canvas-controls label:first-child {
+  margin-right: auto;
+}
+.canvas-controls input {
+  vertical-align: middle;
+}
+.canvas-controls select {
+  font: inherit;
+  padding: 3px;
+  border: 1px solid #d2dce5;
+  border-radius: 3px;
+  margin-left: 5px;
+}
+.canvas-controls button {
+  padding: 4px 8px;
+}
+.editor-hint {
+  font-size: 10px;
+  color: #6d7f90;
+  padding: 12px 15px;
+  border-top: 1px solid #dce4eb;
+  background: #f5f7f9;
+  line-height: 1.6;
+}
+.properties {
+  border-left: 1px solid #dce4eb;
+  padding: 17px 14px;
+}
+.properties label {
+  display: block;
+  font-size: 10px;
+  color: #718596;
+  margin: 15px 0 0;
+}
+.properties input,
+.properties select {
+  width: 100%;
+  border: 1px solid #d2dce5;
+  border-radius: 4px;
+  padding: 8px;
+  font:
+    12px Segoe UI,
+    Arial;
+  color: #344b60;
+  margin-top: 6px;
+  background: #fff;
+}
+.geometry-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 9px;
+}
+.property-note,
+.empty-properties {
+  font-size: 11px;
+  color: #7a8d9e;
+  line-height: 1.7;
+  margin-top: 16px;
+}
+.selected-type {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #668194;
+  border-bottom: 1px solid #e5ebef;
+  padding-bottom: 13px;
+}
+.properties h3 {
+  font-size: 10px;
+  font-weight: 500;
+  color: #718596;
+  margin-top: 24px;
+}
+.layer-actions {
+  display: flex;
+  gap: 5px;
+}
+.layer-actions button {
+  padding: 7px;
+  font-size: 10px;
+}
+.editor .delete-component {
+  color: #a44f4f;
+  border-color: #ead5d5;
+  margin-top: 28px;
+  width: 100%;
+}
+.editor-message {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f4f7fa;
+  border-top: 1px solid #dae3ea;
+  padding: 10px 15px;
+  font-size: 12px;
+  color: #405d73;
+}
+.editor-message button {
+  border: 0;
+  background: none;
+  font-size: 20px;
+  padding: 0 8px;
+}
+.runtime-readings {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 15px;
+  background: #fff;
+  font-size: 10px;
+  color: #7d8fa0;
+}
+.runtime-readings strong {
+  font-weight: 600;
+  color: #35556f;
+}
+.main:has(.editor) {
+  width: calc(100% - 228px);
+}
+main:has(.editor) {
+  max-width: none;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+@media (max-width: 1100px) {
+  .editor-layout {
+    grid-template-columns: 130px minmax(0, 1fr) 180px;
+  }
+  .save-state {
+    display: none;
+  }
+  .main:has(.editor) {
+    width: calc(100% - 185px);
+  }
+}
+@media (max-width: 850px) {
+  .editor-layout {
+    grid-template-columns: 110px minmax(0, 1fr);
+  }
+  .properties {
+    grid-column: 1/-1;
+    border-left: 0;
+    border-top: 1px solid #dce4eb;
+  }
+  .geometry-fields {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .properties input,
+  .properties select {
+    max-width: 280px;
+  }
+  .library-items {
+    grid-template-columns: 1fr;
+  }
+  .toolbar-files {
+    margin-left: 0;
+  }
+  .canvas-scroll {
+    min-height: 260px;
+  }
+  .main:has(.editor) {
+    width: 100%;
+  }
+}
+@media (max-width: 720px) {
+  main:has(.editor) {
+    padding: 20px 12px;
+  }
+  .editor-toolbar {
+    gap: 5px;
+    padding: 10px;
+  }
+  .editor button {
+    font-size: 10px;
+    padding: 7px 8px;
+  }
+  .editor-layout {
+    grid-template-columns: 94px minmax(0, 1fr);
+  }
+  .component-library {
+    padding: 14px 7px;
+  }
+  .screen-title {
+    gap: 8px;
+    padding: 10px;
+  }
+  .screen-title span:last-child {
+    white-space: nowrap;
+  }
+  .geometry-fields {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .canvas-controls {
+    gap: 5px;
+  }
+  .layer-list button {
+    font-size: 9px;
+  }
+}
+.editor .mode-switch button[aria-pressed="true"]:hover {
+  background: #203b54;
+  color: #fff;
+}
+.editor .primary-action:hover {
+  background: #1b4f6d;
+  color: #fff;
+}
+@media (min-width: 721px) and (max-width: 850px) {
+  .main:has(.editor) {
+    width: calc(100% - 185px);
+  }
+}
+
+````
+
+## frontend/src/editor/Editor.tsx
+````
+import { useEffect, useRef, useState, type Dispatch } from "react";
+import { Canvas, Pattern } from "fabric";
+import type { Snapshot } from "../tags/model";
+import type { Connection } from "../tags/useTags";
+import {
+  bindings,
+  componentNames,
+  createComponent,
+  MAX_COMPONENTS,
+  MAX_PROJECT_BYTES,
+  parseProject,
+  serializeProject,
+  type ComponentKind,
+  type HmiComponent,
+  type HmiProject,
+  type ProjectAction,
+  type ProjectHistory,
+} from "./project";
+import { createWidget, type Widget } from "./widgets";
+import "./editor.css";
+
+interface Props {
+  history: ProjectHistory;
+  dispatch: Dispatch<ProjectAction>;
+  snapshot: Snapshot | null;
+  connection: Connection;
+  dirty: boolean;
+  onDirty: (dirty: boolean) => void;
+}
+export default function Editor({
+  history,
+  dispatch,
+  snapshot,
+  connection,
+  dirty,
+  onDirty,
+}: Props) {
+  const project = history.present;
+  const canvasElement = useRef<HTMLCanvasElement>(null);
+  const host = useRef<HTMLDivElement>(null);
+  const canvas = useRef<Canvas | null>(null);
+  const widgets = useRef(new Map<string, Widget>());
+  const importing = useRef(0);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState(true);
+  const [zoom, setZoom] = useState(70);
+  const [snap, setSnap] = useState(true);
+  const [message, setMessage] = useState("");
+  const selected = project.components.find((item) => item.id === selectedId);
+  const state = useRef({ project, editing, snap });
+  state.current = { project, editing, snap };
+  const change = (next: HmiProject) => {
+    dispatch({ type: "change", project: next });
+    onDirty(true);
+  };
+  const changeRef = useRef(change);
+  changeRef.current = change;
+
+  useEffect(() => {
+    if (!canvasElement.current) return;
+    const instance = new Canvas(canvasElement.current, {
+      width: 840,
+      height: 504,
+      selection: false,
+      preserveObjectStacking: true,
+      backgroundColor: "#ffffff",
+    });
+    canvas.current = instance;
+    const identify = (target: unknown) =>
+      [...widgets.current].find(([, widget]) => widget.root === target)?.[0] ??
+      null;
+    instance.on("selection:created", (event) =>
+      setSelectedId(identify(event.selected[0])),
+    );
+    instance.on("selection:updated", (event) =>
+      setSelectedId(identify(event.selected[0])),
+    );
+    instance.on("selection:cleared", () => setSelectedId(null));
+    instance.on("object:moving", ({ target }) => {
+      if (!state.current.snap) return;
+      target.set({
+        left: Math.round(target.left / 20) * 20,
+        top: Math.round(target.top / 20) * 20,
+      });
+    });
+    instance.on("object:modified", ({ target }) => {
+      if (!state.current.editing) return;
+      const id = identify(target);
+      if (!id) return;
+      const angle = ((((target.angle + 180) % 360) + 360) % 360) - 180;
+      const geometry = {
+        x: Math.max(0, Math.min(1160, Math.round(target.left))),
+        y: Math.max(0, Math.min(688, Math.round(target.top))),
+        width: Math.max(40, Math.min(500, Math.round(target.getScaledWidth()))),
+        height: Math.max(
+          32,
+          Math.min(500, Math.round(target.getScaledHeight())),
+        ),
+        angle: Math.round(angle),
+      };
+      changeRef.current({
+        ...state.current.project,
+        components: state.current.project.components.map((item) =>
+          item.id === id ? { ...item, ...geometry } : item,
+        ),
+      });
+    });
+    return () => {
+      canvas.current = null;
+      widgets.current.clear();
+      void instance.dispose();
+    };
+  }, []);
+
+  useEffect(() => {
+    const instance = canvas.current;
+    if (!instance) return;
+    const active = selectedId;
+    const grid = document.createElement("canvas");
+    grid.width = 20;
+    grid.height = 20;
+    const context = grid.getContext("2d")!;
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, 20, 20);
+    context.fillStyle = "#c3ced8";
+    context.fillRect(0, 0, 1.5, 1.5);
+    instance.backgroundColor = editing
+      ? new Pattern({ source: grid, repeat: "repeat" })
+      : "#ffffff";
+    instance.discardActiveObject();
+    instance.remove(...instance.getObjects());
+    widgets.current.clear();
+    for (const item of project.components) {
+      const widget = createWidget(item);
+      widget.root.set({ selectable: editing, evented: editing });
+      widget.update(null, editing);
+      widgets.current.set(item.id, widget);
+      instance.add(widget.root);
+      if (editing && item.id === active) instance.setActiveObject(widget.root);
+    }
+    setSelectedId(
+      editing && project.components.some((item) => item.id === active)
+        ? active
+        : null,
+    );
+    instance.requestRenderAll();
+    // Selection changes do not rebuild the scene; document changes do.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project, editing]);
+
+  useEffect(() => {
+    const instance = canvas.current;
+    if (!instance) return;
+    instance.setDimensions({
+      width: (1200 * zoom) / 100,
+      height: (720 * zoom) / 100,
+    });
+    instance.setZoom(zoom / 100);
+    instance.requestRenderAll();
+  }, [zoom]);
+
+  useEffect(() => {
+    if (editing) return;
+    for (const item of project.components) {
+      const tag = snapshot?.tags.find((tag) => tag.name === item.binding);
+      const value =
+        connection === "live" && tag?.quality === "GOOD" ? tag.value : null;
+      widgets.current.get(item.id)?.update(value, false);
+    }
+    canvas.current?.requestRenderAll();
+  }, [snapshot, connection, editing, project]);
+
+  const fit = () => {
+    if (host.current)
+      setZoom(
+        Math.max(
+          25,
+          Math.min(
+            100,
+            Math.floor(((host.current.clientWidth - 36) / 1200) * 100),
+          ),
+        ),
+      );
+  };
+  useEffect(() => {
+    fit();
+  }, []);
+
+  function select(id: string) {
+    if (!editing) return;
+    setSelectedId(id);
+    const object = widgets.current.get(id)?.root;
+    if (object) {
+      canvas.current?.setActiveObject(object);
+      canvas.current?.requestRenderAll();
+    }
+  }
+  function add(kind: ComponentKind) {
+    if (!editing || project.components.length >= MAX_COMPONENTS) return;
+    const item = createComponent(kind, project.components.length);
+    setSelectedId(item.id);
+    change({ ...project, components: [...project.components, item] });
+  }
+  function patch(values: Partial<HmiComponent>) {
+    if (!editing || !selected) return;
+    try {
+      const next = parseProject(
+        JSON.stringify({
+          ...project,
+          components: project.components.map((item) =>
+            item.id === selected.id ? { ...item, ...values } : item,
+          ),
+        }),
+      );
+      change(next);
+      setMessage("");
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+  }
+  function reorder(direction: number) {
+    if (!selected) return;
+    const items = [...project.components];
+    const index = items.findIndex((item) => item.id === selected.id);
+    const destination = Math.max(
+      0,
+      Math.min(items.length - 1, index + direction),
+    );
+    items.splice(index, 1);
+    items.splice(destination, 0, selected);
+    change({ ...project, components: items });
+  }
+  function save() {
+    const blob = new Blob([serializeProject(project)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "projeto-hmi.json";
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    onDirty(false);
+    setMessage(
+      "Arquivo exportado. Guarde o JSON para abrir o projeto novamente.",
+    );
+  }
+  async function open(file?: File) {
+    if (!file || !editing) return;
+    const request = ++importing.current;
+    try {
+      if (file.size > MAX_PROJECT_BYTES)
+        throw new Error("O arquivo excede o limite de 256 KiB.");
+      const loaded = parseProject(await file.text());
+      if (request !== importing.current || !state.current.editing) return;
+      change(loaded);
+      setSelectedId(null);
+      setMessage("Projeto aberto. Desfazer recupera a tela anterior.");
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+  }
+
+  return (
+    <section className="editor" aria-label="Editor de telas">
+      <div className="editor-toolbar">
+        <div className="mode-switch" aria-label="Modo da tela">
+          <button aria-pressed={editing} onClick={() => setEditing(true)}>
+            Edição
+          </button>
+          <button aria-pressed={!editing} onClick={() => setEditing(false)}>
+            Operação
+          </button>
+        </div>
+        <span className="toolbar-divider" />
+        <button
+          disabled={!editing || !history.past.length}
+          onClick={() => {
+            dispatch({ type: "undo" });
+            onDirty(true);
+          }}
+        >
+          Desfazer
+        </button>
+        <button
+          disabled={!editing || !history.future.length}
+          onClick={() => {
+            dispatch({ type: "redo" });
+            onDirty(true);
+          }}
+        >
+          Refazer
+        </button>
+        <div className="toolbar-files">
+          <span className="save-state">
+            {dirty ? "Alterações não exportadas" : "Arquivo exportado"}
+          </span>
+          <button
+            disabled={!editing}
+            onClick={() => {
+              change({ ...project, name: "Nova tela", components: [] });
+              setSelectedId(null);
+              setMessage("Tela criada. Desfazer recupera a tela anterior.");
+            }}
+          >
+            Nova tela
+          </button>
+          <button
+            disabled={!editing}
+            onClick={() => fileInput.current?.click()}
+          >
+            Abrir JSON
+          </button>
+          <button className="primary-action" onClick={save}>
+            Salvar projeto
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".json,application/json"
+            aria-label="Arquivo de projeto"
+            hidden
+            onChange={(e) => {
+              void open(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      </div>
+      <div className="editor-layout">
+        <aside
+          className="component-library"
+          aria-label="Biblioteca de componentes"
+        >
+          <h2>Componentes</h2>
+          <p>Selecione para inserir</p>
+          <div className="library-items">
+            {(Object.keys(componentNames) as ComponentKind[]).map((kind) => (
+              <button
+                key={kind}
+                disabled={
+                  !editing || project.components.length >= MAX_COMPONENTS
+                }
+                onClick={() => add(kind)}
+              >
+                <span className={`library-symbol ${kind}`} aria-hidden="true" />
+                {componentNames[kind]}
+              </button>
+            ))}
+          </div>
+          <h2 className="layers-heading">
+            Objetos <span>{project.components.length}</span>
+          </h2>
+          <ol className="layer-list">
+            {[...project.components].reverse().map((item) => (
+              <li key={item.id}>
+                <button
+                  disabled={!editing}
+                  aria-pressed={selectedId === item.id}
+                  onClick={() => select(item.id)}
+                >
+                  <span className="layer-kind">
+                    {componentNames[item.kind]}
+                  </span>
+                  {item.label}
+                </button>
+              </li>
+            ))}
+          </ol>
+        </aside>
+        <div className="editor-workspace">
+          <div className="screen-title">
+            <span>{project.name}</span>
+            <span>1200 × 720 px</span>
+          </div>
+          <div
+            ref={host}
+            className={`canvas-scroll ${editing ? "editing" : "operating"}`}
+          >
+            <canvas
+              ref={canvasElement}
+              aria-label="Área de desenho da tela HMI"
+            />
+          </div>
+          <div className="canvas-controls">
+            <label>
+              <input
+                type="checkbox"
+                checked={snap}
+                disabled={!editing}
+                onChange={(e) => setSnap(e.target.checked)}
+              />{" "}
+              Ajustar à grade de 20 px
+            </label>
+            <label>
+              Zoom{" "}
+              <select
+                aria-label="Zoom"
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+              >
+                {[...new Set([25, 50, 75, 100, zoom])]
+                  .sort((a, b) => a - b)
+                  .map((value) => (
+                    <option key={value} value={value}>
+                      {value}%
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <button onClick={fit}>Ajustar</button>
+          </div>
+          <div className="editor-hint">
+            {editing
+              ? "Arraste para mover. Use as alças para redimensionar e girar. Valores ilustrativos no modo edição."
+              : "Operação • Somente leitura • Valores do simulador em tempo real"}
+          </div>
+          {!editing && (
+            <div className="runtime-readings" aria-label="Valores em operação">
+              {project.components
+                .filter((item) => item.binding)
+                .map((item) => {
+                  const tag = snapshot?.tags.find(
+                    (tag) => tag.name === item.binding,
+                  );
+                  const valid =
+                    connection === "live" && tag?.quality === "GOOD";
+                  return (
+                    <span key={item.id} data-testid={`runtime-${item.id}`}>
+                      {item.label}:{" "}
+                      <strong>
+                        {valid
+                          ? `${String(tag.value)} ${tag.unit}`
+                          : "Indisponível"}
+                      </strong>
+                    </span>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+        <aside className="properties" aria-label="Propriedades do componente">
+          <h2>Propriedades</h2>
+          {selected && editing ? (
+            <>
+              <div className="selected-type">
+                {componentNames[selected.kind]}
+              </div>
+              <label>
+                Identificação
+                <input
+                  key={`${selected.id}-${selected.label}`}
+                  aria-label="Identificação"
+                  defaultValue={selected.label}
+                  maxLength={64}
+                  onBlur={(e) => {
+                    if (e.target.value !== selected.label)
+                      patch({ label: e.target.value });
+                  }}
+                />
+              </label>
+              <div className="geometry-fields">
+                {(["x", "y", "width", "height", "angle"] as const).map(
+                  (field) => (
+                    <label key={field}>
+                      {
+                        {
+                          x: "X",
+                          y: "Y",
+                          width: "Largura",
+                          height: "Altura",
+                          angle: "Rotação",
+                        }[field]
+                      }
+                      <input
+                        key={`${selected.id}-${selected[field]}`}
+                        aria-label={
+                          {
+                            x: "X",
+                            y: "Y",
+                            width: "Largura",
+                            height: "Altura",
+                            angle: "Rotação",
+                          }[field]
+                        }
+                        type="number"
+                        defaultValue={selected[field]}
+                        onBlur={(e) => {
+                          if (
+                            e.target.value !== "" &&
+                            Number(e.target.value) !== selected[field]
+                          )
+                            patch({ [field]: Number(e.target.value) });
+                        }}
+                      />
+                    </label>
+                  ),
+                )}
+              </div>
+              <label>
+                Tag vinculada
+                <select
+                  aria-label="Tag vinculada"
+                  value={selected.binding ?? ""}
+                  disabled={selected.kind === "text"}
+                  onChange={(e) =>
+                    patch({
+                      binding: (e.target.value ||
+                        null) as HmiComponent["binding"],
+                    })
+                  }
+                >
+                  <option value="">Sem vínculo</option>
+                  {bindings[selected.kind].map((tag) => (
+                    <option key={tag}>{tag}</option>
+                  ))}
+                </select>
+              </label>
+              <p className="property-note">
+                {selected.kind === "tank"
+                  ? "A tag controla o nível de 0 a 100%."
+                  : selected.kind === "pump"
+                    ? "A tag booleana controla o estado visual."
+                    : selected.kind === "indicator"
+                      ? "Exibe o valor e a unidade da tag."
+                      : "Texto fixo da tela."}
+              </p>
+              <h3>Ordem de exibição</h3>
+              <div className="layer-actions">
+                <button onClick={() => reorder(1)}>Para frente</button>
+                <button onClick={() => reorder(-1)}>Para trás</button>
+              </div>
+              <button
+                className="delete-component"
+                onClick={() => {
+                  change({
+                    ...project,
+                    components: project.components.filter(
+                      (item) => item.id !== selected.id,
+                    ),
+                  });
+                  setSelectedId(null);
+                }}
+              >
+                Excluir componente
+              </button>
+            </>
+          ) : (
+            <div className="empty-properties">
+              {editing
+                ? "Selecione um objeto na tela ou na lista para editar suas propriedades."
+                : "Edição bloqueada durante a operação."}
+            </div>
+          )}
+        </aside>
+      </div>
+      {message && (
+        <div className="editor-message" role="status">
+          {message}
+          <button aria-label="Fechar mensagem" onClick={() => setMessage("")}>
+            ×
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+````
+
+## frontend/src/editor/project.test.ts
+````
+import { describe, expect, it } from "vitest";
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import {
+  exampleProject,
+  parseProject,
+  projectReducer,
+  serializeProject,
+  type ProjectHistory,
+} from "./project";
+
+describe("project files", () => {
+  it('opens the distributed water-tank example', () => {
+    const project = parseProject(readFileSync(resolve(process.cwd(), '../examples/water-tank/project.json'), 'utf8'));
+    expect(project.components).toHaveLength(4);
+    expect(project.components[1].binding).toBe('TQ001.LEVEL');
+  });
+  it("round trips geometry, layer order, labels and tag bindings", () => {
+    const project = exampleProject();
+    Object.assign(project.components[1], {
+      x: 320,
+      y: 180,
+      angle: 45,
+      width: 210,
+    });
+    expect(parseProject(serializeProject(project))).toEqual(project);
+  });
+  it.each([
+    ["unsupported version", (p: any) => (p.schemaVersion = 2)],
+    [
+      "remote assets",
+      (p: any) => (p.components[0].src = "https://example.com/image.svg"),
+    ],
+    ["scripts", (p: any) => (p.components[0].script = "alert(1)")],
+    [
+      "prototype injection",
+      (p: any) =>
+        Object.defineProperty(p, "__proto__", { value: {}, enumerable: true }),
+    ],
+    ["unexpected widget", (p: any) => (p.components[0].kind = "image")],
+    [
+      "incompatible tag",
+      (p: any) => (p.components[1].binding = "P001.RUNNING"),
+    ],
+    ["negative dimension", (p: any) => (p.components[1].width = -1)],
+    ["duplicate id", (p: any) => (p.components[1].id = p.components[0].id)],
+    [
+      "too many objects",
+      (p: any) => (p.components = Array(101).fill(p.components[0])),
+    ],
+  ])("rejects %s", (_name, mutate) => {
+    const project = exampleProject();
+    mutate(project);
+    expect(() => parseProject(JSON.stringify(project))).toThrow();
+  });
+  it("rejects malformed, oversized and missing data", () => {
+    for (const input of ["null", "[]", "{", "{}", " ".repeat(262145)])
+      expect(() => parseProject(input)).toThrow();
+  });
+  it("treats markup as plain text and preserves it without executing", () => {
+    const project = exampleProject();
+    project.components[0].label = "<script>alert(1)</script>";
+    expect(parseProject(serializeProject(project)).components[0].label).toBe(
+      "<script>alert(1)</script>",
+    );
+  });
+});
+describe("editing history", () => {
+  it("undoes imports, redoes changes, and clears redo after a new edit", () => {
+    const initial: ProjectHistory = {
+      past: [],
+      present: exampleProject(),
+      future: [],
+    };
+    const changed = projectReducer(initial, {
+      type: "change",
+      project: { ...initial.present, name: "Tela 02" },
+    });
+    const undone = projectReducer(changed, { type: "undo" });
+    expect(undone.present).toEqual(initial.present);
+    expect(projectReducer(undone, { type: "redo" }).present.name).toBe(
+      "Tela 02",
+    );
+    const branched = projectReducer(undone, {
+      type: "change",
+      project: { ...initial.present, name: "Tela 03" },
+    });
+    expect(branched.future).toHaveLength(0);
+  });
+  it("limits history to 60 revisions and ignores identical changes", () => {
+    let state: ProjectHistory = {
+      past: [],
+      present: exampleProject(),
+      future: [],
+    };
+    expect(
+      projectReducer(state, { type: "change", project: state.present }),
+    ).toBe(state);
+    for (let index = 0; index < 70; index++)
+      state = projectReducer(state, {
+        type: "change",
+        project: { ...state.present, name: `Tela ${index}` },
+      });
+    expect(state.past).toHaveLength(60);
+  });
+});
+
+````
+
+## frontend/src/editor/project.ts
+````
+import type { TagName } from "../tags/model";
+
+export type ComponentKind = "tank" | "pump" | "indicator" | "text";
+export interface HmiComponent {
+  id: string;
+  kind: ComponentKind;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  angle: number;
+  binding: TagName | null;
+}
+export interface HmiProject {
+  schemaVersion: 1;
+  name: string;
+  screen: { width: 1200; height: 720 };
+  components: HmiComponent[];
+}
+export const componentNames: Record<ComponentKind, string> = {
+  tank: "Tanque",
+  pump: "Bomba",
+  indicator: "Indicador",
+  text: "Texto",
+};
+export const bindings: Record<ComponentKind, TagName[]> = {
+  tank: ["TQ001.LEVEL"],
+  pump: ["P001.RUNNING"],
+  indicator: ["TQ001.TEMPERATURE", "TQ001.LEVEL"],
+  text: [],
+};
+export const MAX_COMPONENTS = 100;
+export const MAX_PROJECT_BYTES = 262144;
+
+export function createComponent(
+  kind: ComponentKind,
+  index: number,
+): HmiComponent {
+  return {
+    id: crypto.randomUUID(),
+    kind,
+    label: componentNames[kind],
+    x: 80 + (index % 8) * 24,
+    y: 80 + (index % 8) * 24,
+    width: kind === "tank" ? 180 : 160,
+    height: kind === "tank" ? 260 : kind === "text" ? 48 : 130,
+    angle: 0,
+    binding: bindings[kind][0] ?? null,
+  };
+}
+export function exampleProject(): HmiProject {
+  return {
+    schemaVersion: 1,
+    name: "Tanque TQ-001",
+    screen: { width: 1200, height: 720 },
+    components: [
+      {
+        ...createComponent("text", 0),
+        label: "ALIMENTAÇÃO / TQ-001",
+        x: 100,
+        y: 64,
+        width: 360,
+      },
+      { ...createComponent("tank", 0), label: "TQ-001", x: 510, y: 190 },
+      { ...createComponent("pump", 0), label: "P-001", x: 180, y: 310 },
+      { ...createComponent("indicator", 0), label: "TT-001", x: 860, y: 240 },
+    ],
+  };
+}
+
+function record(input: unknown, keys: string[]): Record<string, unknown> {
+  if (!input || typeof input !== "object" || Array.isArray(input))
+    throw new Error("Estrutura de projeto inválida.");
+  const object = input as Record<string, unknown>;
+  if (
+    Object.keys(object).length !== keys.length ||
+    keys.some((key) => !Object.hasOwn(object, key))
+  ) {
+    throw new Error("O projeto contém campos ausentes ou não suportados.");
+  }
+  return object;
+}
+function text(value: unknown, max: number): string {
+  if (
+    typeof value !== "string" ||
+    !value.trim() ||
+    value.length > max ||
+    /[\u0000-\u001f]/.test(value)
+  ) {
+    throw new Error(
+      `Use um texto de 1 a ${max} caracteres, sem caracteres de controle.`,
+    );
+  }
+  return value;
+}
+function number(value: unknown, min: number, max: number): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    value < min ||
+    value > max
+  ) {
+    throw new Error("Posição, tamanho ou rotação fora dos limites permitidos.");
+  }
+  return value;
+}
+
+/** Imports only a small domain schema, never executable Fabric scenes or remote assets. */
+export function parseProject(raw: string): HmiProject {
+  if (new TextEncoder().encode(raw).length > MAX_PROJECT_BYTES)
+    throw new Error("O arquivo excede o limite de 256 KiB.");
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    throw new Error("Não foi possível ler o JSON do projeto.");
+  }
+  const project = record(json, [
+    "schemaVersion",
+    "name",
+    "screen",
+    "components",
+  ]);
+  if (project.schemaVersion !== 1)
+    throw new Error("Versão de projeto não suportada.");
+  const screen = record(project.screen, ["width", "height"]);
+  if (screen.width !== 1200 || screen.height !== 720)
+    throw new Error("A tela deve ter 1200 × 720 px.");
+  if (
+    !Array.isArray(project.components) ||
+    project.components.length > MAX_COMPONENTS
+  )
+    throw new Error("Limite de 100 componentes por tela.");
+  const ids = new Set<string>();
+  const components = project.components.map((input) => {
+    const item = record(input, [
+      "id",
+      "kind",
+      "label",
+      "x",
+      "y",
+      "width",
+      "height",
+      "angle",
+      "binding",
+    ]);
+    const id = text(item.id, 80);
+    if (!/^[a-zA-Z0-9_-]+$/.test(id) || ids.has(id))
+      throw new Error("Identificador de componente inválido ou repetido.");
+    ids.add(id);
+    if (
+      typeof item.kind !== "string" ||
+      !Object.hasOwn(componentNames, item.kind)
+    )
+      throw new Error("Componente não suportado.");
+    const kind = item.kind as ComponentKind;
+    if (
+      item.binding !== null &&
+      !bindings[kind].includes(item.binding as TagName)
+    )
+      throw new Error("A tag é incompatível com este componente.");
+    return {
+      id,
+      kind,
+      label: text(item.label, 64),
+      x: number(item.x, 0, 1160),
+      y: number(item.y, 0, 688),
+      width: number(item.width, 40, 500),
+      height: number(item.height, 32, 500),
+      angle: number(item.angle, -180, 180),
+      binding: item.binding as TagName | null,
+    };
+  });
+  return {
+    schemaVersion: 1,
+    name: text(project.name, 80),
+    screen: { width: 1200, height: 720 },
+    components,
+  };
+}
+export function serializeProject(project: HmiProject): string {
+  return JSON.stringify(parseProject(JSON.stringify(project)), null, 2);
+}
+
+export interface ProjectHistory {
+  past: HmiProject[];
+  present: HmiProject;
+  future: HmiProject[];
+}
+export type ProjectAction =
+  { type: "change"; project: HmiProject } | { type: "undo" } | { type: "redo" };
+export function projectReducer(
+  state: ProjectHistory,
+  action: ProjectAction,
+): ProjectHistory {
+  if (action.type === "change") {
+    const project = parseProject(JSON.stringify(action.project));
+    if (JSON.stringify(project) === JSON.stringify(state.present)) return state;
+    return {
+      past: [...state.past, state.present].slice(-60),
+      present: project,
+      future: [],
+    };
+  }
+  if (action.type === "undo" && state.past.length)
+    return {
+      past: state.past.slice(0, -1),
+      present: state.past.at(-1)!,
+      future: [state.present, ...state.future],
+    };
+  if (action.type === "redo" && state.future.length)
+    return {
+      past: [...state.past, state.present],
+      present: state.future[0],
+      future: state.future.slice(1),
+    };
+  return state;
+}
+
+````
+
+## frontend/src/editor/widgets.ts
+````
+import {
+  Circle,
+  FabricText,
+  Group,
+  Rect,
+  Triangle,
+  type FabricObject,
+} from "fabric";
+import type { HmiComponent } from "./project";
+
+const origin = { originX: "left", originY: "top" } as const;
+const ink = "#25384b";
+function label(text: string, left: number, top: number, fontSize = 15) {
+  return new FabricText(text, {
+    ...origin,
+    left,
+    top,
+    fontFamily: "Segoe UI",
+    fontSize,
+    fill: ink,
+  });
+}
+export interface Widget {
+  root: Group;
+  update: (value: number | boolean | null, editing: boolean) => void;
+}
+export function createWidget(item: HmiComponent): Widget {
+  const width = item.kind === "tank" ? 180 : item.kind === "text" ? 240 : 160;
+  const height = item.kind === "tank" ? 260 : item.kind === "text" ? 48 : 130;
+  const base = new Rect({
+    ...origin,
+    width,
+    height,
+    fill: "transparent",
+    strokeWidth: 0,
+  });
+  const heading = label(item.label, 12, 10, item.kind === "text" ? 18 : 14);
+  heading.set({ scaleX: Math.min(1, (width - 24) / heading.width) });
+  // A fixed bounding box keeps live measurements from changing the equipment geometry.
+  const children: FabricObject[] = [base, heading];
+  let update: Widget["update"] = () => {};
+  if (item.kind === "tank") {
+    const vessel = new Rect({
+      ...origin,
+      left: 21,
+      top: 40,
+      width: 138,
+      height: 170,
+      rx: 14,
+      ry: 14,
+      fill: "#eef3f6",
+      stroke: "#7d91a2",
+      strokeWidth: 2,
+    });
+    const water = new Rect({
+      ...origin,
+      left: 25,
+      top: 112,
+      width: 132,
+      height: 94,
+      fill: "#318f9b",
+      strokeWidth: 0,
+    });
+    const valueLabel = label("50.0 %", 49, 115, 23);
+    const quality = label("Prévia", 23, 228, 11);
+    children.push(vessel, water, valueLabel, quality);
+    // Group construction changes child coordinates from canvas space to group space.
+    update = (value, editing) => {
+      const available = typeof value === "number";
+      const level = editing ? 50 : available ? value : 0;
+      const bottom = 206 - height / 2;
+      water.set({
+        top: bottom - level * 1.62,
+        height: level * 1.62,
+        visible: editing || available,
+      });
+      valueLabel.set({
+        text: editing ? "50.0 %" : available ? `${value.toFixed(1)} %` : "—",
+      });
+      quality.set({
+        text: editing
+          ? "Prévia de edição"
+          : available
+            ? "SIMULADO"
+            : "INDISPONÍVEL",
+      });
+    };
+  } else if (item.kind === "pump") {
+    const body = new Circle({
+      ...origin,
+      left: 54,
+      top: 36,
+      radius: 25,
+      fill: "#e5f0ee",
+      stroke: "#588c83",
+      strokeWidth: 2,
+    });
+    const rotor = new Triangle({
+      ...origin,
+      left: 68,
+      top: 48,
+      width: 24,
+      height: 27,
+      fill: "#588c83",
+    });
+    const status = label("Prévia de edição", 17, 106, 11);
+    children.push(body, rotor, status);
+    update = (value, editing) => {
+      const active = editing || value === true;
+      body.set({
+        stroke: active ? "#27826f" : "#8494a3",
+        fill: active ? "#dcefe9" : "#edf0f3",
+      });
+      rotor.set({ fill: active ? "#27826f" : "#8494a3" });
+      status.set({
+        text: editing
+          ? "Prévia de edição"
+          : value === null
+            ? "INDISPONÍVEL"
+            : value
+              ? "EM OPERAÇÃO"
+              : "PARADA",
+      });
+    };
+  } else if (item.kind === "indicator") {
+    const panel = new Rect({
+      ...origin,
+      left: 2,
+      top: 35,
+      width: 155,
+      height: 61,
+      fill: "#f5f8fa",
+      stroke: "#b6c5d1",
+      rx: 4,
+      ry: 4,
+    });
+    const valueLabel = label("25.0 °C", 15, 48, 25);
+    const quality = label("Prévia de edição", 12, 108, 10);
+    children.push(panel, valueLabel, quality);
+    update = (value, editing) => {
+      const unit = item.binding === "TQ001.LEVEL" ? "%" : "°C";
+      valueLabel.set({
+        text: editing
+          ? `25.0 ${unit}`
+          : typeof value === "number"
+            ? `${value.toFixed(1)} ${unit}`
+            : "—",
+      });
+      quality.set({
+        text: editing
+          ? "Prévia de edição"
+          : value === null
+            ? "INDISPONÍVEL"
+            : "SIMULADO",
+      });
+    };
+  }
+  const root = new Group(children, {
+    ...origin,
+    left: item.x,
+    top: item.y,
+    angle: item.angle,
+    scaleX: item.width / width,
+    scaleY: item.height / height,
+    lockScalingFlip: true,
+    lockSkewingX: true,
+    lockSkewingY: true,
+    borderColor: "#267eb0",
+    cornerColor: "#267eb0",
+    cornerStyle: "circle",
+    cornerSize: 9,
+    transparentCorners: false,
+    padding: 6,
+    objectCaching: false,
+  });
+  return { root, update };
 }
 
 ````
@@ -2145,191 +3970,152 @@ PostgreSQL + Flyway e Testcontainers entram quando houver persistência; adicion
 
 ## README.md
 ````
-# NEXO — SCADA/HMI · Etapa 0
+# NEXO — Supervisão e engenharia de telas
 
-Primeiro incremento de um supervisório modular com **backend Java 21 + Spring Boot 4.1.2** e **frontend React + TypeScript + Vite**. “NEXO” é apenas o nome provisório da interface.
+Plataforma SCADA/HMI local com backend Java e interface web. A versão **0.2.0** acrescenta o editor de telas ao circuito de simulação validado na versão 0.1.0.
 
-**Estado desta entrega:** Etapa 0 validada tecnicamente em Windows. Backend compilado, quatro testes Java aprovados, frontend compilado, seis testes unitários aprovados e três testes de navegador aprovados (dois com backend real). O tanque recebeu dados do simulador Java e recuperou o fluxo após interrupção de transporte. O bloqueio inicial foi resolvido com execução autorizada fora do ambiente restrito. Veja [o relatório de validação](docs/validation.md).
+## Recursos disponíveis
 
-## O que está implementado
+- Supervisão de nível, bomba e temperatura, com atualizações por WebSocket.
+- Editor com tanque, bomba, indicador e texto.
+- Posicionamento livre, ajuste à grade, dimensões, rotação e ordem de exibição.
+- Vínculos com tags compatíveis e modos separados de Edição e Operação.
+- Desfazer/refazer até 60 alterações, exportação e abertura de projetos JSON.
+- Lista de tags com qualidade, origem e timestamps; reconexão automática.
+- Ajuda local pelo menu ou pela tecla F1.
 
-- Backend com `GET /api/health`, `GET /api/tags` e WebSocket `/ws/tags`.
-- Simulador em memória: `TQ001.LEVEL`, `P001.RUNNING` e `TQ001.TEMPERATURE`.
-- Sinótico com tanque animado, bomba e indicador de temperatura, atualizado sem recarregar.
-- Navegação entre Supervisão, Tags e Ajuda; ajuda offline por F1.
-- Marcação permanente **SIMULAÇÃO**, dados somente de leitura, qualidade e timestamps.
-- Reconexão automática com espera progressiva; valores indisponíveis após desconexão ou silêncio superior a 5 segundos.
-- Testes Java, testes React/contrato/reconexão e testes de navegador separados para dados controlados e backend real.
+Todos os dados são **simulados**. O sistema não se conecta a equipamentos físicos e não possui comandos industriais de escrita.
 
-## Instalação
+## Requisitos
 
-Instale [JDK 21](https://adoptium.net/temurin/releases/?version=21), [Maven 3.9.11 ou superior](https://maven.apache.org/download.cgi) e [Node.js 24 LTS](https://nodejs.org/en/download). Maven precisa estar no PATH; `JAVA_HOME` deve apontar para a pasta do JDK, não sua pasta `bin`.
+- JDK 21 e Maven 3.9.11 ou superior.
+- Node.js 24 LTS com npm.
+- Microsoft Edge para executar a suíte de testes de navegador no Windows.
 
-Confira no PowerShell:
-
-```powershell
-java -version
-mvn.cmd -version
-node --version
-npm.cmd --version
-```
-
-Para esta sessão foram baixados JDK 21.0.13+9, Maven 3.9.11 e npm em `.tools/`, sem instalação global. Os scripts abaixo usam essas cópias se as ferramentas não estiverem disponíveis globalmente. `.tools/` é local, ignorada pelo Git e não faz parte do código distribuído. Node continua sendo necessário no PATH.
+Versões do frontend e dependências estão fixadas em `frontend/package.json` e `frontend/package-lock.json`. Spring Boot 4.1.2 gerencia as dependências Java. O editor usa Fabric.js 7.4.0, carregado somente ao abrir a página Editor.
 
 ## Executar no Windows
 
-Abra **dois terminais PowerShell**, fora do ambiente restrito do assistente caso encontre a mesma falha de caminhos.
+Abra dois terminais PowerShell na pasta do projeto.
 
-Terminal 1 — backend:
+**Terminal 1 — servidor:**
 
 ```powershell
-Set-Location 'C:\Users\Sheus\Documents\ChatGPT\Sistema Supervisorio'
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Start-Backend.ps1
 ```
 
-Terminal 2 — frontend:
+**Terminal 2 — interface:**
 
 ```powershell
-Set-Location 'C:\Users\Sheus\Documents\ChatGPT\Sistema Supervisorio'
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Start-Frontend.ps1
 ```
 
-`ExecutionPolicy Bypass` vale apenas para esse processo; não altera a política global. O script do frontend instala as dependências do lockfile quando `node_modules` não existe. Interrompa cada servidor com `Ctrl+C`.
+Abra **http://127.0.0.1:5173**. O backend atende em 127.0.0.1:8080. Os scripts usam ferramentas instaladas; se disponíveis, também reconhecem as ferramentas portáteis locais em `.tools/`. Essa pasta não integra o repositório. A opção de execução do PowerShell vale apenas para o processo, sem alterar a política global.
 
-Abra **http://127.0.0.1:5173**. O Vite encaminha `/api` e `/ws` para Java em 127.0.0.1:8080. O navegador só recebe valores de medição pelo backend; não existe simulador de fallback escondido no frontend.
-
-Alternativa com ferramentas instaladas, comandos padrão:
+Alternativa com ferramentas no PATH:
 
 ```powershell
-# Terminal 1
-Set-Location 'C:\Users\Sheus\Documents\ChatGPT\Sistema Supervisorio\backend'
+# Terminal 1, a partir da pasta do projeto
+Set-Location backend
 mvn.cmd spring-boot:run
+```
 
-# Terminal 2
-Set-Location 'C:\Users\Sheus\Documents\ChatGPT\Sistema Supervisorio\frontend'
+```powershell
+# Terminal 2, a partir da pasta do projeto
+Set-Location frontend
 npm.cmd ci
 npm.cmd run dev
 ```
 
-## Testar no Windows
+Interrompa cada processo com Ctrl+C. A aplicação escuta somente no computador local; implantação compartilhada com autenticação e TLS será uma etapa posterior.
 
-Backend, com ferramentas instaladas (não precisa de servidor já iniciado):
+## Usar o editor
+
+1. Abra **Editor** e mantenha o modo **Edição**.
+2. Insira um componente pela biblioteca ou selecione um dos objetos do exemplo.
+3. Arraste para mover. Use as alças para redimensionar e girar; valores exatos também podem ser informados no painel Propriedades.
+4. Selecione a tag vinculada. Tanques aceitam nível; bombas aceitam estado booleano; indicadores aceitam nível ou temperatura.
+5. Use **Operação** para visualizar os valores recebidos do servidor. As alterações ficam bloqueadas nesse modo.
+6. Use **Salvar projeto** para exportar o JSON. **Abrir JSON** recupera componentes, geometria, ordem e vínculos. **Nova tela** abre uma tela vazia; Desfazer recupera a anterior.
+
+As alterações são mantidas ao navegar entre as páginas, mas não são gravadas automaticamente no servidor ou no navegador. Antes de recarregar ou fechar, exporte o arquivo. A tela fixa de Supervisão é independente do projeto aberto no editor.
+
+O arquivo `examples/water-tank/project.json` pode ser aberto diretamente no editor. Importação de imagens e SVG, grupos e alinhamento múltiplo ainda não estão disponíveis.
+
+## Testes
+
+A partir da pasta do projeto, backend:
 
 ```powershell
-Set-Location 'C:\Users\Sheus\Documents\ChatGPT\Sistema Supervisorio\backend'
-mvn.cmd clean test
-mvn.cmd package
+mvn.cmd -f backend/pom.xml clean test
 ```
 
-Alternativa usando as ferramentas portáteis baixadas nesta sessão:
+Frontend:
 
 ```powershell
-Set-Location 'C:\Users\Sheus\Documents\ChatGPT\Sistema Supervisorio'
-$env:JAVA_HOME = (Resolve-Path '.tools\jdk-21.0.13+9').Path
-& '.\.tools\apache-maven-3.9.11\bin\mvn.cmd' -B -ntp -f backend/pom.xml '-Dmaven.repo.local=.tools/m2' clean test
-```
-
-Frontend, com npm instalado:
-
-```powershell
-Set-Location 'C:\Users\Sheus\Documents\ChatGPT\Sistema Supervisorio\frontend'
+Set-Location frontend
 npm.cmd ci
 npm.cmd test
 npm.cmd run build
 ```
 
-Alternativa desta sessão, a partir de `frontend`:
+Com os dois servidores iniciados, execute os testes de navegador a partir de `frontend`:
+
+```powershell
+npm.cmd run test:e2e
+```
+
+Alternativa local quando npm não está no PATH, a partir de `frontend`:
 
 ```powershell
 node ..\.tools\package\bin\npm-cli.js test
 node ..\.tools\package\bin\npm-cli.js run build
+node node_modules/@playwright/test/cli.js test
 ```
 
-Testes de navegador usam Microsoft Edge instalado. Com o frontend iniciado:
-
-```powershell
-# Interface com dados de teste controlados; NÃO valida o backend
-node node_modules/@playwright/test/cli.js test e2e/interface.spec.ts
-
-# Ponta a ponta: exige backend E frontend iniciados
-node node_modules/@playwright/test/cli.js test e2e/supervision.spec.ts
-```
-
-A captura `docs/screenshots/desktop-java-live.png` mostra o simulador Java real. As capturas terminadas em `test-data.png` usam dados controlados. `npm.cmd run test:e2e` executa ambos os arquivos e também exige os dois servidores.
-
-Verificação manual de saúde:
-
-```powershell
-Invoke-RestMethod 'http://127.0.0.1:8080/api/health'
-Invoke-RestMethod 'http://127.0.0.1:8080/api/tags' | ConvertTo-Json -Depth 6
-```
+O contrato, os componentes e o histórico são testados com Vitest. Playwright verifica as telas com dados controlados e com o simulador Java. Veja o [relatório de validação](docs/validation.md) e as [regras de segurança](SECURITY.md).
 
 ## Estrutura
 
 ```text
-backend/
-  pom.xml
-  src/main/java/br/com/scada/
-    ScadaApplication.java
-    api/           # REST, WebSocket, origens permitidas
-    tag/           # contrato tipado e snapshot versionado
-    simulation/    # ciclo demonstrativo do tanque
-  src/main/resources/application.properties
-  src/test/java/br/com/scada/
-frontend/
-  src/App.tsx      # navegação e telas iniciais
-  src/components/ # sinótico SVG próprio
-  src/tags/       # contrato, validação e reconexão
-  src/test/       # preparação e dados dos testes
-  e2e/            # testes com e sem backend
-  package.json / package-lock.json
-docs/
-  architecture.md / roadmap.md / validation.md
-  adr/0001-stack.md
-  screenshots/    # capturas identificadas como dados de teste
-  CODIGO_COMPLETO.md # cópia integral dos arquivos autorais para revisão
-examples/water-tank/project.json
-infrastructure/README.md
-scripts/Start-Backend.ps1 / Start-Frontend.ps1
+backend/          Java 21, REST, WebSocket e simulador
+frontend/src/
+  components/     Sinótico de supervisão
+  editor/         Modelo de projeto, histórico, widgets e interface Fabric.js
+  tags/           Contrato de tags, validação e reconexão
+  test/           Dados e preparação de testes
+frontend/e2e/     Testes de navegador
+examples/         Projetos JSON importáveis
+docs/             Arquitetura, contratos, decisões e validação
+infrastructure/   Orientações de implantação
+scripts/          Inicialização no Windows
 ```
 
-O JSON de exemplo descreve os vínculos da tela fixa; ainda não existe importação de projetos ou editor. O código-fonte completo está nos arquivos e reunido em `docs/CODIGO_COMPLETO.md`, sem omitir trechos. Não há dependência de imagens, fontes ou ajuda hospedadas externamente durante a operação.
+O código completo também está reunido em `docs/CODIGO_COMPLETO.md`; os arquivos individuais são a fonte editável. Nenhuma fonte tipográfica ou imagem externa é necessária para operar a interface.
 
-## Funcionamento e decisões
+## Contrato e comportamento
 
-O backend gera um snapshot completo a cada segundo. A bomba é ligada/desligada pelo ciclo demonstrativo, sem botão de comando. Enche até 85%, drena até 20% e recomeça. Temperatura varia entre 22 e 28 °C. Não é modelo físico calibrado nem controlador PID.
+- `GET /api/health`: saúde e modo do serviço de simulação, versão de backend 0.1.0.
+- `GET /api/tags` e `WS /ws/tags`: snapshots versionados de três tags.
+- `TQ001.LEVEL`: nível percentual. O ciclo enche até 85% e drena até 20%.
+- `P001.RUNNING`: estado da bomba simulada.
+- `TQ001.TEMPERATURE`: temperatura entre 22 e 28 °C.
 
-Spring Boot 4.1.2 foi verificado na [documentação oficial](https://docs.spring.io/spring-boot/system-requirements.html) e no Maven Central. O BOM gerencia as dependências Java. As versões npm estão fixadas no manifesto e no lockfile. Detalhes e fontes: [ADR 0001](docs/adr/0001-stack.md).
+O ciclo é demonstrativo, não um modelo físico calibrado. Após perda de conexão ou silêncio prolongado, as medições ficam indisponíveis. A interface tenta reconectar automaticamente. O editor usa dados ilustrativos somente em Edição, identificados como prévia; Operação depende das tags do servidor.
 
-Escolhemos um monólito por pacotes, WebSocket JSON nativo (sem STOMP) e SVG próprio para a tela fixa. Fabric.js será usado no editor; ECharts quando houver gráficos. Banco, drivers industriais e demais módulos entram em incrementos separados. Veja [arquitetura e contrato](docs/architecture.md).
+## Próximos incrementos
 
-## Checklist de validação e revisão manual
+Importação segura de imagens, agrupamento e alinhamento, persistência PostgreSQL/Flyway, autenticação e perfis, histórico/alarmes e laboratório de controle. Drivers industriais permanecem em uma fase separada. Consulte o [roadmap](docs/roadmap.md).
 
-- [x] `mvn.cmd clean test` passa e o backend inicia sem erro.
-- [x] `/api/health` retorna `UP` e `SIMULATION`.
-- [x] Frontend mostra `Conectado`, três tags e a marca SIMULAÇÃO.
-- [ ] Nível e altura da água mudam sem recarga; bomba alterna no ciclo.
-- [ ] Temperatura muda entre 22 e 28 °C.
-- [ ] Parar Java torna as medições indisponíveis e para a animação da bomba.
-- [ ] Reiniciar Java recupera a comunicação automaticamente.
-- [x] Tags mostra tipos, qualidade e origem; F1 abre a ajuda.
-- [x] Teste `e2e/supervision.spec.ts` passa com backend real.
+## Diagnóstico
 
-## O que ainda falta
+- **Sem conexão:** confira o terminal Java e `http://127.0.0.1:8080/api/health`.
+- **Porta ocupada:** encerre a instância anterior. O frontend não troca silenciosamente de porta.
+- **Java incompatível:** confira `JAVA_HOME` e `mvn.cmd -version`; use JDK 21.
+- **Acesso negado ao compilar:** execute em um PowerShell normal da sua conta e confira as permissões da pasta; não desative proteções globais.
+- **Projeto rejeitado:** confira o formato documentado em `docs/editor.md`. A tela atual é preservada quando o arquivo é inválido.
 
-Fluxo ponta a ponta validado. Próximos incrementos: editor, importação segura, persistência, autenticação/RBAC/TLS, auditoria, gráficos, alarmes, histórico, drivers, PID/Bode, wiki pesquisável e plugins. [Roadmap](docs/roadmap.md).
-
-Esta versão escuta somente no computador local. Acesso de outros computadores na rede exigirá uma etapa de implantação com segurança. Nenhum CLP está conectado e nenhuma escrita física foi implementada. O SCADA não substitui funções de segurança ou controle determinístico do CLP.
-
-## Solução de problemas
-
-- **Sem conexão:** verifique o terminal Java, a porta 8080 e `/api/health`. A página não inventa medições se Java estiver indisponível.
-- **Porta 5173 ocupada:** encerre a instância anterior; `strictPort` evita trocar silenciosamente a origem permitida.
-- **Java antigo:** confira `JAVA_HOME` e `mvn.cmd -version`; é necessário JDK 21, não apenas JRE.
-- **AccessDeniedException em `Path.toRealPath`:** foi a falha observada no ambiente restrito do assistente, inclusive em caminhos de leitura. Execute os mesmos comandos em um PowerShell normal da sua conta. Se persistir, preserve o log e investigue permissões/antivírus; não desative proteções globalmente.
-- **Primeiro download:** requer internet. Após dependências instaladas, a aplicação em execução e a ajuda não dependem de internet.
-
-No Linux, use JDK 21, Maven e Node 24, execute `mvn spring-boot:run` em `backend` e `npm ci && npm run dev` em `frontend`. A execução Linux não foi validada nesta entrega.
+No Linux, use JDK 21, Maven e Node 24: `mvn spring-boot:run` em `backend` e `npm ci` seguido de `npm run dev` em `frontend`. A validação desta versão foi realizada no Windows.
 
 ````
 

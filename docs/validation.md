@@ -1,37 +1,44 @@
-# Relatório de validação — 06/11/2026
+# Relatório de validação — versão 0.2.0
 
-## Resultado atualizado
+Data: 06/11/2026. Ambiente: Windows, Node.js 24.22.1, Java 21.0.13, Microsoft Edge.
 
-**Etapa 0 validada tecnicamente em Windows.** Backend iniciado pelo script Start-Backend.ps1, frontend iniciado e dados do simulador Java recebidos no navegador.
+## Resultado
 
-- Maven `clean test`: BUILD SUCCESS, 4 testes, zero falhas, erros ou testes ignorados.
-- `/api/health` e `/api/tags`: HTTP 200, status UP e modo SIMULATION.
-- Dois testes Playwright com backend real aprovados: atualização, navegação/F1, tela de 390 px e recuperação após interrupção do transporte WebSocket.
-- O teste de reconexão encaminha mensagens do Java real e fecha a conexão ativa; não substitui as medições.
-- A primeira versão desse teste fechava a conexão já descartada pelo React StrictMode. Foi corrigida para fechar a conexão ativa e passou. Não foi necessário alterar o código da aplicação.
+Editor integrado e validado com o simulador Java. A supervisão existente permanece funcional. Nenhum equipamento físico foi conectado.
 
-## Frontend validado
+## Verificações realizadas
 
-- Instalação npm com lockfile: concluída; auditoria no momento da instalação reportou zero vulnerabilidades.
-- TypeScript e build de produção Vite: aprovados.
-- Vitest: 6 testes aprovados em 3 arquivos. Cobrem contrato, rejeição de dados inválidos, atualização do tanque, qualidade ruim, desconexão, navegação/F1, silêncio, reconexão e reinício da sequência.
-- Playwright/Edge: 1 teste de interface com mensagens controladas aprovado. Verifica atualização, navegação, F1, perda de conexão e ausência de transbordamento horizontal em 390 px.
-- Servidor Vite iniciado e HTTP 200 confirmado.
+- TypeScript: compilação sem erros.
+- Vite: build de produção aprovado; editor carregado separadamente da tela inicial.
+- Vitest: **21 testes aprovados em 4 arquivos**.
+- Playwright/Edge: **6 testes aprovados**.
+- Dependências npm: instalação concluída; auditoria reportou zero vulnerabilidades no momento da instalação.
+- Backend 0.1.0 sem alterações neste incremento: iniciado normalmente e utilizado nos testes reais. Seus 4 testes Java foram aprovados na entrega anterior.
 
-## Histórico do bloqueio — resolvido
+## Cobertura do editor
 
-- Maven/Java: dependências foram obtidas, mas a compilação falhou com `java.nio.file.AccessDeniedException` em `WindowsLinkSupport.getRealPath`, inclusive ao resolver o caminho de um JAR e limpar `backend/target`. Teste isolado com `Path.toRealPath` reproduziu a falha na leitura do próprio `pom.xml`.
-- Duas solicitações adicionais de leitura foram concedidas, mas não removeram essa restrição do executor.
-- A execução autorizada fora do ambiente restrito resolveu a falha. Os quatro testes Java passaram e o Spring Boot iniciou normalmente.
-- Os dois testes Playwright com backend real (`supervision.spec.ts`) passaram.
-- Nenhuma validação em CLPs físicos, rede local entre máquinas, Linux, carga ou ambiente de produção foi feita.
+- Arquivo de exemplo distribuído aceito pelo parser.
+- Preservação de geometria, rotação, rótulo, ordem e vínculo ao exportar e reabrir.
+- Rejeição de campos desconhecidos, URLs, scripts, estruturas inválidas, IDs repetidos, limites excedidos e tags incompatíveis.
+- Histórico de 60 revisões, desfazer/refazer e descarte do caminho de refazer após nova edição.
+- Inserção de componente, propriedades, ordem de exibição e download JSON no navegador.
+- Reabertura do JSON exportado sem perder o vínculo.
+- Arraste com mouse e ajuste à grade; desfazer retorna à posição anterior.
+- Operação com valores recebidos do Java real; biblioteca e propriedades bloqueadas nesse modo.
+- Navegação interna preserva o documento; arquivo inválido preserva a tela atual.
+- Tela estreita sem transbordamento horizontal da página.
+
+Os testes de contrato usam mensagens controladas; três testes de navegador usam o backend real: supervisão, reconexão do transporte e operação do editor. A restrição de importar conteúdo fora da raiz do servidor Vite foi respeitada: o teste do exemplo lê o arquivo diretamente como dado local de teste, sem ampliar as permissões do servidor web.
 
 ## Capturas
 
-`screenshots/desktop-java-live.png` mostra a tela conectada ao simulador Java real.
+- `screenshots/editor-v0.2.png`: edição e reabertura de projeto com dados controlados.
+- `screenshots/editor-operacao-java.png`: editor em Operação com o simulador Java.
+- `screenshots/desktop-java-live.png`: supervisão conectada ao Java.
+- Arquivos terminados em `test-data.png`: interface com dados controlados.
 
-`screenshots/desktop-test-data.png` e `screenshots/mobile-test-data.png` usam mensagens injetadas exclusivamente pelo teste Playwright. O código normal da aplicação não contém esse fallback. O indicador Conectado nessas capturas refere-se ao fluxo controlado do teste, não a um backend Java validado.
+## Limites
 
-## Critério de pronto
+Não foram validados Linux, carga, uso entre computadores, persistência em servidor ou equipamentos industriais. O projeto permanece em memória até ser exportado. Imagens/SVG, grupos, alinhamento múltiplo e conexões industriais não fazem parte desta versão.
 
-**Critério técnico da Etapa 0 atendido:** backend e frontend iniciaram e o tanque recebeu os dados do simulador Java via WebSocket. Comandos e checklist de revisão estão no README. Não foi testado reinício manual do processo Java com navegador aberto: a reconexão foi verificada por interrupção do transporte, e sequência reiniciada por teste unitário. Nenhum avanço para equipamentos físicos foi feito.
+A validação de reconexão interrompe o transporte WebSocket e verifica sua recuperação; não equivale a um teste de reinício manual do processo Java. Não há certificação de segurança ou disponibilidade industrial.

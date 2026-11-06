@@ -1,12 +1,1 @@
-{
-  "schemaVersion": 1,
-  "id": "water-tank",
-  "name": "Tanque TQ-001",
-  "mode": "SIMULATION",
-  "description": "Referência declarativa da tela fixa da Etapa 0. Importação pelo editor será implementada posteriormente.",
-  "components": [
-    {"id": "tank", "type": "tank", "bindings": {"level": "TQ001.LEVEL"}},
-    {"id": "pump", "type": "pump", "bindings": {"running": "P001.RUNNING"}},
-    {"id": "temperature", "type": "indicator", "bindings": {"value": "TQ001.TEMPERATURE"}}
-  ]
-}
+{"schemaVersion":1,"name":"Tanque TQ-001","screen":{"width":1200,"height":720},"components":[{"id":"title","kind":"text","label":"ALIMENTAÇÃO / TQ-001","x":100,"y":64,"width":360,"height":48,"angle":0,"binding":null},{"id":"tank","kind":"tank","label":"TQ-001","x":510,"y":190,"width":180,"height":260,"angle":0,"binding":"TQ001.LEVEL"},{"id":"pump","kind":"pump","label":"P-001","x":180,"y":310,"width":160,"height":130,"angle":0,"binding":"P001.RUNNING"},{"id":"temperature","kind":"indicator","label":"TT-001","x":860,"y":240,"width":160,"height":130,"angle":0,"binding":"TQ001.TEMPERATURE"}]}

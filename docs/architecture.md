@@ -1,6 +1,8 @@
 # Arquitetura — incremento 0
 
-O pedido inicial é a fonte do escopo. Os documentos fornecidos são referências de evolução, não uma autorização para implementar todas as fases.
+Atualização 0.2.0: o módulo `frontend/src/editor` acrescenta um documento HMI versionado, histórico local e representação Fabric.js. Consulte [o contrato do editor](editor.md). O backend e o contrato de tags descritos abaixo permanecem inalterados.
+
+O sistema é desenvolvido em incrementos locais, com contratos versionados e separação entre engenharia de telas e operação.
 
 ## Fluxo de dados
 

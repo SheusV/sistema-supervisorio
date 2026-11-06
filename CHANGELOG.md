@@ -6,7 +6,7 @@
 - Dockerfile com testes durante o build e execução sem privilégios.
 - Configuração Render Free com publicação automática da main após conexão da conta.
 - Pacote validado localmente: 21 testes frontend, 5 Java e 6 de navegador.
-- Criação do serviço público e build da imagem no provedor ainda pendentes.
+- Serviço público e imagem Docker validados no Render; seis testes de navegador aprovados no endereço público.
 
 ## 0.2.0 — 06/11/2026
 

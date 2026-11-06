@@ -502,7 +502,7 @@ class TankSimulatorTest {
 - Dockerfile com testes durante o build e execução sem privilégios.
 - Configuração Render Free com publicação automática da main após conexão da conta.
 - Pacote validado localmente: 21 testes frontend, 5 Java e 6 de navegador.
-- Criação do serviço público e build da imagem no provedor ainda pendentes.
+- Serviço público e imagem Docker validados no Render; seis testes de navegador aprovados no endereço público.
 
 ## 0.2.0 — 06/11/2026
 
@@ -684,7 +684,7 @@ Não colocar chaves ou tokens no repositório, Dockerfile ou frontend. Esta demo
 4. Usar `/api/health` como verificação de saúde. Não cadastrar banco de dados nesta etapa.
 5. Aguardar a compilação e conferir HTTPS, WebSocket, editor e exportação de JSON na URL retornada pelo provedor.
 
-O arquivo de configuração preparado não significa que o serviço já existe. A conexão da conta, criação do serviço e verificação da publicação são etapas obrigatórias.
+Publicado em 06/11/2026: https://nexo-scada-demo.onrender.com. Serviço nexo-scada-demo, plano Free, região Virginia, branch main, atualização automática habilitada. Criado diretamente como Web Service; render.yaml permanece como modelo para reproduzir a infraestrutura e não está vinculado a um Blueprint. A ferramenta de criação não configurou healthCheckPath: o provedor usa sua verificação padrão, e /api/health foi conferido externamente com resposta UP. Os seis testes de navegador passaram contra o endereço público.
 
 ## Atualizações
 
@@ -721,7 +721,7 @@ $env:E2E_BASE_URL = 'http://127.0.0.1:8081'
 npm.cmd run test:e2e
 ```
 
-Se Docker estiver instalado, `docker build -t nexo-scada .` constrói a imagem e `docker run --rm -p 127.0.0.1:8080:8080 nexo-scada` inicia a demonstração no computador. Docker não estava instalado no ambiente da preparação; não presumir validação da imagem até concluir um build real no provedor.
+Se Docker estiver instalado, `docker build -t nexo-scada .` constrói a imagem e `docker run --rm -p 127.0.0.1:8080:8080 nexo-scada` inicia a demonstração no computador. Docker não está instalado localmente; o build real da imagem foi concluído e validado no Render.
 
 ## Limites de segurança
 
@@ -817,7 +817,7 @@ Editor integrado e validado com o simulador Java. A supervisão existente perman
 - Dependências npm: instalação concluída; auditoria reportou zero vulnerabilidades no momento da instalação.
 - Backend: **5 testes Java aprovados**, incluindo cabeçalhos do perfil hosted.
 - Pacote integrado: build com perfil Maven web-ui aprovado; os 6 testes de navegador também passaram contra o JAR em modo hosted na porta local 8081.
-- Docker não está instalado neste ambiente. Build Linux da imagem, HTTPS público e implantação no provedor ainda não foram validados.
+- Docker não está instalado localmente; a imagem Linux foi construída pelo Render. HTTPS público e seis testes de navegador aprovados em https://nexo-scada-demo.onrender.com.
 
 ## Cobertura do editor
 
@@ -4155,7 +4155,7 @@ Backend em 127.0.0.1:8080; frontend Vite em 127.0.0.1:5173. Não há banco, brok
 
 Não publicar o servidor de desenvolvimento na internet. Para hospedagem, o Dockerfile da raiz reúne interface e Java em um serviço. O render.yaml prepara uma demonstração gratuita, com atualizações da main após conectar a conta ao GitHub. O perfil hosted usa o proxy HTTPS do provedor. Não há dados privados ou equipamentos físicos.
 
-Consulte o [guia de publicação](../docs/deployment.md). A criação do serviço público ainda está pendente. PostgreSQL e Flyway entram quando houver persistência.
+Consulte o [guia de publicação](../docs/deployment.md). Serviço publicado em https://nexo-scada-demo.onrender.com. PostgreSQL e Flyway entram quando houver persistência.
 ````
 
 ## README.md
@@ -4221,7 +4221,7 @@ Interrompa cada processo com Ctrl+C. Esses servidores de desenvolvimento escutam
 
 ## Publicação da demonstração
 
-O pacote de hospedagem reúne interface e Java em um único serviço. `Dockerfile` e `render.yaml` preparam a demonstração pública no Render, com atualizações automáticas a partir da branch main após conectar o GitHub. A criação do serviço e a verificação da URL pública ainda estão pendentes.
+O pacote de hospedagem reúne interface e Java em um único serviço. `Dockerfile` e `render.yaml` preparam a demonstração pública no Render, com atualizações automáticas a partir da branch main após conectar o GitHub. Publicado e verificado em https://nexo-scada-demo.onrender.com em 06/11/2026. Atualização automática da main habilitada.
 
 Veja o [guia de publicação](docs/deployment.md) para configurar a conta, gerar o pacote e entender os limites do plano gratuito. A demonstração usa apenas dados simulados; autenticação e uso com dados reais serão etapas posteriores.
 

@@ -15,7 +15,7 @@ Editor integrado e validado com o simulador Java. A supervisão existente perman
 - Dependências npm: instalação concluída; auditoria reportou zero vulnerabilidades no momento da instalação.
 - Backend: **5 testes Java aprovados**, incluindo cabeçalhos do perfil hosted.
 - Pacote integrado: build com perfil Maven web-ui aprovado; os 6 testes de navegador também passaram contra o JAR em modo hosted na porta local 8081.
-- Docker não está instalado neste ambiente. Build Linux da imagem, HTTPS público e implantação no provedor ainda não foram validados.
+- Docker não está instalado localmente; a imagem Linux foi construída pelo Render. HTTPS público e seis testes de navegador aprovados em https://nexo-scada-demo.onrender.com.
 
 ## Cobertura do editor
 

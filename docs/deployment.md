@@ -25,7 +25,7 @@ Não colocar chaves ou tokens no repositório, Dockerfile ou frontend. Esta demo
 4. Usar `/api/health` como verificação de saúde. Não cadastrar banco de dados nesta etapa.
 5. Aguardar a compilação e conferir HTTPS, WebSocket, editor e exportação de JSON na URL retornada pelo provedor.
 
-O arquivo de configuração preparado não significa que o serviço já existe. A conexão da conta, criação do serviço e verificação da publicação são etapas obrigatórias.
+Publicado em 06/11/2026: https://nexo-scada-demo.onrender.com. Serviço nexo-scada-demo, plano Free, região Virginia, branch main, atualização automática habilitada. Criado diretamente como Web Service; render.yaml permanece como modelo para reproduzir a infraestrutura e não está vinculado a um Blueprint. A ferramenta de criação não configurou healthCheckPath: o provedor usa sua verificação padrão, e /api/health foi conferido externamente com resposta UP. Os seis testes de navegador passaram contra o endereço público.
 
 ## Atualizações
 
@@ -62,7 +62,7 @@ $env:E2E_BASE_URL = 'http://127.0.0.1:8081'
 npm.cmd run test:e2e
 ```
 
-Se Docker estiver instalado, `docker build -t nexo-scada .` constrói a imagem e `docker run --rm -p 127.0.0.1:8080:8080 nexo-scada` inicia a demonstração no computador. Docker não estava instalado no ambiente da preparação; não presumir validação da imagem até concluir um build real no provedor.
+Se Docker estiver instalado, `docker build -t nexo-scada .` constrói a imagem e `docker run --rm -p 127.0.0.1:8080:8080 nexo-scada` inicia a demonstração no computador. Docker não está instalado localmente; o build real da imagem foi concluído e validado no Render.
 
 ## Limites de segurança
 

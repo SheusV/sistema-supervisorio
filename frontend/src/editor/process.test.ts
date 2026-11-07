@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { availableBindings, parseProject, removeComponents, serializeProject } from "./project";
+import { availableBindings, parseProject, removeComponents, replaceVariable, serializeProject } from "./project";
 import { processExample } from "./processExample";
 
 describe("process projects", () => {
   it("round trips variables, connections, colors and numeric scales", () => {
     const project = processExample();
     Object.assign(project.components[3], { color: "#aabbcc", rangeMin: -20, rangeMax: 150 });
+    expect(parseProject(serializeProject(project))).toEqual(project);
+  });
+  it("renames a tag atomically across equipment, connections and the rule", () => {
+    const project = processExample();
+    const next = replaceVariable(project, "LINHA.HABILITADA", { ...project.variables![0], name: "BOMBA.RUN" });
+    expect(next.components.find(c => c.id === "pump")?.binding).toBe("BOMBA.RUN");
+    expect(next.connections?.[0].binding).toBe("BOMBA.RUN");
+    expect(next.simulation?.enableTag).toBe("BOMBA.RUN");
+    expect(project.variables![0].name).toBe("LINHA.HABILITADA");
+    expect(() => replaceVariable(project, "LINHA.HABILITADA", { ...project.variables![0], name: "TANQUE.NIVEL" })).toThrow();
+  });
+  it("imports older v2 documents without an automatic rule", () => {
+    const { simulation: _removed, ...project } = processExample();
     expect(parseProject(serializeProject(project))).toEqual(project);
   });
   it.each([
@@ -24,6 +37,11 @@ describe("process projects", () => {
     ["invalid color", (p: any) => p.components[0].color = "url(https://example.com)"],
     ["unknown property", (p: any) => p.components[0].action = "eval"],
     ["zero scale", (p: any) => { p.components[3].rangeMin = 1; p.components[3].rangeMax = 1; }],
+    ["wrong rule tag type", (p: any) => p.simulation.levelTag = "LINHA.HABILITADA"],
+    ["dangling rule", (p: any) => p.simulation.enableTag = "MISSING"],
+    ["negative fill rate", (p: any) => p.simulation.fillRate = -1],
+    ["excessive output rate", (p: any) => p.simulation.drainRate = 1001],
+    ["unknown rule field", (p: any) => p.simulation.script = "anything"],
   ])("rejects %s atomically", (_name, mutate) => {
     const project = processExample(); mutate(project);
     expect(() => parseProject(JSON.stringify(project))).toThrow();

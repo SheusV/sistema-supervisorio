@@ -1,4 +1,4 @@
-# Relatório de validação — versão 0.4.0
+# Relatório de validação — versão 0.5.0
 
 Data: 06/11/2026. Ambiente: Windows, Node.js 24.22.1, Java 21.0.13, Microsoft Edge.
 
@@ -10,10 +10,10 @@ Editor integrado e validado com o simulador Java. A supervisão existente perman
 
 - TypeScript: compilação sem erros.
 - Vite: build de produção aprovado; editor carregado separadamente da tela inicial.
-- Vitest: **50 testes aprovados em 6 arquivos**.
-- Playwright/Edge: **10 testes aprovados**, incluindo criação de tags/ligações e comandos contra o Java local. Os mesmos dez cenários passaram no endereço público após a publicação da versão 0.4.0.
+- Vitest: **57 testes aprovados em 6 arquivos**.
+- Playwright/Edge: **12 testes aprovados** contra o Java local, incluindo edição de ligações, renomeação de tags, enchimento, drenagem, pausa e falha. Verificação pública desta versão pendente.
 - Dependências npm: instalação concluída; auditoria reportou zero vulnerabilidades no momento da instalação.
-- Backend: **8 testes Java aprovados**, incluindo isolamento por requisição, tipos, faixas, corpo excedente, campos desconhecidos e JSON malformado. O Dockerfile executa novamente os testes Java/frontend em cada build.
+- Backend: **11 testes Java aprovados**, incluindo isolamento por requisição, tipos, faixas, corpo excedente, campos desconhecidos e JSON malformado. O Dockerfile executa novamente os testes Java/frontend em cada build.
 - Docker não está instalado localmente. A hospedagem usa a imagem Linux construída pelo Render em https://nexo-scada-demo.onrender.com.
 
 ## Cobertura do editor
@@ -38,10 +38,11 @@ Editor integrado e validado com o simulador Java. A supervisão existente perman
 - Navegação interna preserva o documento; arquivo inválido preserva a tela atual.
 - Tela estreita sem transbordamento horizontal da página.
 
-Os testes de contrato usam mensagens controladas; três testes de navegador usam o backend real: supervisão, reconexão do transporte e operação do editor. A restrição de importar conteúdo fora da raiz do servidor Vite foi respeitada: o teste do exemplo lê o arquivo diretamente como dado local de teste, sem ampliar as permissões do servidor web.
+Os testes de contrato usam mensagens controladas; os testes de supervisão, reconexão, comandos e regra automática usam o backend real. A restrição de importar conteúdo fora da raiz do servidor Vite foi respeitada: o teste do exemplo lê o arquivo diretamente como dado local de teste, sem ampliar as permissões do servidor web.
 
 ## Capturas
 
+- `screenshots/simulacao-automatica.png`: controles da regra automática na versão 0.5.0.
 - `screenshots/processo-operacao.png`: processo conectado e comandos de simulação da versão 0.4.0.
 
 - `screenshots/editor-selecao-multipla.png`: painel de alinhamento e distribuição da versão 0.3.0.

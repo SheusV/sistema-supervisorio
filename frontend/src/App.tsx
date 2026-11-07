@@ -79,7 +79,7 @@ export function App() {
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.4.0 · Engenharia</small>
+            <small>v0.5.0 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -296,8 +296,11 @@ export function App() {
                 Em Operação, botões alternam tags próprias e entradas numéricas
                 acessam os campos de valor. Os comandos são validados pelo Java
                 e não afetam outras abas. Voltar à edição ou sair do editor
-                reinicia a simulação manual. As tubulações não calculam vazão,
-                pressão ou lógica automática; essas regras ainda não existem.
+                reinicia a simulação. Em Simulação automática, configure uma
+                regra de nível com entrada acionada e saída contínua. Inicie
+                ou pause em Operação. O Java calcula um segundo por ciclo,
+                respeitando a faixa da tag. Tubulações não calculam pressão
+                ou vazão: o comportamento vem da regra explícita.
               </p>
               <h3>Como salvar e recuperar o projeto?</h3>
               <p>

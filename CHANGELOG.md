@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## 0.5.0 — 06/11/2026
+
+- Edição de origem, destino, portas, tipo e vínculo de ligações existentes.
+- Renomeação de tags preserva vínculos com objetos, ligações e regra.
+- Regra configurável de enchimento/drenagem calculada pelo Java, com limites, iniciar/pausar e parada por falha.
+- Guia Por onde começar e exemplo com simulação automática.
+- Importação de projetos anteriores mantida e alterações recuperáveis por Desfazer.
+
 ## 0.4.0 — 06/11/2026
 
 - Válvulas, motores, sensores, botões, entradas numéricas e figuras na biblioteca.

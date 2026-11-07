@@ -5,6 +5,9 @@ export interface ProjectVariable {
   name: string; dataType: "BOOLEAN" | "DOUBLE"; unit: string;
   initial: number | boolean; min: number; max: number;
 }
+export interface TankRule {
+  levelTag: string; enableTag: string; fillRate: number; drainRate: number;
+}
 export type Port = "left" | "right" | "top" | "bottom";
 export interface ConnectionLine {
   id: string; from: string; to: string; fromPort: Port; toPort: Port;
@@ -31,6 +34,7 @@ export interface HmiProject {
   components: HmiComponent[];
   variables?: ProjectVariable[];
   connections?: ConnectionLine[];
+  simulation?: TankRule;
 }
 export const componentNames: Record<ComponentKind, string> = {
   tank: "Tanque",
@@ -139,10 +143,10 @@ export function parseProject(raw: string): HmiProject {
     "name",
     "screen",
     "components",
-  ], ["variables", "connections"]);
+  ], ["variables", "connections", "simulation"]);
   if (project.schemaVersion !== 1 && project.schemaVersion !== 2)
     throw new Error("Versão de projeto não suportada.");
-  if (project.schemaVersion === 1 && (project.variables !== undefined || project.connections !== undefined))
+  if (project.schemaVersion === 1 && (project.variables !== undefined || project.connections !== undefined || project.simulation !== undefined))
     throw new Error("Tags próprias e ligações exigem projeto versão 2.");
   const variables: ProjectVariable[] = [];
   if (project.schemaVersion === 2) {
@@ -236,13 +240,35 @@ export function parseProject(raw: string): HmiProject {
       connections.push({ id, from: line.from, to: line.to, fromPort: line.fromPort as Port, toPort: line.toPort as Port, kind: line.kind as ConnectionLine["kind"], binding: line.binding as string | null });
     }
   }
+  let simulation: TankRule | undefined;
+  if (project.simulation !== undefined) {
+    const rule = record(project.simulation, ["levelTag", "enableTag", "fillRate", "drainRate"]);
+    if (typeof rule.levelTag !== "string" || typeof rule.enableTag !== "string"
+      || !variables.some(v => v.name === rule.levelTag && v.dataType === "DOUBLE")
+      || !variables.some(v => v.name === rule.enableTag && v.dataType === "BOOLEAN"))
+      throw new Error("A regra exige uma tag numérica de nível e uma tag booleana de acionamento.");
+    simulation = { levelTag: rule.levelTag, enableTag: rule.enableTag,
+      fillRate: number(rule.fillRate, 0, 1000), drainRate: number(rule.drainRate, 0, 1000) };
+  }
   return {
     schemaVersion: project.schemaVersion,
     name: text(project.name, 80),
     screen: { width: 1200, height: 720 },
     components,
     ...(project.schemaVersion === 2 ? { variables, connections } : {}),
+    ...(simulation ? { simulation } : {}),
   };
+}
+export function replaceVariable(project: HmiProject, previousName: string, variable: ProjectVariable): HmiProject {
+  if (!project.variables?.some(v => v.name === previousName)) throw new Error("A tag não existe mais. Selecione-a novamente.");
+  return parseProject(JSON.stringify({ ...project,
+    variables: project.variables.map(v => v.name === previousName ? variable : v),
+    components: project.components.map(c => c.binding === previousName ? { ...c, binding: variable.name } : c),
+    connections: project.connections?.map(c => c.binding === previousName ? { ...c, binding: variable.name } : c),
+    ...(project.simulation ? { simulation: { ...project.simulation,
+      levelTag: project.simulation.levelTag === previousName ? variable.name : project.simulation.levelTag,
+      enableTag: project.simulation.enableTag === previousName ? variable.name : project.simulation.enableTag } } : {}),
+  }));
 }
 export function availableBindings(kind: ComponentKind, variables: ProjectVariable[] = []): string[] {
   const numeric = ["tank", "indicator", "sensor", "setpoint"].includes(kind);

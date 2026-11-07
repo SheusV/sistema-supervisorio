@@ -54,7 +54,7 @@ export default function Editor({
   const [snap, setSnap] = useState(true);
   const [message, setMessage] = useState("");
   const [sceneRevision, setSceneRevision] = useState(0);
-  const simulation = useProjectSimulation(project.variables ?? [], !editing);
+  const simulation = useProjectSimulation(project.variables ?? [], !editing, project.simulation);
   const lines = useRef<Path[]>([]);
   const drawLinesRef = useRef<() => void>(() => {});
   const commandRef = useRef<(id: string) => void>(() => {});
@@ -376,7 +376,8 @@ export default function Editor({
           <button
             disabled={!editing}
             onClick={() => {
-              change({ ...project, name: "Nova tela", components: [], variables: [], connections: [] });
+              const { simulation: _removed, ...base } = project;
+              change({ ...base, name: "Nova tela", components: [], variables: [], connections: [] });
               setSelectedIds([]);
               setMessage("Tela criada. Desfazer recupera a tela anterior.");
             }}
@@ -408,8 +409,13 @@ export default function Editor({
       </div>
       {editing && <ProjectTools project={project} change={change} report={setMessage} />}
       {!editing && !!project.variables?.length && <section className="simulation-console" aria-label="Comandos da simulação">
-        <h2>Simulação manual do projeto</h2>
-        <p>Valores validados pelo Java, isolados neste navegador. Comandos alteram tags e seus objetos vinculados; tubulações são ligações gráficas, sem cálculo de vazão.</p>
+        <h2>Simulação do projeto</h2>
+        <p>Comandos e regras calculados pelo Java, isolados nesta aba. Tubulações representam o desenho; a evolução do nível segue a regra configurada.</p>
+        {project.simulation && <div className="automatic-controls">
+          <button disabled={!simulation.ready || simulation.busy} aria-pressed={simulation.automatic} onClick={simulation.toggleAutomatic}>{simulation.automatic ? "Pausar simulação automática" : "Iniciar simulação automática"}</button>
+          <span>{simulation.automatic ? "Em execução" : "Pausada"} · {project.simulation.levelTag} · entrada {project.simulation.fillRate}, saída {project.simulation.drainRate} por segundo simulado</span>
+          <p>Um segundo simulado por ciclo confirmado. Lentidão ou aba em segundo plano pode reduzir a velocidade; não há recuperação de tempo perdido.</p>
+        </div>}
         <p role="status">{simulation.busy ? "Validando no Java…" : simulation.ready ? "Simulação pronta" : simulation.error || "Conectando ao simulador…"}</p>
         {simulation.error && <button disabled={simulation.busy} onClick={simulation.retry}>Reconectar simulação</button>}
         <div className="simulation-values">{project.variables.map(variable => <div key={variable.name}>

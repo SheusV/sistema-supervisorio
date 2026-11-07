@@ -1,4 +1,4 @@
-# Inventário de arquivos autorais
+# Arquivos de autoria — versão 0.5.0
 
 - .dockerignore
 - .gitattributes
@@ -19,6 +19,7 @@
 - backend/src/test/java/br/com/scada/HostedHeadersTest.java
 - backend/src/test/java/br/com/scada/ProjectSimulationTest.java
 - backend/src/test/java/br/com/scada/ScadaIntegrationTest.java
+- backend/src/test/java/br/com/scada/TankRuleTest.java
 - backend/src/test/java/br/com/scada/TankSimulatorTest.java
 - CHANGELOG.md
 - Dockerfile
@@ -31,6 +32,7 @@
 - docs/roadmap.md
 - docs/validation.md
 - examples/water-tank/project.json
+- frontend/e2e/automation.spec.ts
 - frontend/e2e/editor.spec.ts
 - frontend/e2e/interface.spec.ts
 - frontend/e2e/layout.spec.ts
@@ -51,6 +53,7 @@
 - frontend/src/editor/project.test.ts
 - frontend/src/editor/project.ts
 - frontend/src/editor/ProjectTools.tsx
+- frontend/src/editor/SimulationRuleEditor.tsx
 - frontend/src/editor/useProjectSimulation.ts
 - frontend/src/editor/widgets.ts
 - frontend/src/main.tsx

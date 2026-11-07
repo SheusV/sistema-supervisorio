@@ -1,6 +1,6 @@
 # NEXO — Supervisão e engenharia de telas
 
-Plataforma SCADA/HMI com backend Java e interface web. A versão **0.4.0** acrescenta ligações entre equipamentos, tags próprias e comandos de simulação manual ao editor de telas.
+Plataforma SCADA/HMI com backend Java e interface web. A versão **0.5.0** acrescenta edição de ligações, renomeação de tags preservando os vínculos e simulação automática de enchimento/drenagem calculada pelo Java.
 
 ## Recursos disponíveis
 
@@ -69,7 +69,7 @@ Veja o [guia de publicação](docs/deployment.md) para configurar a conta, gerar
 
 ## Usar o editor
 
-Para testar a nova entrega, abra **Editor → Exemplo de processo → Operação**. Use o botão desenhado para ligar/desligar a linha e o campo **TANQUE.NIVEL** para ajustar o nível. Para construir sua própria tela, use **Tags do projeto**, **Ligações** e **Tag vinculada**. Veja o [guia de processo](docs/process-editor.md).
+Para testar a nova entrega, abra **Editor → Exemplo de processo → Operação**. Use o botão desenhado para ligar/desligar a linha e clique em **Iniciar simulação automática**. O tanque enche com a linha ligada e drena quando desligada. Em Edição, use **Editar tag**, **Editar ligação** e **Simulação automática**. O guia **Por onde começar?** organiza os passos. Para construir sua própria tela, use **Tags do projeto**, **Ligações** e **Tag vinculada**. Veja o [guia de processo](docs/process-editor.md).
 
 1. Abra **Editor** e mantenha o modo **Edição**.
 2. Insira um componente pela biblioteca ou selecione um dos objetos do exemplo.
@@ -137,7 +137,7 @@ O código completo também está reunido em `docs/CODIGO_COMPLETO.md`; os arquiv
 
 ## Contrato e comportamento
 
-- `POST /api/simulation/evaluate`: validação sem estado dos valores manuais de tags próprias; nenhum comando físico ou alteração do simulador compartilhado. Tubulações não calculam vazão nem lógica automática.
+- `POST /api/simulation/evaluate`: validação sem estado dos valores de tags próprias e cálculo opcional de uma regra de tanque; nenhum comando físico ou alteração do simulador compartilhado. Tubulações não calculam vazão.
 
 - `GET /api/health`: saúde e modo do serviço de simulação, versão de backend 0.1.0.
 - `GET /api/tags` e `WS /ws/tags`: snapshots versionados de três tags.
@@ -149,7 +149,7 @@ O ciclo é demonstrativo, não um modelo físico calibrado. Após perda de conex
 
 ## Próximos incrementos
 
-Importação segura de imagens, agrupamento e alinhamento, persistência PostgreSQL/Flyway, autenticação e perfis, histórico/alarmes e laboratório de controle. Drivers industriais permanecem em uma fase separada. Consulte o [roadmap](docs/roadmap.md).
+Próximo incremento: desenhar ligações diretamente na tela. Depois, importação segura de imagens, agrupamento, persistência PostgreSQL/Flyway, autenticação e perfis, histórico/alarmes e laboratório de controle. Drivers industriais permanecem em uma fase separada. Consulte o [roadmap](docs/roadmap.md).
 
 ## Diagnóstico
 

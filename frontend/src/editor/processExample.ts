@@ -6,7 +6,8 @@ export function processExample(): HmiProject {
     return { ...createComponent(kind, 0), id, label, x, y, binding };
   }
   return {
-    schemaVersion: 2, name: "Linha de transferência — simulação manual", screen: { width: 1200, height: 720 },
+    schemaVersion: 2, name: "Linha de transferência — simulação", screen: { width: 1200, height: 720 },
+    simulation: { levelTag: "TANQUE.NIVEL", enableTag: "LINHA.HABILITADA", fillRate: 5, drainRate: 1 },
     variables: [
       { name: "LINHA.HABILITADA", dataType: "BOOLEAN", unit: "", initial: false, min: 0, max: 1 },
       { name: "TANQUE.NIVEL", dataType: "DOUBLE", unit: "%", initial: 35, min: 0, max: 100 },

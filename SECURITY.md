@@ -4,7 +4,7 @@ Este repositório público contém uma demonstração de simulação. O perfil l
 
 ## Antes de cada envio
 
-O endpoint de simulação manual `/api/simulation/evaluate` valida valores de tags próprias, sem persistência ou mutação de estado compartilhado. Limita o corpo a 64 KiB, a 32 tags, nomes/tipos/faixas permitidos e rejeita campos desconhecidos. Ele não aceita endereços de dispositivos, scripts ou comandos físicos. A interface só atualiza valores após resposta válida; falhas tornam os valores manuais indisponíveis até reconexão. Os projetos continuam sendo lidos no navegador; apenas definições de tags e valores da simulação são enviados ao Java.
+O endpoint de simulação `/api/simulation/evaluate` valida valores de tags próprias, sem persistência ou mutação de estado compartilhado. Limita o corpo a 64 KiB, a 32 tags, nomes/tipos/faixas permitidos e rejeita campos desconhecidos. Ele não aceita endereços de dispositivos, scripts ou comandos físicos. A interface só atualiza valores após resposta válida; falhas tornam os valores próprios indisponíveis até reconexão. Os projetos continuam sendo lidos no navegador; apenas definições de tags, valores e a regra limitada da simulação são enviados ao Java.
 
 - Revisar a lista de arquivos e o diff do commit.
 - Nunca registrar tokens, senhas, chaves privadas, certificados privados ou credenciais de equipamentos.

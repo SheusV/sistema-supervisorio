@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 
 async function exportProject(page: Page) {
   const pending = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Salvar projeto", exact: true }).click();
+  await page.getByRole("button", { name: "Exportar JSON", exact: true }).click();
   return JSON.parse(await readFile((await (await pending).path())!, "utf8"));
 }
 test.beforeEach(async ({ page }) => {

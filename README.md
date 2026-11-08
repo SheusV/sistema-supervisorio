@@ -1,6 +1,6 @@
 # NEXO — Supervisão e engenharia de telas
 
-Plataforma SCADA/HMI com backend Java e interface web. Na versão **0.6.0**, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
+Plataforma SCADA/HMI com backend Java e interface web. Na versão **0.7.0**, o editor guarda telas na biblioteca **Projetos salvos** deste navegador. Para conectar equipamentos, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
 
 ## Recursos disponíveis
 
@@ -76,9 +76,9 @@ Para testar a nova entrega, abra **Editor → Exemplo de processo → Operação
 3. Arraste para mover. Use as alças para redimensionar e girar; valores exatos também podem ser informados no painel Propriedades.
 4. Selecione a tag vinculada. Objetos numéricos aceitam tags DOUBLE; equipamentos de estado aceitam BOOLEAN. Botões e entradas numéricas usam somente tags próprias.
 5. Use **Operação** para visualizar valores e comandar tags próprias de simulação. A geometria fica bloqueada nesse modo; as tags da demonstração continuam somente leitura.
-6. Use **Salvar projeto** para exportar o JSON. **Abrir JSON** recupera componentes, geometria, ordem e vínculos. **Nova tela** abre uma tela vazia; Desfazer recupera a anterior.
+6. Abra **Projetos salvos → Salvar projeto** para guardar a tela pelo nome. Para recuperá-la, escolha o nome na lista e clique em **Abrir projeto salvo**. **Exportar JSON** baixa uma cópia. **Abrir JSON** recupera componentes, geometria, ordem e vínculos. **Nova tela** abre uma tela vazia; Desfazer recupera a anterior.
 
-As alterações são mantidas ao navegar entre as páginas, mas não são gravadas automaticamente no servidor ou no navegador. Antes de recarregar ou fechar, exporte o arquivo. A tela fixa de Supervisão é independente do projeto aberto no editor.
+As alterações são mantidas ao navegar entre as páginas, mas não são gravadas automaticamente no servidor ou no navegador. Antes de recarregar ou fechar, salve na biblioteca ou exporte o arquivo. A biblioteca pertence ao perfil do navegador e ao endereço do site. Limpar os dados do site apaga as cópias locais. A tela fixa de Supervisão é independente do projeto aberto no editor.
 
 Para selecionar vários objetos, use Shift + clique na tela ou na lista, arraste uma área vazia da tela ou use **Selecionar todos**. O painel Propriedades oferece alinhamento, distribuição e exclusão conjunta. Cada ação pode ser desfeita em uma única etapa. As dimensões e rotações continuam sendo editadas individualmente.
 

@@ -35,9 +35,9 @@ export function ProjectTools({ project, change, report }: Props) {
         <li><strong>Tags:</strong> crie variáveis e use Editar tag para ajustar nome, faixa ou valor inicial.</li>
         <li><strong>Objetos e ligações:</strong> insira equipamentos, vincule suas tags e use Desenhar ligação para escolher duas portas na tela. Editar ligação altera uma conexão existente.</li>
         <li><strong>Regra:</strong> configure o nível, o acionamento e as taxas em Simulação automática.</li>
-        <li><strong>Operação:</strong> teste os comandos e clique em Iniciar simulação automática. Salvar projeto exporta a configuração.</li>
+        <li><strong>Operação:</strong> teste os comandos e clique em Iniciar simulação automática. Em Projetos salvos, guarde a configuração neste navegador.</li>
       </ol>
-      <p>Para experimentar primeiro, use Exemplo de processo. Desfazer recupera a tela anterior. Exporte seu projeto antes de fechar ou recarregar.</p>
+      <p>Para experimentar primeiro, use Exemplo de processo. Desfazer recupera a tela anterior. Salve seu projeto antes de fechar ou recarregar.</p>
     </details>
     <details>
       <summary>Tags do projeto <span>{project.variables?.length ?? 0} / 32</span></summary>

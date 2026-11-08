@@ -79,7 +79,7 @@ export function App() {
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.6.0 · Engenharia</small>
+            <small>v0.7.0 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -304,10 +304,9 @@ export function App() {
               </p>
               <h3>Como salvar e recuperar o projeto?</h3>
               <p>
-                Salvar projeto exporta um arquivo JSON. Abrir JSON recupera a
-                tela, as dimensões e os vínculos. As alterações permanecem ao
-                navegar entre as páginas, mas não sobrevivem ao recarregamento
-                sem exportação. Desfazer e Refazer mantêm até 60 alterações. A
+                Em Projetos salvos, você pode guardar e reabrir telas neste navegador. Exportar JSON baixa uma cópia. Abrir JSON recupera a
+                tela, as dimensões e os vínculos. Salve as alterações antes
+                de fechar ou recarregar a página. Desfazer e Refazer mantêm até 60 alterações. A
                 importação aceita apenas o formato de projeto documentado.
               </p>
               <h3>Atalho de ajuda</h3>

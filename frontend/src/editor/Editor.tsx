@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type Dispatch } from "react";
 import { ActiveSelection, Canvas, Pattern, Path } from "fabric";
 import { PortOverlay, portPosition, portSides, connectionPath, type DrawingSession, type DrawingPort } from "./PortOverlay";
 import { arrange, layoutLabels, moveTogether, type LayoutAction } from "./layout";
+import { ProjectLibrary } from "./ProjectLibrary";
 import { ProjectTools } from "./ProjectTools";
 import { processExample } from "./processExample";
 import { useProjectSimulation } from "./useProjectSimulation";
@@ -399,7 +400,7 @@ export default function Editor({
         </button>
         <div className="toolbar-files">
           <span className="save-state">
-            {dirty ? "Alterações não exportadas" : "Arquivo exportado"}
+            {dirty ? "Alterações pendentes" : "Alterações salvas"}
           </span>
           <button
             disabled={!editing}
@@ -420,7 +421,7 @@ export default function Editor({
           </button>
           <button disabled={!editing} onClick={() => { change(processExample()); setSelectedIds([]); setMessage("Exemplo carregado. Abra Operação para testar os comandos. Desfazer recupera a tela anterior."); }}>Exemplo de processo</button>
           <button className="primary-action" onClick={save}>
-            Salvar projeto
+            Exportar JSON
           </button>
           <input
             ref={fileInput}
@@ -435,6 +436,13 @@ export default function Editor({
           />
         </div>
       </div>
+      {editing && <ProjectLibrary project={project} saved={() => onDirty(false)} open={next => {
+        importing.current++;
+        change(next);
+        setSelectedIds([]);
+        onDirty(false);
+        setMessage("");
+      }} />}
       {editing && <ProjectTools project={project} change={change} report={setMessage} />}
       {!editing && !!project.variables?.length && <section className="simulation-console" aria-label="Comandos da simulação">
         <h2>Simulação do projeto</h2>

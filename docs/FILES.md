@@ -1,4 +1,4 @@
-# Arquivos de autoria — versão 0.6.0
+# Arquivos de autoria — versão 0.7.0
 
 - .dockerignore
 - .gitattributes
@@ -36,6 +36,7 @@
 - frontend/e2e/editor.spec.ts
 - frontend/e2e/interface.spec.ts
 - frontend/e2e/layout.spec.ts
+- frontend/e2e/library.spec.ts
 - frontend/e2e/process.spec.ts
 - frontend/e2e/supervision.spec.ts
 - frontend/index.html
@@ -53,7 +54,9 @@
 - frontend/src/editor/processExample.ts
 - frontend/src/editor/project.test.ts
 - frontend/src/editor/project.ts
+- frontend/src/editor/ProjectLibrary.tsx
 - frontend/src/editor/ProjectTools.tsx
+- frontend/src/editor/savedProjects.ts
 - frontend/src/editor/SimulationRuleEditor.tsx
 - frontend/src/editor/useProjectSimulation.ts
 - frontend/src/editor/widgets.ts

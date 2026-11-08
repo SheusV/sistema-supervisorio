@@ -33,7 +33,7 @@ test("edits, exports and reopens the same screen with bindings and layer order",
   await expect(page.getByLabel("Rotação", { exact: true })).toHaveValue("30");
   await page.getByRole('button', { name: 'Para trás', exact: true }).click();
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Salvar projeto" }).click();
+  await page.getByRole("button", { name: "Exportar JSON" }).click();
   const file = await download;
   const data = JSON.parse(await readFile((await file.path())!, "utf8"));
   expect(data.components).toHaveLength(5);

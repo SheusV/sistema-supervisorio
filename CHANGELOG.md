@@ -1,5 +1,10 @@
 # Histórico de versões
 
+## 0.7.0 — 08/11/2026
+
+- Biblioteca de projetos no navegador. Salvar e abrir preservam componentes, ligações, tags e regras de simulação.
+- Substituição por nome com confirmação e verificação de revisão entre abas. Exportar JSON baixa uma cópia portátil.
+
 ## 0.6.0 — 07/11/2026
 
 - Desenho de tubulações e sinais entre portas na tela, com prévia, cancelamento e suporte a zoom. As conexões podem receber tags, ser editadas e ser recuperadas pelo histórico ou arquivo de projeto.

@@ -33,7 +33,7 @@ A configuração usa `autoDeployTrigger: commit` na branch main. Isso requer con
 
 Fluxo: alteração em branch → testes e revisão de segredos → integração na main → Render reconstrói a imagem → testes Java/frontend dentro do build → verificação de saúde → nova versão na mesma URL. Se o build falhar, corrigir antes de considerar a nova versão publicada. Testes de navegador continuam sendo executados antes do envio.
 
-O simulador reinicia em cada deploy. Documentos do editor ficam no navegador até exportação; não há persistência no servidor. Exporte alterações antes de atualizar a página. Conexões WebSocket podem cair durante a troca de versão e o cliente tenta reconectar.
+O simulador reinicia em cada deploy. Projetos salvos ficam no armazenamento local do navegador, associado à origem do site. Salve ou exporte alterações antes de atualizar a página. Conexões WebSocket podem cair durante a troca de versão e o cliente tenta reconectar.
 
 ## Plano gratuito
 

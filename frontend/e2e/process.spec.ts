@@ -23,7 +23,7 @@ test("creates a tag and anchored connection, preserves them in JSON and undoes d
   await page.getByRole("button", { name: "Criar ligação", exact: true }).click();
   await expect(page.getByRole("button", { name: "Excluir ligação 1" })).toBeVisible();
   const pending = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Salvar projeto" }).click();
+  await page.getByRole("button", { name: "Exportar JSON" }).click();
   const file = await pending;
   const data = JSON.parse(await readFile((await file.path())!, "utf8"));
   expect(data.schemaVersion).toBe(2);

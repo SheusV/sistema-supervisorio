@@ -1,4 +1,8 @@
-# Relatório de validação — versão 0.6.0
+# Relatório de validação — versão 0.7.0
+
+Em 08/11/2026, o build, os 57 testes de frontend e os 14 cenários de navegador passaram localmente. A biblioteca foi validada fechando e reiniciando o navegador no mesmo perfil, comparando o documento completo e verificando o cancelamento e a confirmação de substituição.
+
+## Resultados da versão 0.6.0
 
 Em 07/11/2026, a compilação de produção, os 57 testes de frontend e os 13 cenários de navegador passaram localmente. O novo cenário cobre cancelamento por Escape, duas portas de equipamentos distintos, zoom durante o traçado, desfazer/refazer, atribuição de tag e reabertura do JSON. Veja a [captura do traçado](screenshots/desenhar-ligacao.png).
 

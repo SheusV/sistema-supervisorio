@@ -39,7 +39,7 @@ Edição usa valores ilustrativos e mantém seleção, arraste, redimensionament
 
 Operação mantém a geometria e bloqueia seleção/alteração. Somente dados GOOD de uma conexão ativa são apresentados. Sem vínculo, com qualidade ruim ou com desconexão, aparece indisponibilidade. Receber uma medição não altera o documento nem seu histórico.
 
-O histórico guarda até 60 revisões; uma nova alteração após desfazer limpa o caminho de refazer. O estado permanece durante a navegação interna. Exportação JSON é necessária para recuperação após recarga. O aviso de saída depende do comportamento do navegador e não substitui a exportação.
+O histórico guarda até 60 revisões; uma nova alteração após desfazer limpa o caminho de refazer. O estado permanece durante a navegação interna. A partir da versão 0.7.0, Projetos salvos guarda o documento neste navegador e Exportar JSON baixa uma cópia. O aviso de saída depende do comportamento do navegador e não substitui a exportação.
 
 ## Limites deste incremento
 

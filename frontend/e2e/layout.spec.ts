@@ -8,7 +8,7 @@ const project = { schemaVersion: 1, name: "Organização", screen: { width: 1200
 ] };
 async function exported(page: Page) {
   const pending = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Salvar projeto" }).click();
+  await page.getByRole("button", { name: "Exportar JSON" }).click();
   const download = await pending;
   return JSON.parse(await readFile((await download.path())!, "utf8")) as typeof project;
 }

@@ -1,4 +1,4 @@
-# Código completo — versão 0.6.0
+# Código completo — versão 0.7.0
 Cópia integral dos arquivos de autoria. Lockfile, ferramentas e capturas permanecem nos arquivos individuais.
 
 ## .dockerignore
@@ -701,6 +701,11 @@ class TankSimulatorTest {
 ````
 # Histórico de versões
 
+## 0.7.0 — 08/11/2026
+
+- Biblioteca de projetos no navegador. Salvar e abrir preservam componentes, ligações, tags e regras de simulação.
+- Substituição por nome com confirmação e verificação de revisão entre abas. Exportar JSON baixa uma cópia portátil.
+
 ## 0.6.0 — 07/11/2026
 
 - Desenho de tubulações e sinais entre portas na tela, com prévia, cancelamento e suporte a zoom. As conexões podem receber tags, ser editadas e ser recuperadas pelo histórico ou arquivo de projeto.
@@ -932,7 +937,7 @@ A configuração usa `autoDeployTrigger: commit` na branch main. Isso requer con
 
 Fluxo: alteração em branch → testes e revisão de segredos → integração na main → Render reconstrói a imagem → testes Java/frontend dentro do build → verificação de saúde → nova versão na mesma URL. Se o build falhar, corrigir antes de considerar a nova versão publicada. Testes de navegador continuam sendo executados antes do envio.
 
-O simulador reinicia em cada deploy. Documentos do editor ficam no navegador até exportação; não há persistência no servidor. Exporte alterações antes de atualizar a página. Conexões WebSocket podem cair durante a troca de versão e o cliente tenta reconectar.
+O simulador reinicia em cada deploy. Projetos salvos ficam no armazenamento local do navegador, associado à origem do site. Salve ou exporte alterações antes de atualizar a página. Conexões WebSocket podem cair durante a troca de versão e o cliente tenta reconectar.
 
 ## Plano gratuito
 
@@ -1016,7 +1021,7 @@ Edição usa valores ilustrativos e mantém seleção, arraste, redimensionament
 
 Operação mantém a geometria e bloqueia seleção/alteração. Somente dados GOOD de uma conexão ativa são apresentados. Sem vínculo, com qualidade ruim ou com desconexão, aparece indisponibilidade. Receber uma medição não altera o documento nem seu histórico.
 
-O histórico guarda até 60 revisões; uma nova alteração após desfazer limpa o caminho de refazer. O estado permanece durante a navegação interna. Exportação JSON é necessária para recuperação após recarga. O aviso de saída depende do comportamento do navegador e não substitui a exportação.
+O histórico guarda até 60 revisões; uma nova alteração após desfazer limpa o caminho de refazer. O estado permanece durante a navegação interna. A partir da versão 0.7.0, Projetos salvos guarda o documento neste navegador e Exportar JSON baixa uma cópia. O aviso de saída depende do comportamento do navegador e não substitui a exportação.
 
 ## Limites deste incremento
 
@@ -1101,8 +1106,8 @@ Testes cobrem importação/exportação, rejeição de ligações órfãs, nomes
 # Próximos incrementos
 
 1. Etapa 0 validada tecnicamente: backend, frontend e fluxo WebSocket real, incluindo reconexão após interrupção do transporte. Revisão visual pelo usuário disponível.
-2. Editor: base em 0.2.0; seleção/alinhamento em 0.3.0; ligações, biblioteca ampliada, tags próprias e comandos manuais em 0.4.0. Edição de ligações, renomeação de tags e regra de tanque entregues em 0.5.0. Ligação direta por portas disponível na versão 0.6.0. O próximo incremento prioriza salvar e reabrir projetos. Grupos permanentes e imagens seguem previstos.
-3. PostgreSQL/Flyway, projetos persistidos, autenticação, perfis e auditoria; testes com Testcontainers.
+2. Editor: base em 0.2.0; seleção/alinhamento em 0.3.0; ligações, biblioteca ampliada, tags próprias e comandos manuais em 0.4.0. Edição de ligações, renomeação de tags e regra de tanque entregues em 0.5.0. Ligação direta por portas disponível na versão 0.6.0. A biblioteca local da versão 0.7.0 inicia o passo 3. Grupos permanentes e imagens seguem previstos.
+3. Em andamento: salvar e reabrir telas no mesmo navegador entregue em 0.7.0. Para acesso entre dispositivos seguem previstos PostgreSQL/Flyway, projetos persistidos, autenticação, perfis e auditoria; testes com Testcontainers.
 4. Drivers de leitura, primeiro contra servidores OPC UA/Modbus/MQTT simulados, com qualidade e timeouts testados.
 5. Alarmes e histórico com ECharts.
 6. Laboratório offline PID/Bode com testes numéricos contra referências analíticas.
@@ -1115,7 +1120,11 @@ Conexão com CLP físico, comandos de escrita e uso em produção exigem fases e
 ## docs/validation.md
 
 ````
-# Relatório de validação — versão 0.6.0
+# Relatório de validação — versão 0.7.0
+
+Em 08/11/2026, o build, os 57 testes de frontend e os 14 cenários de navegador passaram localmente. A biblioteca foi validada fechando e reiniciando o navegador no mesmo perfil, comparando o documento completo e verificando o cancelamento e a confirmação de substituição.
+
+## Resultados da versão 0.6.0
 
 Em 07/11/2026, a compilação de produção, os 57 testes de frontend e os 13 cenários de navegador passaram localmente. O novo cenário cobre cancelamento por Escape, duas portas de equipamentos distintos, zoom durante o traçado, desfazer/refazer, atribuição de tag e reabertura do JSON. Veja a [captura do traçado](screenshots/desenhar-ligacao.png).
 
@@ -1194,7 +1203,7 @@ import { readFile } from "node:fs/promises";
 
 async function exportProject(page: Page) {
   const pending = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Salvar projeto", exact: true }).click();
+  await page.getByRole("button", { name: "Exportar JSON", exact: true }).click();
   return JSON.parse(await readFile((await (await pending).path())!, "utf8"));
 }
 test.beforeEach(async ({ page }) => {
@@ -1330,7 +1339,7 @@ test("edits, exports and reopens the same screen with bindings and layer order",
   await expect(page.getByLabel("Rotação", { exact: true })).toHaveValue("30");
   await page.getByRole('button', { name: 'Para trás', exact: true }).click();
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Salvar projeto" }).click();
+  await page.getByRole("button", { name: "Exportar JSON" }).click();
   const file = await download;
   const data = JSON.parse(await readFile((await file.path())!, "utf8"));
   expect(data.components).toHaveLength(5);
@@ -1495,7 +1504,7 @@ const project = { schemaVersion: 1, name: "Organização", screen: { width: 1200
 ] };
 async function exported(page: Page) {
   const pending = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Salvar projeto" }).click();
+  await page.getByRole("button", { name: "Exportar JSON" }).click();
   const download = await pending;
   return JSON.parse(await readFile((await download.path())!, "utf8")) as typeof project;
 }
@@ -1551,6 +1560,69 @@ test("moves a multi-selection together on the canvas and preserves rotation", as
 });
 ````
 
+## frontend/e2e/library.spec.ts
+
+````
+import { expect, test, chromium, type Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+
+async function library(page: Page) {
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await page.getByText("Projetos salvos", { exact: true }).click();
+}
+
+async function documentOf(page: Page) {
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Exportar JSON" }).click();
+  return JSON.parse(await readFile((await (await download).path())!, "utf8"));
+}
+
+test("keeps the full project after closing the browser and confirms replacement", async ({ baseURL }, info) => {
+  test.setTimeout(90000);
+  const profile = info.outputPath("browser-profile");
+  const launch = () => chromium.launchPersistentContext(profile, { channel: "msedge", baseURL });
+  const first = await launch();
+  let original;
+  try {
+    const page = await first.newPage();
+    await page.goto("/");
+    await library(page);
+    await page.getByRole("button", { name: "Exemplo de processo" }).click();
+    original = await documentOf(page);
+    await page.getByRole("button", { name: "Salvar projeto", exact: true }).click();
+    await expect(page.getByLabel("Projeto salvo", { exact: true })).toHaveValue(original.name);
+  } finally { await first.close(); }
+
+  const second = await launch();
+  try {
+    const page = await second.newPage();
+    await page.goto("/");
+    await library(page);
+    await page.getByRole("button", { name: "Abrir projeto salvo" }).click();
+    await expect(page.getByLabel("Nome da tela")).toHaveValue(original.name);
+    expect(await documentOf(page)).toEqual(original);
+    await page.getByRole("button", { name: "Nova tela" }).click();
+    await page.getByLabel("Nome da tela").fill(original.name);
+    await page.getByLabel("Nome da tela").press("Tab");
+    await page.getByRole("button", { name: "Salvar projeto", exact: true }).click();
+    await page.getByRole("button", { name: "Cancelar", exact: true }).click();
+    await page.getByRole("button", { name: "Abrir projeto salvo" }).click();
+    await expect(page.getByText("Projeto “" + original.name + "” aberto.", { exact: false }).first()).toBeVisible();
+    expect(await documentOf(page)).toEqual(original);
+    await page.getByRole("button", { name: "Tanque", exact: true }).click();
+    const revised = await documentOf(page);
+    await page.getByRole("button", { name: "Salvar projeto", exact: true }).click();
+    await page.getByRole("button", { name: "Substituir projeto" }).click();
+    await expect(page.getByText("Projeto “" + original.name + "” salvo neste navegador.")).toBeVisible();
+    await page.reload();
+    await library(page);
+    await page.getByRole("button", { name: "Abrir projeto salvo" }).click();
+    await expect(page.getByLabel("Nome da tela")).toHaveValue(original.name);
+    expect(await documentOf(page)).toEqual(revised);
+  } finally { await second.close(); }
+});
+````
+
 ## frontend/e2e/process.spec.ts
 
 ````
@@ -1579,7 +1651,7 @@ test("creates a tag and anchored connection, preserves them in JSON and undoes d
   await page.getByRole("button", { name: "Criar ligação", exact: true }).click();
   await expect(page.getByRole("button", { name: "Excluir ligação 1" })).toBeVisible();
   const pending = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Salvar projeto" }).click();
+  await page.getByRole("button", { name: "Exportar JSON" }).click();
   const file = await pending;
   const data = JSON.parse(await readFile((await file.path())!, "utf8"));
   expect(data.schemaVersion).toBe(2);
@@ -1706,7 +1778,7 @@ test("recovers the real Java stream after a transport interruption", async ({ pa
 ````
 {
   "name": "scada-hmi",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -1887,7 +1959,7 @@ export function App() {
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.6.0 · Engenharia</small>
+            <small>v0.7.0 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -2112,10 +2184,9 @@ export function App() {
               </p>
               <h3>Como salvar e recuperar o projeto?</h3>
               <p>
-                Salvar projeto exporta um arquivo JSON. Abrir JSON recupera a
-                tela, as dimensões e os vínculos. As alterações permanecem ao
-                navegar entre as páginas, mas não sobrevivem ao recarregamento
-                sem exportação. Desfazer e Refazer mantêm até 60 alterações. A
+                Em Projetos salvos, você pode guardar e reabrir telas neste navegador. Exportar JSON baixa uma cópia. Abrir JSON recupera a
+                tela, as dimensões e os vínculos. Salve as alterações antes
+                de fechar ou recarregar a página. Desfazer e Refazer mantêm até 60 alterações. A
                 importação aceita apenas o formato de projeto documentado.
               </p>
               <h3>Atalho de ajuda</h3>
@@ -2775,6 +2846,11 @@ main:has(.editor) {
 .editor .port-overlay button:is(:hover, :focus-visible, .chosen-port) { background: #087c85; outline: 2px solid white; }
 .editor .port-overlay button:disabled { cursor: default; opacity: .45; }
 .editor .port-overlay button.chosen-port { opacity: 1; }
+.project-library { background: white; border-bottom: 1px solid #d5dfe8; padding: 10px 16px; font-size: 13px; }
+.project-library summary { cursor: pointer; font-weight: 600; }
+.project-library p { color: #465c70; }
+.library-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 10px 0; }
+.library-controls label, .library-controls select { max-width: 100%; }
 ````
 
 ## frontend/src/editor/Editor.tsx
@@ -2784,6 +2860,7 @@ import { useEffect, useRef, useState, type Dispatch } from "react";
 import { ActiveSelection, Canvas, Pattern, Path } from "fabric";
 import { PortOverlay, portPosition, portSides, connectionPath, type DrawingSession, type DrawingPort } from "./PortOverlay";
 import { arrange, layoutLabels, moveTogether, type LayoutAction } from "./layout";
+import { ProjectLibrary } from "./ProjectLibrary";
 import { ProjectTools } from "./ProjectTools";
 import { processExample } from "./processExample";
 import { useProjectSimulation } from "./useProjectSimulation";
@@ -3181,7 +3258,7 @@ export default function Editor({
         </button>
         <div className="toolbar-files">
           <span className="save-state">
-            {dirty ? "Alterações não exportadas" : "Arquivo exportado"}
+            {dirty ? "Alterações pendentes" : "Alterações salvas"}
           </span>
           <button
             disabled={!editing}
@@ -3202,7 +3279,7 @@ export default function Editor({
           </button>
           <button disabled={!editing} onClick={() => { change(processExample()); setSelectedIds([]); setMessage("Exemplo carregado. Abra Operação para testar os comandos. Desfazer recupera a tela anterior."); }}>Exemplo de processo</button>
           <button className="primary-action" onClick={save}>
-            Salvar projeto
+            Exportar JSON
           </button>
           <input
             ref={fileInput}
@@ -3217,6 +3294,13 @@ export default function Editor({
           />
         </div>
       </div>
+      {editing && <ProjectLibrary project={project} saved={() => onDirty(false)} open={next => {
+        importing.current++;
+        change(next);
+        setSelectedIds([]);
+        onDirty(false);
+        setMessage("");
+      }} />}
       {editing && <ProjectTools project={project} change={change} report={setMessage} />}
       {!editing && !!project.variables?.length && <section className="simulation-console" aria-label="Comandos da simulação">
         <h2>Simulação do projeto</h2>
@@ -4266,6 +4350,106 @@ export function projectReducer(
 }
 ````
 
+## frontend/src/editor/ProjectLibrary.tsx
+
+````
+import { useEffect, useRef, useState } from "react";
+import type { HmiProject } from "./project";
+import { listProjects, readProject, saveProject } from "./savedProjects";
+
+interface Props {
+  project: HmiProject;
+  open: (next: HmiProject) => void;
+  saved: () => void;
+}
+
+export function ProjectLibrary({ project, open, saved }: Props) {
+  const [names, setNames] = useState<string[]>([]);
+  const [selection, setSelection] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [replacement, setReplacement] = useState<{ project: HmiProject; revision: string } | null>(null);
+  const active = useRef(false);
+  const latest = useRef(project);
+  latest.current = project;
+  const pending = replacement?.project === project ? replacement : null;
+
+  useEffect(() => {
+    active.current = true;
+    return () => { active.current = false; };
+  }, []);
+
+  async function refresh(preferred?: string) {
+    const available = await listProjects();
+    if (!active.current) return;
+    setNames(available);
+    setSelection(current => {
+      const name = preferred ?? current;
+      return available.includes(name) ? name : available[0] ?? "";
+    });
+  }
+
+  async function perform(action: () => Promise<void>) {
+    setBusy(true);
+    setMessage("");
+    try {
+      await action();
+    } catch (error) {
+      if (active.current) setMessage(error instanceof DOMException
+        ? "O navegador não conseguiu acessar a biblioteca. Confira o espaço disponível ou use Exportar JSON."
+        : error instanceof Error ? error.message : "Não foi possível concluir a operação.");
+    } finally {
+      if (active.current) setBusy(false);
+    }
+  }
+
+  async function save(revision?: string) {
+    const result = await saveProject(project, revision);
+    if (!active.current) return;
+    if (!result.saved) {
+      if (latest.current === project) {
+        setReplacement({ project, revision: result.revision });
+        setMessage(revision ? "Outra aba atualizou esta tela. Confirme para substituir a versão mais recente." : "");
+      }
+      return;
+    }
+    setReplacement(null);
+    if (latest.current === project) saved();
+    setMessage(`Projeto “${project.name}” salvo neste navegador.`);
+    await refresh(project.name);
+  }
+
+  return <details className="project-library" onToggle={event => {
+    if (event.currentTarget.open) void perform(() => refresh());
+    else setReplacement(null);
+  }}>
+    <summary>Projetos salvos</summary>
+    <p>Biblioteca deste navegador. Use Exportar JSON para guardar uma cópia fora deste dispositivo.</p>
+    <div className="library-controls">
+      <button disabled={busy || !!pending} onClick={() => void perform(() => save())}>Salvar projeto</button>
+      <label>Projeto <select aria-label="Projeto salvo" value={selection} disabled={busy || !names.length}
+        onChange={event => { setSelection(event.target.value); setReplacement(null); }}>
+        {!names.length && <option value="">Nenhum projeto salvo</option>}
+        {names.map(name => <option key={name}>{name}</option>)}
+      </select></label>
+      <button disabled={busy || !selection} onClick={() => void perform(async () => {
+        const next = await readProject(selection);
+        if (!active.current || latest.current !== project) return;
+        setReplacement(null);
+        open(next);
+        setMessage(`Projeto “${next.name}” aberto. Desfazer recupera a tela anterior.`);
+      })}>Abrir projeto salvo</button>
+    </div>
+    {pending && <div className="library-controls">
+      <span>Já existe um projeto chamado “{project.name}”. Substituir a cópia salva?</span>
+      <button disabled={busy} onClick={() => void perform(() => save(pending.revision))}>Substituir projeto</button>
+      <button disabled={busy} onClick={() => { setReplacement(null); setMessage(""); }}>Cancelar</button>
+    </div>}
+    {message && <p role="status">{message}</p>}
+  </details>;
+}
+````
+
 ## frontend/src/editor/ProjectTools.tsx
 
 ````
@@ -4306,9 +4490,9 @@ export function ProjectTools({ project, change, report }: Props) {
         <li><strong>Tags:</strong> crie variáveis e use Editar tag para ajustar nome, faixa ou valor inicial.</li>
         <li><strong>Objetos e ligações:</strong> insira equipamentos, vincule suas tags e use Desenhar ligação para escolher duas portas na tela. Editar ligação altera uma conexão existente.</li>
         <li><strong>Regra:</strong> configure o nível, o acionamento e as taxas em Simulação automática.</li>
-        <li><strong>Operação:</strong> teste os comandos e clique em Iniciar simulação automática. Salvar projeto exporta a configuração.</li>
+        <li><strong>Operação:</strong> teste os comandos e clique em Iniciar simulação automática. Em Projetos salvos, guarde a configuração neste navegador.</li>
       </ol>
-      <p>Para experimentar primeiro, use Exemplo de processo. Desfazer recupera a tela anterior. Exporte seu projeto antes de fechar ou recarregar.</p>
+      <p>Para experimentar primeiro, use Exemplo de processo. Desfazer recupera a tela anterior. Salve seu projeto antes de fechar ou recarregar.</p>
     </details>
     <details>
       <summary>Tags do projeto <span>{project.variables?.length ?? 0} / 32</span></summary>
@@ -4365,6 +4549,79 @@ export function ProjectTools({ project, change, report }: Props) {
     </details>
     <SimulationRuleEditor project={project} commit={commit} />
   </div>;
+}
+````
+
+## frontend/src/editor/savedProjects.ts
+
+````
+import { parseProject, serializeProject, type HmiProject } from "./project";
+
+const databaseName = "nexo-project-library";
+const storeName = "projects";
+
+interface Entry {
+  name: string;
+  revision: string;
+  document: string;
+}
+
+function openLibrary(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(databaseName, 1);
+    request.onupgradeneeded = () => request.result.createObjectStore(storeName, { keyPath: "name" });
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function useStore<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore, result: (value: T) => void) => void) {
+  const db = await openLibrary();
+  try {
+    return await new Promise<T>((resolve, reject) => {
+      const transaction = db.transaction(storeName, mode);
+      let value: T;
+      transaction.oncomplete = () => resolve(value);
+      transaction.onabort = () => reject(transaction.error ?? new Error("Gravação interrompida."));
+      run(transaction.objectStore(storeName), next => { value = next; });
+    });
+  } finally {
+    db.close();
+  }
+}
+
+export function listProjects() {
+  return useStore<string[]>("readonly", (store, result) => {
+    const keys = store.getAllKeys();
+    keys.onsuccess = () => result(keys.result.map(String).sort((a, b) => a.localeCompare(b, "pt-BR")));
+  });
+}
+
+export async function readProject(name: string) {
+  const entry = await useStore<Entry | undefined>("readonly", (store, result) => {
+    const request = store.get(name);
+    request.onsuccess = () => result(request.result);
+  });
+  if (!entry) throw new Error("O projeto já não está na lista deste navegador.");
+  return parseProject(entry.document);
+}
+
+type SaveResult = { saved: true } | { saved: false; revision: string };
+
+export function saveProject(project: HmiProject, expectedRevision?: string) {
+  const document = serializeProject(project);
+  return useStore<SaveResult>("readwrite", (store, result) => {
+    const request = store.get(project.name);
+    request.onsuccess = () => {
+      const existing: Entry | undefined = request.result;
+      if (existing && existing.revision !== expectedRevision) {
+        result({ saved: false, revision: existing.revision });
+        return;
+      }
+      store.put({ name: project.name, document, revision: crypto.randomUUID() } satisfies Entry);
+      result({ saved: true });
+    };
+  });
 }
 ````
 
@@ -5648,7 +5905,7 @@ Consulte o [guia de publicação](../docs/deployment.md). Serviço publicado em 
 ````
 # NEXO — Supervisão e engenharia de telas
 
-Plataforma SCADA/HMI com backend Java e interface web. Na versão **0.6.0**, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
+Plataforma SCADA/HMI com backend Java e interface web. Na versão **0.7.0**, o editor guarda telas na biblioteca **Projetos salvos** deste navegador. Para conectar equipamentos, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
 
 ## Recursos disponíveis
 
@@ -5724,9 +5981,9 @@ Para testar a nova entrega, abra **Editor → Exemplo de processo → Operação
 3. Arraste para mover. Use as alças para redimensionar e girar; valores exatos também podem ser informados no painel Propriedades.
 4. Selecione a tag vinculada. Objetos numéricos aceitam tags DOUBLE; equipamentos de estado aceitam BOOLEAN. Botões e entradas numéricas usam somente tags próprias.
 5. Use **Operação** para visualizar valores e comandar tags próprias de simulação. A geometria fica bloqueada nesse modo; as tags da demonstração continuam somente leitura.
-6. Use **Salvar projeto** para exportar o JSON. **Abrir JSON** recupera componentes, geometria, ordem e vínculos. **Nova tela** abre uma tela vazia; Desfazer recupera a anterior.
+6. Abra **Projetos salvos → Salvar projeto** para guardar a tela pelo nome. Para recuperá-la, escolha o nome na lista e clique em **Abrir projeto salvo**. **Exportar JSON** baixa uma cópia. **Abrir JSON** recupera componentes, geometria, ordem e vínculos. **Nova tela** abre uma tela vazia; Desfazer recupera a anterior.
 
-As alterações são mantidas ao navegar entre as páginas, mas não são gravadas automaticamente no servidor ou no navegador. Antes de recarregar ou fechar, exporte o arquivo. A tela fixa de Supervisão é independente do projeto aberto no editor.
+As alterações são mantidas ao navegar entre as páginas, mas não são gravadas automaticamente no servidor ou no navegador. Antes de recarregar ou fechar, salve na biblioteca ou exporte o arquivo. A biblioteca pertence ao perfil do navegador e ao endereço do site. Limpar os dados do site apaga as cópias locais. A tela fixa de Supervisão é independente do projeto aberto no editor.
 
 Para selecionar vários objetos, use Shift + clique na tela ou na lista, arraste uma área vazia da tela ou use **Selecionar todos**. O painel Propriedades oferece alinhamento, distribuição e exclusão conjunta. Cada ação pode ser desfeita em uma única etapa. As dimensões e rotações continuam sendo editadas individualmente.
 

@@ -1,4 +1,8 @@
-# Relatório de validação — versão 0.5.0
+# Relatório de validação — versão 0.6.0
+
+Em 07/11/2026, a compilação de produção, os 57 testes de frontend e os 13 cenários de navegador passaram localmente. O novo cenário cobre cancelamento por Escape, duas portas de equipamentos distintos, zoom durante o traçado, desfazer/refazer, atribuição de tag e reabertura do JSON. Veja a [captura do traçado](screenshots/desenhar-ligacao.png).
+
+## Resultados da versão 0.5.0
 
 Data: 06/11/2026. Ambiente: Windows, Node.js 24.22.1, Java 21.0.13, Microsoft Edge.
 

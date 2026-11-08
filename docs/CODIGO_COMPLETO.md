@@ -1,4 +1,4 @@
-# Código completo — versão 0.5.0
+# Código completo — versão 0.6.0
 Cópia integral dos arquivos de autoria. Lockfile, ferramentas e capturas permanecem nos arquivos individuais.
 
 ## .dockerignore
@@ -701,6 +701,10 @@ class TankSimulatorTest {
 ````
 # Histórico de versões
 
+## 0.6.0 — 07/11/2026
+
+- Desenho de tubulações e sinais entre portas na tela, com prévia, cancelamento e suporte a zoom. As conexões podem receber tags, ser editadas e ser recuperadas pelo histórico ou arquivo de projeto.
+
 ## 0.5.0 — 06/11/2026
 
 - Edição de origem, destino, portas, tipo e vínculo de ligações existentes.
@@ -1034,7 +1038,7 @@ Referência da biblioteca: https://fabricjs.com/docs/getting-started/installing/
 ## docs/process-editor.md
 
 ````
-# Editor de processo — versão 0.5.0
+# Editor de processo — versão 0.6.0
 
 ## Experimente
 
@@ -1052,6 +1056,8 @@ O nome pode ser alterado acima do desenho. A biblioteca contém tanque, bomba, v
 Em **Tags do projeto**, crie até 32 variáveis BOOLEAN ou DOUBLE. Cada variável possui nome, unidade, valor inicial e limites. Os nomes usam letras maiúsculas, números, ponto e sublinhado. As três tags da demonstração são reservadas. Use Editar tag para ajustar nome, unidade, valor inicial e faixa. Renomear atualiza os vínculos dos objetos, ligações e regra; o tipo permanece fixo. Excluir uma tag limpa seus vínculos e remove a regra que a utiliza; Desfazer recupera a alteração inteira.
 
 No painel Propriedades, **Tag vinculada** apresenta somente tags compatíveis. Tanques, sensores, indicadores e entradas aceitam números. Bombas, válvulas, motores, botões e figuras aceitam booleanos. Botões e entradas aceitam somente tags próprias, pois as tags transmitidas pelo WebSocket permanecem somente leitura.
+
+Para desenhar, clique em **Desenhar ligação** acima da tela. Escolha **Tubulação** ou **Sinal**, clique em uma porta de saída e depois em uma porta de outro objeto. A prévia acompanha o ponteiro. Escape ou **Cancelar ligação** descarta o traçado. Depois, atribua uma tag em **Ligações → Editar ligação**. Desfazer remove a conexão em uma etapa.
 
 Em **Ligações**, escolha origem, destino, porta de saída, porta de entrada e tipo. Portas disponíveis: esquerda, direita, topo e base. Tubulação usa linha contínua; sinal usa linha tracejada. Uma tag booleana opcional indica o estado da ligação. Os caminhos são ortogonais automáticos e acompanham movimento, escala e rotação. Não há edição de pontos intermediários ou desvio automático de obstáculos. Use **Editar ligação** para alterar origem, destino, portas, tipo e tag sem duplicar a conexão. Excluir um objeto remove suas ligações; Desfazer recupera objetos e ligações juntos.
 
@@ -1095,7 +1101,7 @@ Testes cobrem importação/exportação, rejeição de ligações órfãs, nomes
 # Próximos incrementos
 
 1. Etapa 0 validada tecnicamente: backend, frontend e fluxo WebSocket real, incluindo reconexão após interrupção do transporte. Revisão visual pelo usuário disponível.
-2. Editor: base em 0.2.0; seleção/alinhamento em 0.3.0; ligações, biblioteca ampliada, tags próprias e comandos manuais em 0.4.0. Edição de ligações, renomeação de tags e regra de tanque entregues em 0.5.0. Prioridade seguinte: ligação direta no canvas, com testes de comportamento. Grupos permanentes e imagens entram depois, sem substituir essa prioridade funcional.
+2. Editor: base em 0.2.0; seleção/alinhamento em 0.3.0; ligações, biblioteca ampliada, tags próprias e comandos manuais em 0.4.0. Edição de ligações, renomeação de tags e regra de tanque entregues em 0.5.0. Ligação direta por portas disponível na versão 0.6.0. O próximo incremento prioriza salvar e reabrir projetos. Grupos permanentes e imagens seguem previstos.
 3. PostgreSQL/Flyway, projetos persistidos, autenticação, perfis e auditoria; testes com Testcontainers.
 4. Drivers de leitura, primeiro contra servidores OPC UA/Modbus/MQTT simulados, com qualidade e timeouts testados.
 5. Alarmes e histórico com ECharts.
@@ -1109,7 +1115,11 @@ Conexão com CLP físico, comandos de escrita e uso em produção exigem fases e
 ## docs/validation.md
 
 ````
-# Relatório de validação — versão 0.5.0
+# Relatório de validação — versão 0.6.0
+
+Em 07/11/2026, a compilação de produção, os 57 testes de frontend e os 13 cenários de navegador passaram localmente. O novo cenário cobre cancelamento por Escape, duas portas de equipamentos distintos, zoom durante o traçado, desfazer/refazer, atribuição de tag e reabertura do JSON. Veja a [captura do traçado](screenshots/desenhar-ligacao.png).
+
+## Resultados da versão 0.5.0
 
 Data: 06/11/2026. Ambiente: Windows, Node.js 24.22.1, Java 21.0.13, Microsoft Edge.
 
@@ -1244,6 +1254,41 @@ test("Java advances the level, pauses, drains and stops on connection failure", 
   await page.getByRole("button", { name: "Reconectar simulação", exact: true }).click();
   await expect(page.getByRole("button", { name: "Iniciar simulação automática", exact: true })).toBeEnabled();
   await page.screenshot({ path: "../docs/screenshots/simulacao-automatica.png", fullPage: true });
+});
+test("draws a signal on the screen, cancels a draft and reopens the edited connection", async ({ page }) => {
+  const original = await exportProject(page);
+  const draw = page.getByRole("button", { name: "Desenhar ligação" });
+  const source = page.getByRole("button", { name: "P-101 · Topo", exact: true });
+  await draw.click();
+  await source.click();
+  await expect(page.getByRole("button", { name: "P-101 · Base", exact: true })).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(source).toHaveCount(0);
+  expect((await exportProject(page)).connections).toEqual(original.connections);
+
+  await draw.click();
+  await page.getByLabel("Tipo do traçado").selectOption("signal");
+  await source.click();
+  await page.getByLabel("Zoom", { exact: true }).selectOption("75");
+  await page.getByRole("button", { name: "TQ-101 · Base", exact: true }).click();
+  const drawn = await exportProject(page);
+  expect(drawn.connections).toHaveLength(original.connections.length + 1);
+  const line = drawn.connections.at(-1);
+  expect(line).toMatchObject({ from: "pump", fromPort: "top", to: "tank", toPort: "bottom", kind: "signal", binding: null });
+  await page.getByRole("button", { name: "Desfazer", exact: true }).click();
+  expect((await exportProject(page)).connections).toEqual(original.connections);
+  await page.getByRole("button", { name: "Refazer", exact: true }).click();
+  await page.locator("summary").filter({ hasText: "Ligações" }).click();
+  await page.getByRole("button", { name: "Editar ligação 5", exact: true }).click();
+  await page.getByLabel("Tag da ligação").selectOption("LINHA.HABILITADA");
+  await page.getByRole("button", { name: "Salvar ligação" }).click();
+  const edited = await exportProject(page);
+  await page.getByRole("button", { name: "Nova tela", exact: true }).click();
+  await page.getByLabel("Arquivo de projeto").setInputFiles({
+    name: "processo.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(edited)),
+  });
+  await expect(draw).toBeEnabled();
+  expect((await exportProject(page)).connections.at(-1)).toEqual({ ...line, binding: "LINHA.HABILITADA" });
 });
 ````
 
@@ -1661,7 +1706,7 @@ test("recovers the real Java stream after a transport interruption", async ({ pa
 ````
 {
   "name": "scada-hmi",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -1842,7 +1887,7 @@ export function App() {
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.5.0 · Engenharia</small>
+            <small>v0.6.0 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -2720,13 +2765,24 @@ main:has(.editor) {
     width: calc(100% - 185px);
   }
 }
+.drawing-surface { position: relative; width: max-content; }
+.operating-layout .drawing-surface { margin-inline: auto; }
+.drawing-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; background: white; border-bottom: 1px solid #d5dfe8; font-size: 12px; }
+.drawing-tools select { font: inherit; }
+.port-overlay { position: absolute; inset: 0; overflow: hidden; cursor: crosshair; }
+.port-overlay svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.editor .port-overlay button { position: absolute; transform: translate(-50%, -50%); width: 16px; height: 16px; min-width: 0; min-height: 0; padding: 0; border-radius: 50%; border: 2px solid #087c85; background: white; cursor: crosshair; }
+.editor .port-overlay button:is(:hover, :focus-visible, .chosen-port) { background: #087c85; outline: 2px solid white; }
+.editor .port-overlay button:disabled { cursor: default; opacity: .45; }
+.editor .port-overlay button.chosen-port { opacity: 1; }
 ````
 
 ## frontend/src/editor/Editor.tsx
 
 ````
 import { useEffect, useRef, useState, type Dispatch } from "react";
-import { ActiveSelection, Canvas, Pattern, Path, type FabricObject } from "fabric";
+import { ActiveSelection, Canvas, Pattern, Path } from "fabric";
+import { PortOverlay, portPosition, portSides, connectionPath, type DrawingSession, type DrawingPort } from "./PortOverlay";
 import { arrange, layoutLabels, moveTogether, type LayoutAction } from "./layout";
 import { ProjectTools } from "./ProjectTools";
 import { processExample } from "./processExample";
@@ -2736,7 +2792,7 @@ import type { Connection } from "../tags/useTags";
 import {
   availableBindings,
   removeComponents,
-  type Port,
+  type ConnectionLine,
   componentNames,
   createComponent,
   MAX_COMPONENTS,
@@ -2783,6 +2839,14 @@ export default function Editor({
   const [sceneRevision, setSceneRevision] = useState(0);
   const simulation = useProjectSimulation(project.variables ?? [], !editing, project.simulation);
   const lines = useRef<Path[]>([]);
+  const [drawing, setDrawing] = useState<DrawingSession | null>(null);
+  const [sourcePort, setSourcePort] = useState<DrawingPort | null>(null);
+  const [lineKind, setLineKind] = useState<ConnectionLine["kind"]>("pipe");
+  const drawingActive = editing && drawing?.project === project;
+  useEffect(() => {
+    setDrawing(null);
+    setSourcePort(null);
+  }, [project, editing]);
   const drawLinesRef = useRef<() => void>(() => {});
   const commandRef = useRef<(id: string) => void>(() => {});
   const valueFor = (binding: string | null): number | boolean | null => {
@@ -2889,19 +2953,12 @@ export default function Editor({
     if (!instance) return;
     instance.remove(...lines.current);
     lines.current = [];
-    function port(object: FabricObject, side: Port) {
-      object.setCoords();
-      const points = object.getCoords();
-      const [a, b] = side === "top" ? [points[0], points[1]] : side === "right" ? [points[1], points[2]] : side === "bottom" ? [points[2], points[3]] : [points[3], points[0]];
-      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    }
     for (const line of project.connections ?? []) {
       const source = widgets.current.get(line.from)?.root, destination = widgets.current.get(line.to)?.root;
       if (!source || !destination) continue;
-      const a = port(source, line.fromPort), b = port(destination, line.toPort);
-      const path = line.fromPort === "left" || line.fromPort === "right"
-        ? `M ${a.x} ${a.y} L ${(a.x + b.x) / 2} ${a.y} L ${(a.x + b.x) / 2} ${b.y} L ${b.x} ${b.y}`
-        : `M ${a.x} ${a.y} L ${a.x} ${(a.y + b.y) / 2} L ${b.x} ${(a.y + b.y) / 2} L ${b.x} ${b.y}`;
+      source.setCoords();
+      destination.setCoords();
+      const path = connectionPath(portPosition(source, line.fromPort), portPosition(destination, line.toPort), line.fromPort);
       const value = valueFor(line.binding);
       const object = new Path(path, { fill: "", stroke: editing || value === true ? "#318f9b" : "#94a3b0", strokeWidth: line.kind === "pipe" ? 7 : 2,
         strokeDashArray: line.kind === "signal" || (!editing && line.binding && value === null) ? [8, 5] : undefined,
@@ -2997,7 +3054,33 @@ export default function Editor({
   }
   function select(id: string, multiple = false) {
     if (!editing) return;
+    setDrawing(null);
     activate(multiple ? selectedIds.includes(id) ? selectedIds.filter(value => value !== id) : [...selectedIds, id] : [id]);
+  }
+  function startDrawing() {
+    activate([]);
+    const ports: DrawingPort[] = [];
+    for (const item of project.components) {
+      const root = widgets.current.get(item.id)?.root;
+      if (!root) continue;
+      root.setCoords();
+      for (const side of portSides) {
+        ports.push({ id: item.id, label: item.label, side, ...portPosition(root, side) });
+      }
+    }
+    setSourcePort(null);
+    setDrawing({ project, ports });
+    setMessage("");
+  }
+  function finishDrawing(from: DrawingPort, to: DrawingPort) {
+    if (!drawingActive || from.id === to.id) return;
+    const line: ConnectionLine = {
+      id: crypto.randomUUID(), from: from.id, fromPort: from.side,
+      to: to.id, toPort: to.side, kind: lineKind, binding: null,
+    };
+    change({ ...project, connections: [...project.connections ?? [], line] });
+    setDrawing(null);
+    setMessage(`Ligação criada entre ${from.label} e ${to.label}. Para vincular uma tag, abra Ligações.`);
   }
   function add(kind: ComponentKind) {
     if (!editing || project.components.length >= MAX_COMPONENTS) return;
@@ -3204,14 +3287,28 @@ export default function Editor({
             }} /> : <span>{project.name}</span>}
             <span>1200 × 720 px</span>
           </div>
+          {editing && <div className="drawing-tools">
+            {drawingActive ? <>
+              <label>Tipo <select aria-label="Tipo do traçado" value={lineKind}
+                onChange={event => setLineKind(event.target.value as ConnectionLine["kind"])}>
+                <option value="pipe">Tubulação</option><option value="signal">Sinal</option>
+              </select></label>
+              <button onClick={() => setDrawing(null)}>Cancelar ligação</button>
+              <span role="status">{sourcePort ? `Saída de ${sourcePort.label} selecionada. Escolha a entrada em outro objeto.` : "Escolha a porta de saída no desenho."}</span>
+            </> : <button onClick={startDrawing} disabled={project.components.length < 2 || (project.connections?.length ?? 0) >= 100}>Desenhar ligação</button>}
+          </div>}
           <div
             ref={host}
             className={`canvas-scroll ${editing ? "editing" : "operating"}`}
           >
+            <div className="drawing-surface">
             <canvas
               ref={canvasElement}
               aria-label="Área de desenho da tela HMI"
             />
+            {drawingActive && drawing && <PortOverlay session={drawing} source={sourcePort} selectSource={setSourcePort}
+              kind={lineKind} finish={finishDrawing} cancel={() => setDrawing(null)} />}
+            </div>
           </div>
           <div className="canvas-controls">
             <label>
@@ -3269,7 +3366,7 @@ export default function Editor({
         <aside className="properties" aria-label="Propriedades do componente">
           <h2>Propriedades</h2>
           {editing && <div className="selection-actions">
-            <button disabled={!project.components.length} onClick={() => activate(project.components.map(item => item.id))}>Selecionar todos</button>
+            <button disabled={!project.components.length} onClick={() => { setDrawing(null); activate(project.components.map(item => item.id)); }}>Selecionar todos</button>
             <button disabled={!selectedIds.length} onClick={() => activate([])}>Limpar seleção</button>
           </div>}
           {editing && selectedIds.length > 1 && <div className="multiple-properties">
@@ -3548,6 +3645,85 @@ export function moveTogether(project: HmiProject, ids: string[], dx: number, dy:
   return parseProject(JSON.stringify({ ...project, components: project.components.map(item => ids.includes(item.id)
     ? { ...item, x: item.x + dx, y: item.y + dy } : item) }));
 }
+````
+
+## frontend/src/editor/PortOverlay.tsx
+
+````
+import { useEffect, useState, type PointerEvent } from "react";
+import type { FabricObject } from "fabric";
+import type { ConnectionLine, HmiProject, Port } from "./project";
+
+const sides = { left: "Esquerda", top: "Topo", right: "Direita", bottom: "Base" } as const;
+const corners = { top: 0, right: 1, bottom: 2, left: 3 };
+
+export interface Point { x: number; y: number }
+export interface DrawingPort extends Point { id: string; label: string; side: Port }
+
+export function portPosition(object: FabricObject, side: Port): Point {
+  const points = object.getCoords();
+  const index = corners[side];
+  const a = points[index], b = points[(index + 1) % 4];
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+export function connectionPath(a: Point, b: Point, side: Port) {
+  const horizontal = side === "left" || side === "right";
+  const middle = horizontal ? (a.x + b.x) / 2 : (a.y + b.y) / 2;
+  const bend = horizontal
+    ? `L ${middle} ${a.y} L ${middle} ${b.y}`
+    : `L ${a.x} ${middle} L ${b.x} ${middle}`;
+  return `M ${a.x} ${a.y} ${bend} L ${b.x} ${b.y}`;
+}
+
+export interface DrawingSession {
+  project: HmiProject;
+  ports: DrawingPort[];
+}
+
+interface Props {
+  session: DrawingSession;
+  source: DrawingPort | null;
+  selectSource: (port: DrawingPort) => void;
+  kind: ConnectionLine["kind"];
+  finish: (source: DrawingPort, target: DrawingPort) => void;
+  cancel: () => void;
+}
+
+export function PortOverlay({ session, source, selectSource, kind, finish, cancel }: Props) {
+  const [pointer, setPointer] = useState<Point | null>(null);
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") cancel(); };
+    window.addEventListener("keydown", escape);
+    return () => window.removeEventListener("keydown", escape);
+  }, [cancel]);
+  function preview(event: PointerEvent<HTMLDivElement>) {
+    if (!source) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    setPointer({
+      x: (event.clientX - rect.left) * 1200 / rect.width,
+      y: (event.clientY - rect.top) * 720 / rect.height,
+    });
+  }
+  return <div className="port-overlay" aria-label="Portas de ligação" onPointerMove={preview}>
+    {source && pointer && <svg aria-hidden="true" viewBox="0 0 1200 720">
+      <path d={connectionPath(source, pointer, source.side)} fill="none" stroke="#087c85"
+        strokeWidth={kind === "pipe" ? 4 : 2} strokeDasharray={kind === "signal" ? "8 5" : undefined} />
+    </svg>}
+    {session.ports.map(port => {
+      const label = `${port.label} · ${sides[port.side]}`;
+      return <button type="button" key={`${port.id}/${port.side}`} aria-label={label} title={label}
+        disabled={port.id === source?.id} className={source === port ? "chosen-port" : ""}
+        style={{ left: `${port.x / 12}%`, top: `${port.y / 7.2}%` }}
+        onClick={() => {
+          if (source) finish(source, port);
+          else { selectSource(port); setPointer(port); }
+        }} />;
+    })}
+  </div>;
+}
+
+export const portSides = Object.keys(sides) as Port[];
 ````
 
 ## frontend/src/editor/process.test.ts
@@ -4128,7 +4304,7 @@ export function ProjectTools({ project, change, report }: Props) {
       <summary>Por onde começar?</summary>
       <ol className="editor-steps">
         <li><strong>Tags:</strong> crie variáveis e use Editar tag para ajustar nome, faixa ou valor inicial.</li>
-        <li><strong>Objetos e ligações:</strong> insira equipamentos, vincule suas tags e conecte as portas. Editar ligação altera uma conexão existente.</li>
+        <li><strong>Objetos e ligações:</strong> insira equipamentos, vincule suas tags e use Desenhar ligação para escolher duas portas na tela. Editar ligação altera uma conexão existente.</li>
         <li><strong>Regra:</strong> configure o nível, o acionamento e as taxas em Simulação automática.</li>
         <li><strong>Operação:</strong> teste os comandos e clique em Iniciar simulação automática. Salvar projeto exporta a configuração.</li>
       </ol>
@@ -5472,7 +5648,7 @@ Consulte o [guia de publicação](../docs/deployment.md). Serviço publicado em 
 ````
 # NEXO — Supervisão e engenharia de telas
 
-Plataforma SCADA/HMI com backend Java e interface web. A versão **0.5.0** acrescenta edição de ligações, renomeação de tags preservando os vínculos e simulação automática de enchimento/drenagem calculada pelo Java.
+Plataforma SCADA/HMI com backend Java e interface web. Na versão **0.6.0**, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
 
 ## Recursos disponíveis
 
@@ -5621,7 +5797,7 @@ O ciclo é demonstrativo, não um modelo físico calibrado. Após perda de conex
 
 ## Próximos incrementos
 
-Próximo incremento: desenhar ligações diretamente na tela. Depois, importação segura de imagens, agrupamento, persistência PostgreSQL/Flyway, autenticação e perfis, histórico/alarmes e laboratório de controle. Drivers industriais permanecem em uma fase separada. Consulte o [roadmap](docs/roadmap.md).
+Os próximos incrementos incluem persistência PostgreSQL/Flyway, importação segura de imagens, agrupamento, autenticação e perfis, histórico/alarmes e laboratório de controle. Drivers industriais permanecem em uma fase separada. Consulte o [roadmap](docs/roadmap.md).
 
 ## Diagnóstico
 

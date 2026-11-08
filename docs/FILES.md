@@ -1,4 +1,4 @@
-# Arquivos de autoria — versão 0.5.0
+# Arquivos de autoria — versão 0.6.0
 
 - .dockerignore
 - .gitattributes
@@ -48,6 +48,7 @@
 - frontend/src/editor/Editor.tsx
 - frontend/src/editor/layout.test.ts
 - frontend/src/editor/layout.ts
+- frontend/src/editor/PortOverlay.tsx
 - frontend/src/editor/process.test.ts
 - frontend/src/editor/processExample.ts
 - frontend/src/editor/project.test.ts

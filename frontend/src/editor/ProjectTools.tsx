@@ -33,7 +33,7 @@ export function ProjectTools({ project, change, report }: Props) {
       <summary>Por onde começar?</summary>
       <ol className="editor-steps">
         <li><strong>Tags:</strong> crie variáveis e use Editar tag para ajustar nome, faixa ou valor inicial.</li>
-        <li><strong>Objetos e ligações:</strong> insira equipamentos, vincule suas tags e conecte as portas. Editar ligação altera uma conexão existente.</li>
+        <li><strong>Objetos e ligações:</strong> insira equipamentos, vincule suas tags e use Desenhar ligação para escolher duas portas na tela. Editar ligação altera uma conexão existente.</li>
         <li><strong>Regra:</strong> configure o nível, o acionamento e as taxas em Simulação automática.</li>
         <li><strong>Operação:</strong> teste os comandos e clique em Iniciar simulação automática. Salvar projeto exporta a configuração.</li>
       </ol>

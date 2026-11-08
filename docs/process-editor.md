@@ -1,4 +1,4 @@
-# Editor de processo — versão 0.5.0
+# Editor de processo — versão 0.6.0
 
 ## Experimente
 
@@ -16,6 +16,8 @@ O nome pode ser alterado acima do desenho. A biblioteca contém tanque, bomba, v
 Em **Tags do projeto**, crie até 32 variáveis BOOLEAN ou DOUBLE. Cada variável possui nome, unidade, valor inicial e limites. Os nomes usam letras maiúsculas, números, ponto e sublinhado. As três tags da demonstração são reservadas. Use Editar tag para ajustar nome, unidade, valor inicial e faixa. Renomear atualiza os vínculos dos objetos, ligações e regra; o tipo permanece fixo. Excluir uma tag limpa seus vínculos e remove a regra que a utiliza; Desfazer recupera a alteração inteira.
 
 No painel Propriedades, **Tag vinculada** apresenta somente tags compatíveis. Tanques, sensores, indicadores e entradas aceitam números. Bombas, válvulas, motores, botões e figuras aceitam booleanos. Botões e entradas aceitam somente tags próprias, pois as tags transmitidas pelo WebSocket permanecem somente leitura.
+
+Para desenhar, clique em **Desenhar ligação** acima da tela. Escolha **Tubulação** ou **Sinal**, clique em uma porta de saída e depois em uma porta de outro objeto. A prévia acompanha o ponteiro. Escape ou **Cancelar ligação** descarta o traçado. Depois, atribua uma tag em **Ligações → Editar ligação**. Desfazer remove a conexão em uma etapa.
 
 Em **Ligações**, escolha origem, destino, porta de saída, porta de entrada e tipo. Portas disponíveis: esquerda, direita, topo e base. Tubulação usa linha contínua; sinal usa linha tracejada. Uma tag booleana opcional indica o estado da ligação. Os caminhos são ortogonais automáticos e acompanham movimento, escala e rotação. Não há edição de pontos intermediários ou desvio automático de obstáculos. Use **Editar ligação** para alterar origem, destino, portas, tipo e tag sem duplicar a conexão. Excluir um objeto remove suas ligações; Desfazer recupera objetos e ligações juntos.
 

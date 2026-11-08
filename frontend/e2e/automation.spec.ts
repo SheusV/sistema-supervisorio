@@ -64,3 +64,38 @@ test("Java advances the level, pauses, drains and stops on connection failure", 
   await expect(page.getByRole("button", { name: "Iniciar simulação automática", exact: true })).toBeEnabled();
   await page.screenshot({ path: "../docs/screenshots/simulacao-automatica.png", fullPage: true });
 });
+test("draws a signal on the screen, cancels a draft and reopens the edited connection", async ({ page }) => {
+  const original = await exportProject(page);
+  const draw = page.getByRole("button", { name: "Desenhar ligação" });
+  const source = page.getByRole("button", { name: "P-101 · Topo", exact: true });
+  await draw.click();
+  await source.click();
+  await expect(page.getByRole("button", { name: "P-101 · Base", exact: true })).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(source).toHaveCount(0);
+  expect((await exportProject(page)).connections).toEqual(original.connections);
+
+  await draw.click();
+  await page.getByLabel("Tipo do traçado").selectOption("signal");
+  await source.click();
+  await page.getByLabel("Zoom", { exact: true }).selectOption("75");
+  await page.getByRole("button", { name: "TQ-101 · Base", exact: true }).click();
+  const drawn = await exportProject(page);
+  expect(drawn.connections).toHaveLength(original.connections.length + 1);
+  const line = drawn.connections.at(-1);
+  expect(line).toMatchObject({ from: "pump", fromPort: "top", to: "tank", toPort: "bottom", kind: "signal", binding: null });
+  await page.getByRole("button", { name: "Desfazer", exact: true }).click();
+  expect((await exportProject(page)).connections).toEqual(original.connections);
+  await page.getByRole("button", { name: "Refazer", exact: true }).click();
+  await page.locator("summary").filter({ hasText: "Ligações" }).click();
+  await page.getByRole("button", { name: "Editar ligação 5", exact: true }).click();
+  await page.getByLabel("Tag da ligação").selectOption("LINHA.HABILITADA");
+  await page.getByRole("button", { name: "Salvar ligação" }).click();
+  const edited = await exportProject(page);
+  await page.getByRole("button", { name: "Nova tela", exact: true }).click();
+  await page.getByLabel("Arquivo de projeto").setInputFiles({
+    name: "processo.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(edited)),
+  });
+  await expect(draw).toBeEnabled();
+  expect((await exportProject(page)).connections.at(-1)).toEqual({ ...line, binding: "LINHA.HABILITADA" });
+});

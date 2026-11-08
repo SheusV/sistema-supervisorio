@@ -1,5 +1,9 @@
 # Histórico de versões
 
+## 0.6.0 — 07/11/2026
+
+- Desenho de tubulações e sinais entre portas na tela, com prévia, cancelamento e suporte a zoom. As conexões podem receber tags, ser editadas e ser recuperadas pelo histórico ou arquivo de projeto.
+
 ## 0.5.0 — 06/11/2026
 
 - Edição de origem, destino, portas, tipo e vínculo de ligações existentes.

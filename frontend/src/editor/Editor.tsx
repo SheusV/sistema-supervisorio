@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch } from "react";
-import { ActiveSelection, Canvas, Pattern, Path, type FabricObject } from "fabric";
+import { ActiveSelection, Canvas, Pattern, Path } from "fabric";
+import { PortOverlay, portPosition, portSides, connectionPath, type DrawingSession, type DrawingPort } from "./PortOverlay";
 import { arrange, layoutLabels, moveTogether, type LayoutAction } from "./layout";
 import { ProjectTools } from "./ProjectTools";
 import { processExample } from "./processExample";
@@ -9,7 +10,7 @@ import type { Connection } from "../tags/useTags";
 import {
   availableBindings,
   removeComponents,
-  type Port,
+  type ConnectionLine,
   componentNames,
   createComponent,
   MAX_COMPONENTS,
@@ -56,6 +57,14 @@ export default function Editor({
   const [sceneRevision, setSceneRevision] = useState(0);
   const simulation = useProjectSimulation(project.variables ?? [], !editing, project.simulation);
   const lines = useRef<Path[]>([]);
+  const [drawing, setDrawing] = useState<DrawingSession | null>(null);
+  const [sourcePort, setSourcePort] = useState<DrawingPort | null>(null);
+  const [lineKind, setLineKind] = useState<ConnectionLine["kind"]>("pipe");
+  const drawingActive = editing && drawing?.project === project;
+  useEffect(() => {
+    setDrawing(null);
+    setSourcePort(null);
+  }, [project, editing]);
   const drawLinesRef = useRef<() => void>(() => {});
   const commandRef = useRef<(id: string) => void>(() => {});
   const valueFor = (binding: string | null): number | boolean | null => {
@@ -162,19 +171,12 @@ export default function Editor({
     if (!instance) return;
     instance.remove(...lines.current);
     lines.current = [];
-    function port(object: FabricObject, side: Port) {
-      object.setCoords();
-      const points = object.getCoords();
-      const [a, b] = side === "top" ? [points[0], points[1]] : side === "right" ? [points[1], points[2]] : side === "bottom" ? [points[2], points[3]] : [points[3], points[0]];
-      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    }
     for (const line of project.connections ?? []) {
       const source = widgets.current.get(line.from)?.root, destination = widgets.current.get(line.to)?.root;
       if (!source || !destination) continue;
-      const a = port(source, line.fromPort), b = port(destination, line.toPort);
-      const path = line.fromPort === "left" || line.fromPort === "right"
-        ? `M ${a.x} ${a.y} L ${(a.x + b.x) / 2} ${a.y} L ${(a.x + b.x) / 2} ${b.y} L ${b.x} ${b.y}`
-        : `M ${a.x} ${a.y} L ${a.x} ${(a.y + b.y) / 2} L ${b.x} ${(a.y + b.y) / 2} L ${b.x} ${b.y}`;
+      source.setCoords();
+      destination.setCoords();
+      const path = connectionPath(portPosition(source, line.fromPort), portPosition(destination, line.toPort), line.fromPort);
       const value = valueFor(line.binding);
       const object = new Path(path, { fill: "", stroke: editing || value === true ? "#318f9b" : "#94a3b0", strokeWidth: line.kind === "pipe" ? 7 : 2,
         strokeDashArray: line.kind === "signal" || (!editing && line.binding && value === null) ? [8, 5] : undefined,
@@ -270,7 +272,33 @@ export default function Editor({
   }
   function select(id: string, multiple = false) {
     if (!editing) return;
+    setDrawing(null);
     activate(multiple ? selectedIds.includes(id) ? selectedIds.filter(value => value !== id) : [...selectedIds, id] : [id]);
+  }
+  function startDrawing() {
+    activate([]);
+    const ports: DrawingPort[] = [];
+    for (const item of project.components) {
+      const root = widgets.current.get(item.id)?.root;
+      if (!root) continue;
+      root.setCoords();
+      for (const side of portSides) {
+        ports.push({ id: item.id, label: item.label, side, ...portPosition(root, side) });
+      }
+    }
+    setSourcePort(null);
+    setDrawing({ project, ports });
+    setMessage("");
+  }
+  function finishDrawing(from: DrawingPort, to: DrawingPort) {
+    if (!drawingActive || from.id === to.id) return;
+    const line: ConnectionLine = {
+      id: crypto.randomUUID(), from: from.id, fromPort: from.side,
+      to: to.id, toPort: to.side, kind: lineKind, binding: null,
+    };
+    change({ ...project, connections: [...project.connections ?? [], line] });
+    setDrawing(null);
+    setMessage(`Ligação criada entre ${from.label} e ${to.label}. Para vincular uma tag, abra Ligações.`);
   }
   function add(kind: ComponentKind) {
     if (!editing || project.components.length >= MAX_COMPONENTS) return;
@@ -477,14 +505,28 @@ export default function Editor({
             }} /> : <span>{project.name}</span>}
             <span>1200 × 720 px</span>
           </div>
+          {editing && <div className="drawing-tools">
+            {drawingActive ? <>
+              <label>Tipo <select aria-label="Tipo do traçado" value={lineKind}
+                onChange={event => setLineKind(event.target.value as ConnectionLine["kind"])}>
+                <option value="pipe">Tubulação</option><option value="signal">Sinal</option>
+              </select></label>
+              <button onClick={() => setDrawing(null)}>Cancelar ligação</button>
+              <span role="status">{sourcePort ? `Saída de ${sourcePort.label} selecionada. Escolha a entrada em outro objeto.` : "Escolha a porta de saída no desenho."}</span>
+            </> : <button onClick={startDrawing} disabled={project.components.length < 2 || (project.connections?.length ?? 0) >= 100}>Desenhar ligação</button>}
+          </div>}
           <div
             ref={host}
             className={`canvas-scroll ${editing ? "editing" : "operating"}`}
           >
+            <div className="drawing-surface">
             <canvas
               ref={canvasElement}
               aria-label="Área de desenho da tela HMI"
             />
+            {drawingActive && drawing && <PortOverlay session={drawing} source={sourcePort} selectSource={setSourcePort}
+              kind={lineKind} finish={finishDrawing} cancel={() => setDrawing(null)} />}
+            </div>
           </div>
           <div className="canvas-controls">
             <label>
@@ -542,7 +584,7 @@ export default function Editor({
         <aside className="properties" aria-label="Propriedades do componente">
           <h2>Propriedades</h2>
           {editing && <div className="selection-actions">
-            <button disabled={!project.components.length} onClick={() => activate(project.components.map(item => item.id))}>Selecionar todos</button>
+            <button disabled={!project.components.length} onClick={() => { setDrawing(null); activate(project.components.map(item => item.id)); }}>Selecionar todos</button>
             <button disabled={!selectedIds.length} onClick={() => activate([])}>Limpar seleção</button>
           </div>}
           {editing && selectedIds.length > 1 && <div className="multiple-properties">

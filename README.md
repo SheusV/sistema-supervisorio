@@ -1,6 +1,6 @@
 # NEXO — Supervisão e engenharia de telas
 
-Plataforma SCADA/HMI com backend Java e interface web. A versão **0.5.0** acrescenta edição de ligações, renomeação de tags preservando os vínculos e simulação automática de enchimento/drenagem calculada pelo Java.
+Plataforma SCADA/HMI com backend Java e interface web. Na versão **0.6.0**, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
 
 ## Recursos disponíveis
 
@@ -149,7 +149,7 @@ O ciclo é demonstrativo, não um modelo físico calibrado. Após perda de conex
 
 ## Próximos incrementos
 
-Próximo incremento: desenhar ligações diretamente na tela. Depois, importação segura de imagens, agrupamento, persistência PostgreSQL/Flyway, autenticação e perfis, histórico/alarmes e laboratório de controle. Drivers industriais permanecem em uma fase separada. Consulte o [roadmap](docs/roadmap.md).
+Os próximos incrementos incluem persistência PostgreSQL/Flyway, importação segura de imagens, agrupamento, autenticação e perfis, histórico/alarmes e laboratório de controle. Drivers industriais permanecem em uma fase separada. Consulte o [roadmap](docs/roadmap.md).
 
 ## Diagnóstico
 

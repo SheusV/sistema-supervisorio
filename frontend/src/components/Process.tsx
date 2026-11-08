@@ -101,6 +101,7 @@ export function Process({
         {running === null ? "INDISPONÍVEL" : running ? "EM OPERAÇÃO" : "PARADA"}
       </text>
       <rect
+        className="temperature-panel"
         x="702"
         y="106"
         width="150"

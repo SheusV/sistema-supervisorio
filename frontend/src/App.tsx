@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useReducer, useState } from "react";
+import { useTheme } from "./useTheme";
 import { useTags } from "./tags/useTags";
 import { Process } from "./components/Process";
 import type { TagName } from "./tags/model";
@@ -12,6 +13,7 @@ const labels = {
   stale: "Dados desatualizados",
 };
 export function App() {
+  const { theme, dark, choose } = useTheme();
   const [page, setPage] = useState("Supervisão");
   const [editorHistory, editorDispatch] = useReducer(
     projectReducer,
@@ -79,7 +81,7 @@ export function App() {
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.8.0 · Engenharia</small>
+            <small>v0.8.1 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -88,7 +90,12 @@ export function App() {
             Projetos <span className="slash">/</span>{" "}
             <strong>{page === "Editor" ? editorHistory.present.name : "Tanque TQ-001"}</strong>
           </span>
-          <span className="simulation">◉ SIMULAÇÃO</span>
+          <div className="header-actions">
+            <label>Tema <select value={theme} onChange={event => choose(event.target.value as typeof theme)}>
+              <option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Escuro</option>
+            </select></label>
+            <span className="simulation">◉ SIMULAÇÃO</span>
+          </div>
         </header>
         <main>
           <div className="page-heading">
@@ -197,6 +204,7 @@ export function App() {
           {page === "Editor" && (
             <Suspense fallback={<p>Carregando editor…</p>}>
               <Editor
+                dark={dark}
                 history={editorHistory}
                 dispatch={editorDispatch}
                 snapshot={snapshot}

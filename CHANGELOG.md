@@ -1,5 +1,9 @@
 # Histórico de versões
 
+## 0.8.1 — 08/11/2026
+
+- Temas claro, escuro e do sistema na supervisão, tags, ajuda e editor, incluindo o sinótico. Preferência guardada no navegador.
+
 ## 0.8.0 — 08/11/2026
 
 - Silo com leitura e escala, esteira transportadora, dosador de rosca e misturador com indicação de estado.

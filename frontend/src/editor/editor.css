@@ -505,3 +505,16 @@ main:has(.editor) {
 .library-symbol.conveyor { border-radius: 12px; height: 14px; width: 33px; }
 .library-symbol.feeder:after { content: "≋"; display: block; text-align: center; }
 .library-symbol.mixer:after { content: "Ψ"; display: block; text-align: center; }
+[data-theme="dark"] :is(.editor, .project-library, .screen-title, .drawing-tools, .canvas-controls, .editor-hint, .runtime-readings, .simulation-values > div) { background: var(--surface); color: var(--ink); border-color: var(--edge); }
+[data-theme="dark"] .editor-workspace { background: #0f1c28; }
+[data-theme="dark"] .editor :is(button, input, select) { color: var(--ink); background: var(--raised); border-color: var(--edge); }
+[data-theme="dark"] .editor button:hover:not(:disabled) { background: #304b5f; }
+[data-theme="dark"] .editor :is(.primary-action, button[aria-pressed="true"]) { background: #205267; color: #ecfffc; border-color: #529aab; }
+[data-theme="dark"] .editor :is(.editor-toolbar, .toolbar-divider, .component-library, .project-tools, .properties, .selected-type, .project-items li, .automatic-controls) { border-color: var(--edge); }
+[data-theme="dark"] .editor :is(.component-library > p, .save-state, .project-library p, .layer-kind, .property-note, .empty-properties, .properties label, .properties h3, .selected-type, .project-form label, .project-tools p, .editor-steps, .project-tools summary span, .simulation-console p, .multiple-properties > p, .automatic-controls > span, .layers-heading span) { color: var(--muted); }
+[data-theme="dark"] .editor :is(.screen-title span:first-child, .project-tools summary, .runtime-readings strong) { color: var(--ink); }
+[data-theme="dark"] .editor :is(.editing-banner, .simulation-console, .editor-message) { color: var(--ink); background: #193239; border-color: #35575c; }
+[data-theme="dark"] .simulation-values output { color: var(--positive); }
+[data-theme="dark"] .editor .delete-component { color: #ffb4b4; }
+[data-theme="dark"] .editor .port-overlay button { background: #14323c; border-color: #6de2d6; }
+[data-theme="dark"] .editor .port-overlay button:is(:hover, :focus-visible, .chosen-port) { background: #69cfc3; }

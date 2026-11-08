@@ -1,4 +1,4 @@
-# Arquivos de autoria — versão 0.8.0
+# Arquivos de autoria — versão 0.8.1
 
 - .dockerignore
 - .gitattributes
@@ -39,6 +39,7 @@
 - frontend/e2e/library.spec.ts
 - frontend/e2e/process.spec.ts
 - frontend/e2e/supervision.spec.ts
+- frontend/e2e/theme.spec.ts
 - frontend/index.html
 - frontend/package.json
 - frontend/playwright.config.ts
@@ -68,6 +69,7 @@
 - frontend/src/tags/useTags.ts
 - frontend/src/test/fixture.ts
 - frontend/src/test/setup.ts
+- frontend/src/useTheme.ts
 - frontend/tsconfig.json
 - frontend/vite.config.ts
 - infrastructure/README.md

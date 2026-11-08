@@ -28,6 +28,7 @@ import { createWidget, type Widget } from "./widgets";
 import "./editor.css";
 
 interface Props {
+  dark: boolean;
   history: ProjectHistory;
   dispatch: Dispatch<ProjectAction>;
   snapshot: Snapshot | null;
@@ -36,6 +37,7 @@ interface Props {
   onDirty: (dirty: boolean) => void;
 }
 export default function Editor({
+  dark,
   history,
   dispatch,
   snapshot,
@@ -196,19 +198,20 @@ export default function Editor({
     grid.width = 20;
     grid.height = 20;
     const context = grid.getContext("2d")!;
-    context.fillStyle = "#ffffff";
+    const paper = dark ? "#162533" : "#ffffff";
+    context.fillStyle = paper;
     context.fillRect(0, 0, 20, 20);
-    context.fillStyle = "#c3ced8";
+    context.fillStyle = dark ? "#405569" : "#c3ced8";
     context.fillRect(0, 0, 1.5, 1.5);
     instance.backgroundColor = editing
       ? new Pattern({ source: grid, repeat: "repeat" })
-      : "#ffffff";
+      : paper;
     instance.discardActiveObject();
     instance.remove(...instance.getObjects());
     lines.current = [];
     widgets.current.clear();
     for (const item of project.components) {
-      const widget = createWidget(item, unitFor(item.binding));
+      const widget = createWidget(item, unitFor(item.binding), dark);
       widget.root.set({ selectable: editing, evented: editing || item.kind === "button" || item.kind === "setpoint", hoverCursor: !editing && (item.kind === "button" || item.kind === "setpoint") ? "pointer" : "move" });
       widget.update(null, editing);
       widgets.current.set(item.id, widget);
@@ -220,7 +223,7 @@ export default function Editor({
     instance.requestRenderAll();
     // Selection changes do not rebuild the scene; document changes do.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, editing, sceneRevision]);
+  }, [project, editing, sceneRevision, dark]);
 
   useEffect(() => {
     const instance = canvas.current;
@@ -241,7 +244,7 @@ export default function Editor({
     }
     canvas.current?.requestRenderAll();
     drawLinesRef.current();
-  }, [snapshot, connection, editing, project, simulation.values, simulation.ready]);
+  }, [snapshot, connection, editing, project, simulation.values, simulation.ready, dark]);
 
   const fit = () => {
     if (host.current)

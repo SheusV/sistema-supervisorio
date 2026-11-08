@@ -1,0 +1,31 @@
+import { test, expect } from "@playwright/test";
+
+test("theme follows the system, persists an override and redraws the editor", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/");
+  const theme = page.getByRole("combobox", { name: "Tema", exact: true });
+  const html = page.locator("html");
+  await expect(theme).toHaveValue("system");
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await theme.selectOption("light");
+  await page.reload();
+  await expect(html).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
+  const canvas = page.locator("canvas.lower-canvas");
+  const pixel = () => canvas.evaluate((el: HTMLCanvasElement) => Array.from(el.getContext("2d")!.getImageData(5, 5, 1, 1).data).slice(0, 3));
+  await expect.poll(pixel).toEqual([255,255,255]);
+  await theme.selectOption("dark");
+  await expect.poll(pixel).toEqual([22,37,51]);
+  await expect(page.getByLabel("Nome da tela")).toHaveValue("Dosagem de sólidos");
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await theme.selectOption("system");
+  await expect(html).toHaveAttribute("data-theme", "light");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Supervisão", exact: true }).click();
+  await expect(theme).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});

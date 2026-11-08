@@ -1,4 +1,8 @@
-# Relatório de validação — versão 0.8.0
+# Relatório de validação — versão 0.8.1
+
+Em 08/11/2026 passaram o build, os 58 testes de frontend e o cenário do tema no navegador. Foram verificados o modo Sistema, a preferência explícita após recarregar, a troca com o editor aberto e o seletor em tela de celular. [Sinótico escuro](screenshots/editor-tema-escuro.png).
+
+## Resultados da versão 0.8.0
 
 Em 08/11/2026 passaram o build, 12 testes Java, 58 de frontend e os quatro cenários de automação no navegador. A dosagem verifica massa estável com a esteira parada e aumento com a esteira e o dosador acionados. O teste Java cobre as quatro combinações de comandos com saída contínua. [Tela de dosagem](screenshots/dosagem-solidos.png).
 

@@ -13,8 +13,8 @@ import {
 import type { HmiComponent } from "./project";
 
 const origin = { originX: "left", originY: "top" } as const;
-const ink = "#25384b";
-function label(text: string, left: number, top: number, fontSize = 15) {
+const lightInk = "#25384b";
+function makeLabel(text: string, left: number, top: number, fontSize: number, ink: string) {
   return new FabricText(text, {
     ...origin,
     left,
@@ -28,8 +28,10 @@ export interface Widget {
   root: Group;
   update: (value: number | boolean | null, editing: boolean) => void;
 }
-export function createWidget(item: HmiComponent, customUnit?: string): Widget {
-  const accent = item.color ?? "#318f9b";
+export function createWidget(item: HmiComponent, customUnit?: string, dark = false): Widget {
+  const ink = dark ? "#e1ecf4" : lightInk;
+  const label = (text: string, x: number, y: number, size = 15) => makeLabel(text, x, y, size, ink);
+  const accent = item.color ?? (dark ? "#62c4cb" : "#318f9b");
   const width = item.kind === "tank" ? 180 : item.kind === "text" ? 240 : 160;
   const height = item.kind === "tank" ? 260 : item.kind === "text" ? 48 : 130;
   const base = new Rect({
@@ -67,7 +69,7 @@ export function createWidget(item: HmiComponent, customUnit?: string): Widget {
       fill: accent,
       strokeWidth: 0,
     });
-    const valueLabel = label("50.0 %", 49, 115, 23);
+    const valueLabel = makeLabel("50.0 %", 49, 115, 23, lightInk);
     const quality = label("Prévia", 23, 228, 11);
     children.push(new Line([3, 130, 21, 130], { stroke: accent, strokeWidth: 5 }), new Line([159, 130, 177, 130], { stroke: accent, strokeWidth: 5 }), vessel, water, valueLabel, quality);
     // Group construction changes child coordinates from canvas space to group space.
@@ -94,7 +96,7 @@ export function createWidget(item: HmiComponent, customUnit?: string): Widget {
     };
   } else if (item.kind === "silo") {
     const bin = new Polygon([{x: 0, y: 0}, {x: 92, y: 0}, {x: 92, y: 43}, {x: 53, y: 67}, {x: 39, y: 67}, {x: 0, y: 43}],
-      { ...origin, left: 22, top: 31, fill: "#edf3f5", stroke: ink, strokeWidth: 2 });
+      { ...origin, left: 22, top: 31, fill: dark ? "#23394b" : "#edf3f5", stroke: ink, strokeWidth: 2 });
     const track = new Rect({ ...origin, left: 127, top: 31, width: 12, height: 67, fill: "#dbe3e8" });
     const bar = new Rect({ left: 127, top: 98, originX: "left", originY: "bottom", width: 12, height: 34, fill: accent, strokeWidth: 0 });
     const reading = label("", 13, 107, 13);
@@ -142,6 +144,7 @@ export function createWidget(item: HmiComponent, customUnit?: string): Widget {
       ? new Polygon([{ x: 0, y: 0 }, { x: 66, y: 42 }, { x: 66, y: 0 }, { x: 0, y: 42 }], { ...origin, left: 45, top: 43, fill: accent, stroke: ink, strokeWidth: 1 })
       : item.kind === "button" ? new Rect({ ...origin, left: 12, top: 36, width: 136, height: 54, rx: 6, ry: 6, fill: accent }) : body;
     const centerLabel = label(item.kind === "motor" ? "M" : "Alternar", item.kind === "motor" ? 67 : 45, 49, item.kind === "motor" ? 24 : 16);
+    centerLabel.set({ fill: lightInk });
     if (item.kind === "pump" || item.kind === "valve") children.push(
       new Line([3, 65, item.kind === "pump" ? 54 : 45, 65], { stroke: accent, strokeWidth: 5 }),
       new Line([item.kind === "pump" ? 104 : 111, 65, 157, 65], { stroke: accent, strokeWidth: 5 }),
@@ -171,7 +174,7 @@ export function createWidget(item: HmiComponent, customUnit?: string): Widget {
       top: 35,
       width: 155,
       height: 61,
-      fill: "#f5f8fa",
+      fill: dark ? "#203547" : "#f5f8fa",
       stroke: accent,
       rx: 4,
       ry: 4,

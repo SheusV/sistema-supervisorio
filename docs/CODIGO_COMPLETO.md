@@ -1,4 +1,4 @@
-# Código completo — versão 0.8.0
+# Código completo — versão 0.8.1
 Cópia integral dos arquivos de autoria. Lockfile, ferramentas e capturas permanecem nos arquivos individuais.
 
 ## .dockerignore
@@ -719,6 +719,10 @@ class TankSimulatorTest {
 ````
 # Histórico de versões
 
+## 0.8.1 — 08/11/2026
+
+- Temas claro, escuro e do sistema na supervisão, tags, ajuda e editor, incluindo o sinótico. Preferência guardada no navegador.
+
 ## 0.8.0 — 08/11/2026
 
 - Silo com leitura e escala, esteira transportadora, dosador de rosca e misturador com indicação de estado.
@@ -1151,7 +1155,11 @@ Conexão com CLP físico, comandos de escrita e uso em produção exigem fases e
 ## docs/validation.md
 
 ````
-# Relatório de validação — versão 0.8.0
+# Relatório de validação — versão 0.8.1
+
+Em 08/11/2026 passaram o build, os 58 testes de frontend e o cenário do tema no navegador. Foram verificados o modo Sistema, a preferência explícita após recarregar, a troca com o editor aberto e o seletor em tela de celular. [Sinótico escuro](screenshots/editor-tema-escuro.png).
+
+## Resultados da versão 0.8.0
 
 Em 08/11/2026 passaram o build, 12 testes Java, 58 de frontend e os quatro cenários de automação no navegador. A dosagem verifica massa estável com a esteira parada e aumento com a esteira e o dosador acionados. O teste Java cobre as quatro combinações de comandos com saída contínua. [Tela de dosagem](screenshots/dosagem-solidos.png).
 
@@ -1843,6 +1851,42 @@ test("recovers the real Java stream after a transport interruption", async ({ pa
 });
 ````
 
+## frontend/e2e/theme.spec.ts
+
+````
+import { test, expect } from "@playwright/test";
+
+test("theme follows the system, persists an override and redraws the editor", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/");
+  const theme = page.getByRole("combobox", { name: "Tema", exact: true });
+  const html = page.locator("html");
+  await expect(theme).toHaveValue("system");
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await theme.selectOption("light");
+  await page.reload();
+  await expect(html).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
+  const canvas = page.locator("canvas.lower-canvas");
+  const pixel = () => canvas.evaluate((el: HTMLCanvasElement) => Array.from(el.getContext("2d")!.getImageData(5, 5, 1, 1).data).slice(0, 3));
+  await expect.poll(pixel).toEqual([255,255,255]);
+  await theme.selectOption("dark");
+  await expect.poll(pixel).toEqual([22,37,51]);
+  await expect(page.getByLabel("Nome da tela")).toHaveValue("Dosagem de sólidos");
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await theme.selectOption("system");
+  await expect(html).toHaveAttribute("data-theme", "light");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Supervisão", exact: true }).click();
+  await expect(theme).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+````
+
 ## frontend/index.html
 
 ````
@@ -1866,7 +1910,7 @@ test("recovers the real Java stream after a transport interruption", async ({ pa
 ````
 {
   "name": "scada-hmi",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -1967,6 +2011,7 @@ describe("supervision", () => {
 
 ````
 import { lazy, Suspense, useEffect, useReducer, useState } from "react";
+import { useTheme } from "./useTheme";
 import { useTags } from "./tags/useTags";
 import { Process } from "./components/Process";
 import type { TagName } from "./tags/model";
@@ -1980,6 +2025,7 @@ const labels = {
   stale: "Dados desatualizados",
 };
 export function App() {
+  const { theme, dark, choose } = useTheme();
   const [page, setPage] = useState("Supervisão");
   const [editorHistory, editorDispatch] = useReducer(
     projectReducer,
@@ -2047,7 +2093,7 @@ export function App() {
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.8.0 · Engenharia</small>
+            <small>v0.8.1 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -2056,7 +2102,12 @@ export function App() {
             Projetos <span className="slash">/</span>{" "}
             <strong>{page === "Editor" ? editorHistory.present.name : "Tanque TQ-001"}</strong>
           </span>
-          <span className="simulation">◉ SIMULAÇÃO</span>
+          <div className="header-actions">
+            <label>Tema <select value={theme} onChange={event => choose(event.target.value as typeof theme)}>
+              <option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Escuro</option>
+            </select></label>
+            <span className="simulation">◉ SIMULAÇÃO</span>
+          </div>
         </header>
         <main>
           <div className="page-heading">
@@ -2165,6 +2216,7 @@ export function App() {
           {page === "Editor" && (
             <Suspense fallback={<p>Carregando editor…</p>}>
               <Editor
+                dark={dark}
                 history={editorHistory}
                 dispatch={editorDispatch}
                 snapshot={snapshot}
@@ -2405,6 +2457,7 @@ export function Process({
         {running === null ? "INDISPONÍVEL" : running ? "EM OPERAÇÃO" : "PARADA"}
       </text>
       <rect
+        className="temperature-panel"
         x="702"
         y="106"
         width="150"
@@ -2943,6 +2996,19 @@ main:has(.editor) {
 .library-symbol.conveyor { border-radius: 12px; height: 14px; width: 33px; }
 .library-symbol.feeder:after { content: "≋"; display: block; text-align: center; }
 .library-symbol.mixer:after { content: "Ψ"; display: block; text-align: center; }
+[data-theme="dark"] :is(.editor, .project-library, .screen-title, .drawing-tools, .canvas-controls, .editor-hint, .runtime-readings, .simulation-values > div) { background: var(--surface); color: var(--ink); border-color: var(--edge); }
+[data-theme="dark"] .editor-workspace { background: #0f1c28; }
+[data-theme="dark"] .editor :is(button, input, select) { color: var(--ink); background: var(--raised); border-color: var(--edge); }
+[data-theme="dark"] .editor button:hover:not(:disabled) { background: #304b5f; }
+[data-theme="dark"] .editor :is(.primary-action, button[aria-pressed="true"]) { background: #205267; color: #ecfffc; border-color: #529aab; }
+[data-theme="dark"] .editor :is(.editor-toolbar, .toolbar-divider, .component-library, .project-tools, .properties, .selected-type, .project-items li, .automatic-controls) { border-color: var(--edge); }
+[data-theme="dark"] .editor :is(.component-library > p, .save-state, .project-library p, .layer-kind, .property-note, .empty-properties, .properties label, .properties h3, .selected-type, .project-form label, .project-tools p, .editor-steps, .project-tools summary span, .simulation-console p, .multiple-properties > p, .automatic-controls > span, .layers-heading span) { color: var(--muted); }
+[data-theme="dark"] .editor :is(.screen-title span:first-child, .project-tools summary, .runtime-readings strong) { color: var(--ink); }
+[data-theme="dark"] .editor :is(.editing-banner, .simulation-console, .editor-message) { color: var(--ink); background: #193239; border-color: #35575c; }
+[data-theme="dark"] .simulation-values output { color: var(--positive); }
+[data-theme="dark"] .editor .delete-component { color: #ffb4b4; }
+[data-theme="dark"] .editor .port-overlay button { background: #14323c; border-color: #6de2d6; }
+[data-theme="dark"] .editor .port-overlay button:is(:hover, :focus-visible, .chosen-port) { background: #69cfc3; }
 ````
 
 ## frontend/src/editor/Editor.tsx
@@ -2978,6 +3044,7 @@ import { createWidget, type Widget } from "./widgets";
 import "./editor.css";
 
 interface Props {
+  dark: boolean;
   history: ProjectHistory;
   dispatch: Dispatch<ProjectAction>;
   snapshot: Snapshot | null;
@@ -2986,6 +3053,7 @@ interface Props {
   onDirty: (dirty: boolean) => void;
 }
 export default function Editor({
+  dark,
   history,
   dispatch,
   snapshot,
@@ -3146,19 +3214,20 @@ export default function Editor({
     grid.width = 20;
     grid.height = 20;
     const context = grid.getContext("2d")!;
-    context.fillStyle = "#ffffff";
+    const paper = dark ? "#162533" : "#ffffff";
+    context.fillStyle = paper;
     context.fillRect(0, 0, 20, 20);
-    context.fillStyle = "#c3ced8";
+    context.fillStyle = dark ? "#405569" : "#c3ced8";
     context.fillRect(0, 0, 1.5, 1.5);
     instance.backgroundColor = editing
       ? new Pattern({ source: grid, repeat: "repeat" })
-      : "#ffffff";
+      : paper;
     instance.discardActiveObject();
     instance.remove(...instance.getObjects());
     lines.current = [];
     widgets.current.clear();
     for (const item of project.components) {
-      const widget = createWidget(item, unitFor(item.binding));
+      const widget = createWidget(item, unitFor(item.binding), dark);
       widget.root.set({ selectable: editing, evented: editing || item.kind === "button" || item.kind === "setpoint", hoverCursor: !editing && (item.kind === "button" || item.kind === "setpoint") ? "pointer" : "move" });
       widget.update(null, editing);
       widgets.current.set(item.id, widget);
@@ -3170,7 +3239,7 @@ export default function Editor({
     instance.requestRenderAll();
     // Selection changes do not rebuild the scene; document changes do.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, editing, sceneRevision]);
+  }, [project, editing, sceneRevision, dark]);
 
   useEffect(() => {
     const instance = canvas.current;
@@ -3191,7 +3260,7 @@ export default function Editor({
     }
     canvas.current?.requestRenderAll();
     drawLinesRef.current();
-  }, [snapshot, connection, editing, project, simulation.values, simulation.ready]);
+  }, [snapshot, connection, editing, project, simulation.values, simulation.ready, dark]);
 
   const fit = () => {
     if (host.current)
@@ -4971,8 +5040,8 @@ import {
 import type { HmiComponent } from "./project";
 
 const origin = { originX: "left", originY: "top" } as const;
-const ink = "#25384b";
-function label(text: string, left: number, top: number, fontSize = 15) {
+const lightInk = "#25384b";
+function makeLabel(text: string, left: number, top: number, fontSize: number, ink: string) {
   return new FabricText(text, {
     ...origin,
     left,
@@ -4986,8 +5055,10 @@ export interface Widget {
   root: Group;
   update: (value: number | boolean | null, editing: boolean) => void;
 }
-export function createWidget(item: HmiComponent, customUnit?: string): Widget {
-  const accent = item.color ?? "#318f9b";
+export function createWidget(item: HmiComponent, customUnit?: string, dark = false): Widget {
+  const ink = dark ? "#e1ecf4" : lightInk;
+  const label = (text: string, x: number, y: number, size = 15) => makeLabel(text, x, y, size, ink);
+  const accent = item.color ?? (dark ? "#62c4cb" : "#318f9b");
   const width = item.kind === "tank" ? 180 : item.kind === "text" ? 240 : 160;
   const height = item.kind === "tank" ? 260 : item.kind === "text" ? 48 : 130;
   const base = new Rect({
@@ -5025,7 +5096,7 @@ export function createWidget(item: HmiComponent, customUnit?: string): Widget {
       fill: accent,
       strokeWidth: 0,
     });
-    const valueLabel = label("50.0 %", 49, 115, 23);
+    const valueLabel = makeLabel("50.0 %", 49, 115, 23, lightInk);
     const quality = label("Prévia", 23, 228, 11);
     children.push(new Line([3, 130, 21, 130], { stroke: accent, strokeWidth: 5 }), new Line([159, 130, 177, 130], { stroke: accent, strokeWidth: 5 }), vessel, water, valueLabel, quality);
     // Group construction changes child coordinates from canvas space to group space.
@@ -5052,7 +5123,7 @@ export function createWidget(item: HmiComponent, customUnit?: string): Widget {
     };
   } else if (item.kind === "silo") {
     const bin = new Polygon([{x: 0, y: 0}, {x: 92, y: 0}, {x: 92, y: 43}, {x: 53, y: 67}, {x: 39, y: 67}, {x: 0, y: 43}],
-      { ...origin, left: 22, top: 31, fill: "#edf3f5", stroke: ink, strokeWidth: 2 });
+      { ...origin, left: 22, top: 31, fill: dark ? "#23394b" : "#edf3f5", stroke: ink, strokeWidth: 2 });
     const track = new Rect({ ...origin, left: 127, top: 31, width: 12, height: 67, fill: "#dbe3e8" });
     const bar = new Rect({ left: 127, top: 98, originX: "left", originY: "bottom", width: 12, height: 34, fill: accent, strokeWidth: 0 });
     const reading = label("", 13, 107, 13);
@@ -5100,6 +5171,7 @@ export function createWidget(item: HmiComponent, customUnit?: string): Widget {
       ? new Polygon([{ x: 0, y: 0 }, { x: 66, y: 42 }, { x: 66, y: 0 }, { x: 0, y: 42 }], { ...origin, left: 45, top: 43, fill: accent, stroke: ink, strokeWidth: 1 })
       : item.kind === "button" ? new Rect({ ...origin, left: 12, top: 36, width: 136, height: 54, rx: 6, ry: 6, fill: accent }) : body;
     const centerLabel = label(item.kind === "motor" ? "M" : "Alternar", item.kind === "motor" ? 67 : 45, 49, item.kind === "motor" ? 24 : 16);
+    centerLabel.set({ fill: lightInk });
     if (item.kind === "pump" || item.kind === "valve") children.push(
       new Line([3, 65, item.kind === "pump" ? 54 : 45, 65], { stroke: accent, strokeWidth: 5 }),
       new Line([item.kind === "pump" ? 104 : 111, 65, 157, 65], { stroke: accent, strokeWidth: 5 }),
@@ -5129,7 +5201,7 @@ export function createWidget(item: HmiComponent, customUnit?: string): Widget {
       top: 35,
       width: 155,
       height: 61,
-      fill: "#f5f8fa",
+      fill: dark ? "#203547" : "#f5f8fa",
       stroke: accent,
       rx: 4,
       ry: 4,
@@ -5851,6 +5923,34 @@ kbd {
     display: none;
   }
 }
+.header-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.header-actions label { display: flex; align-items: center; gap: 5px; }
+.header-actions select { font: inherit; padding: 5px; border: 1px solid #9aaaba; border-radius: 4px; }
+header > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px; }
+@media (max-width: 480px) { .header-actions { gap: 6px; } header { padding-inline: 10px; } }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #172635;
+  --raised: #213547;
+  --edge: #3b5063;
+  --ink: #e1ecf4;
+  --muted: #b2c4d3;
+  --positive: #79dfcc;
+  color: var(--ink);
+  background: #0e1925;
+}
+[data-theme="dark"] :is(header, .panel, .metrics article, .connection) { background: var(--surface); border-color: var(--edge); }
+[data-theme="dark"] :is(header, .page-heading p, .eyebrow, .metric-label, .metric-value small, .metric-foot, .pump-value, .panel p, .panel-footer, .pill, th, footer, .future p, .sidebar-footer small) { color: var(--muted); }
+[data-theme="dark"] :is(h1, header strong, .metric-value, .info-strip strong) { color: var(--ink); }
+[data-theme="dark"] :is(.info-strip, kbd, .header-actions select) { color: var(--ink); background: var(--raised); border-color: var(--edge); }
+[data-theme="dark"] :is(.panel-heading, .panel-footer, td, th, footer, .pill) { border-color: var(--edge); }
+[data-theme="dark"] :is(.simulation, .notice, .metric-icon.warm) { color: #ffdb98; background: #382e20; border-color: #6c5631; }
+[data-theme="dark"] :is(.connection.live, .metric-icon:not(.warm)) { background: #173c3d; color: var(--positive); border-color: #366561; }
+[data-theme="dark"] :is(.pump-value.active, .info-strip button) { color: var(--positive); }
+[data-theme="dark"] .process :is(.equipment-title, .temperature) { fill: var(--ink); }
+[data-theme="dark"] .process :is(.diagram-label, .scale) { fill: var(--muted); }
+[data-theme="dark"] .process #grid circle { fill: #354858; }
+[data-theme="dark"] .process .temperature-panel { fill: var(--raised); stroke: var(--edge); }
 ````
 
 ## frontend/src/tags/model.test.ts
@@ -6110,6 +6210,53 @@ import { afterEach } from "vitest";
 afterEach(cleanup);
 ````
 
+## frontend/src/useTheme.ts
+
+````
+import { useEffect, useLayoutEffect, useState } from "react";
+
+type Theme = "system" | "light" | "dark";
+const key = "nexo.theme";
+
+function preference(): Theme {
+  try {
+    const value = localStorage.getItem(key);
+    if (value === "dark" || value === "light") return value;
+  } catch { /* Storage may be disabled in this browser. */ }
+  return "system";
+}
+
+export function useTheme() {
+  const [theme, setTheme] = useState<Theme>(preference);
+  const [systemDark, setSystemDark] = useState(() => window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false);
+  const dark = theme === "dark" || (theme === "system" && systemDark);
+
+  useLayoutEffect(() => {
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+  }, [dark]);
+  useEffect(() => {
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const syncSystem = () => setSystemDark(media?.matches ?? false);
+    const syncStorage = (event: StorageEvent) => {
+      if (event.key === key || event.key === null) setTheme(preference());
+    };
+    syncSystem();
+    media?.addEventListener("change", syncSystem);
+    window.addEventListener("storage", syncStorage);
+    return () => {
+      media?.removeEventListener("change", syncSystem);
+      window.removeEventListener("storage", syncStorage);
+    };
+  }, []);
+
+  function choose(value: Theme) {
+    setTheme(value);
+    try { localStorage.setItem(key, value); } catch { /* Keep the session preference. */ }
+  }
+  return { theme, dark, choose };
+}
+````
+
 ## frontend/tsconfig.json
 
 ````
@@ -6172,7 +6319,7 @@ Consulte o [guia de publicação](../docs/deployment.md). Serviço publicado em 
 ````
 # NEXO — Supervisão e engenharia de telas
 
-Plataforma SCADA/HMI com backend Java e interface web. Na versão **0.8.0**, abra **Editor → Exemplo de dosagem → Operação** para testar silo, esteira, dosador de rosca e misturador. Inicie a simulação automática e ligue o dosador e a esteira para alimentar o silo a 20 kg por segundo simulado, até 1000 kg. O misturador tem comando independente. Em **Simulação automática**, a permissão de entrada aceita uma tag booleana do projeto. Na biblioteca local, o editor guarda telas na biblioteca **Projetos salvos** deste navegador. Para conectar equipamentos, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
+Plataforma SCADA/HMI com backend Java e interface web. Em **Tema**, escolha **Claro**, **Escuro** ou **Sistema**. A versão **0.8.1** guarda essa preferência no navegador. Para experimentar os equipamentos de sólidos, abra **Editor → Exemplo de dosagem → Operação** para testar silo, esteira, dosador de rosca e misturador. Inicie a simulação automática e ligue o dosador e a esteira para alimentar o silo a 20 kg por segundo simulado, até 1000 kg. O misturador tem comando independente. Em **Simulação automática**, a permissão de entrada aceita uma tag booleana do projeto. Na biblioteca local, o editor guarda telas na biblioteca **Projetos salvos** deste navegador. Para conectar equipamentos, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
 
 ## Recursos disponíveis
 

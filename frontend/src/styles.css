@@ -649,3 +649,31 @@ kbd {
     display: none;
   }
 }
+.header-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.header-actions label { display: flex; align-items: center; gap: 5px; }
+.header-actions select { font: inherit; padding: 5px; border: 1px solid #9aaaba; border-radius: 4px; }
+header > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px; }
+@media (max-width: 480px) { .header-actions { gap: 6px; } header { padding-inline: 10px; } }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #172635;
+  --raised: #213547;
+  --edge: #3b5063;
+  --ink: #e1ecf4;
+  --muted: #b2c4d3;
+  --positive: #79dfcc;
+  color: var(--ink);
+  background: #0e1925;
+}
+[data-theme="dark"] :is(header, .panel, .metrics article, .connection) { background: var(--surface); border-color: var(--edge); }
+[data-theme="dark"] :is(header, .page-heading p, .eyebrow, .metric-label, .metric-value small, .metric-foot, .pump-value, .panel p, .panel-footer, .pill, th, footer, .future p, .sidebar-footer small) { color: var(--muted); }
+[data-theme="dark"] :is(h1, header strong, .metric-value, .info-strip strong) { color: var(--ink); }
+[data-theme="dark"] :is(.info-strip, kbd, .header-actions select) { color: var(--ink); background: var(--raised); border-color: var(--edge); }
+[data-theme="dark"] :is(.panel-heading, .panel-footer, td, th, footer, .pill) { border-color: var(--edge); }
+[data-theme="dark"] :is(.simulation, .notice, .metric-icon.warm) { color: #ffdb98; background: #382e20; border-color: #6c5631; }
+[data-theme="dark"] :is(.connection.live, .metric-icon:not(.warm)) { background: #173c3d; color: var(--positive); border-color: #366561; }
+[data-theme="dark"] :is(.pump-value.active, .info-strip button) { color: var(--positive); }
+[data-theme="dark"] .process :is(.equipment-title, .temperature) { fill: var(--ink); }
+[data-theme="dark"] .process :is(.diagram-label, .scale) { fill: var(--muted); }
+[data-theme="dark"] .process #grid circle { fill: #354858; }
+[data-theme="dark"] .process .temperature-panel { fill: var(--raised); stroke: var(--edge); }

@@ -1,5 +1,9 @@
 # Histórico de versões
 
+## 0.7.1 — 08/11/2026
+
+- Renomeação e exclusão de projetos na biblioteca local, com confirmação de exclusão e controle de conflitos entre abas.
+
 ## 0.7.0 — 08/11/2026
 
 - Biblioteca de projetos no navegador. Salvar e abrir preservam componentes, ligações, tags e regras de simulação.

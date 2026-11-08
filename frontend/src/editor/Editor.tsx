@@ -436,7 +436,14 @@ export default function Editor({
           />
         </div>
       </div>
-      {editing && <ProjectLibrary project={project} saved={() => onDirty(false)} open={next => {
+      {editing && <ProjectLibrary project={project} saved={() => onDirty(false)} editedEntry={(entry, newName) => {
+        if (project.name !== entry.name) return;
+        if (newName === null || serializeProject(project) !== entry.document) onDirty(true);
+        else {
+          change({ ...project, name: newName });
+          onDirty(dirty);
+        }
+      }} open={next => {
         importing.current++;
         change(next);
         setSelectedIds([]);

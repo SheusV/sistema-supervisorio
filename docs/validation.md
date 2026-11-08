@@ -1,4 +1,8 @@
-# Relatório de validação — versão 0.7.0
+# Relatório de validação — versão 0.7.1
+
+Em 08/11/2026, o build e os dois cenários de biblioteca passaram localmente no Edge. O novo cenário verifica a integridade do documento renomeado, cancelamento, exclusão da cópia local e rejeição de uma exclusão desatualizada em outra aba.
+
+## Resultados da versão 0.7.0
 
 Em 08/11/2026, o build, os 57 testes de frontend e os 14 cenários de navegador passaram localmente. A biblioteca foi validada fechando e reiniciando o navegador no mesmo perfil, comparando o documento completo e verificando o cancelamento e a confirmação de substituição.
 

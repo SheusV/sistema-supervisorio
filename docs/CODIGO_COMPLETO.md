@@ -1,4 +1,4 @@
-# Código completo — versão 0.7.0
+# Código completo — versão 0.7.1
 Cópia integral dos arquivos de autoria. Lockfile, ferramentas e capturas permanecem nos arquivos individuais.
 
 ## .dockerignore
@@ -701,6 +701,10 @@ class TankSimulatorTest {
 ````
 # Histórico de versões
 
+## 0.7.1 — 08/11/2026
+
+- Renomeação e exclusão de projetos na biblioteca local, com confirmação de exclusão e controle de conflitos entre abas.
+
 ## 0.7.0 — 08/11/2026
 
 - Biblioteca de projetos no navegador. Salvar e abrir preservam componentes, ligações, tags e regras de simulação.
@@ -1107,7 +1111,7 @@ Testes cobrem importação/exportação, rejeição de ligações órfãs, nomes
 
 1. Etapa 0 validada tecnicamente: backend, frontend e fluxo WebSocket real, incluindo reconexão após interrupção do transporte. Revisão visual pelo usuário disponível.
 2. Editor: base em 0.2.0; seleção/alinhamento em 0.3.0; ligações, biblioteca ampliada, tags próprias e comandos manuais em 0.4.0. Edição de ligações, renomeação de tags e regra de tanque entregues em 0.5.0. Ligação direta por portas disponível na versão 0.6.0. A biblioteca local da versão 0.7.0 inicia o passo 3. Grupos permanentes e imagens seguem previstos.
-3. Em andamento: salvar e reabrir telas no mesmo navegador entregue em 0.7.0. Para acesso entre dispositivos seguem previstos PostgreSQL/Flyway, projetos persistidos, autenticação, perfis e auditoria; testes com Testcontainers.
+3. Em andamento: salvar e reabrir telas no mesmo navegador entregue em 0.7.0, com renomeação e exclusão de projetos locais em 0.7.1. Para acesso entre dispositivos seguem previstos PostgreSQL/Flyway, projetos persistidos, autenticação, perfis e auditoria; testes com Testcontainers.
 4. Drivers de leitura, primeiro contra servidores OPC UA/Modbus/MQTT simulados, com qualidade e timeouts testados.
 5. Alarmes e histórico com ECharts.
 6. Laboratório offline PID/Bode com testes numéricos contra referências analíticas.
@@ -1120,7 +1124,11 @@ Conexão com CLP físico, comandos de escrita e uso em produção exigem fases e
 ## docs/validation.md
 
 ````
-# Relatório de validação — versão 0.7.0
+# Relatório de validação — versão 0.7.1
+
+Em 08/11/2026, o build e os dois cenários de biblioteca passaram localmente no Edge. O novo cenário verifica a integridade do documento renomeado, cancelamento, exclusão da cópia local e rejeição de uma exclusão desatualizada em outra aba.
+
+## Resultados da versão 0.7.0
 
 Em 08/11/2026, o build, os 57 testes de frontend e os 14 cenários de navegador passaram localmente. A biblioteca foi validada fechando e reiniciando o navegador no mesmo perfil, comparando o documento completo e verificando o cancelamento e a confirmação de substituição.
 
@@ -1621,6 +1629,38 @@ test("keeps the full project after closing the browser and confirms replacement"
     expect(await documentOf(page)).toEqual(revised);
   } finally { await second.close(); }
 });
+test("renames saved content and rejects a stale deletion from another tab", async ({ page, context }) => {
+  await page.goto("/");
+  await library(page);
+  await page.getByRole("button", { name: "Exemplo de processo" }).click();
+  const original = await documentOf(page);
+  const selection = page.getByLabel("Projeto salvo", { exact: true });
+  await page.getByRole("button", { name: "Salvar projeto", exact: true }).click();
+  await expect(selection).toHaveValue(original.name);
+  const other = await context.newPage();
+  await other.goto("/");
+  await library(other);
+  await other.getByRole("button", { name: "Excluir da biblioteca" }).click();
+  await expect(other.getByRole("button", { name: "Confirmar exclusão" })).toBeVisible();
+  await page.getByRole("button", { name: "Renomear", exact: true }).click();
+  await page.getByLabel("Novo nome do projeto").fill("Estação de transferência");
+  await page.getByRole("button", { name: "Confirmar nome" }).click();
+  await expect(selection).toHaveValue("Estação de transferência");
+  await other.getByRole("button", { name: "Confirmar exclusão" }).click();
+  await expect(other.getByText(/O projeto mudou em outra aba/)).toBeVisible();
+  await page.getByRole("button", { name: "Abrir projeto salvo" }).click();
+  expect(await documentOf(page)).toEqual({ ...original, name: "Estação de transferência" });
+  await page.getByRole("button", { name: "Excluir da biblioteca" }).click();
+  await page.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await expect(selection).toHaveValue("Estação de transferência");
+  await page.getByRole("button", { name: "Excluir da biblioteca" }).click();
+  await page.getByRole("button", { name: "Confirmar exclusão" }).click();
+  await expect(selection).toBeDisabled();
+  expect(await documentOf(page)).toEqual({ ...original, name: "Estação de transferência" });
+  await page.reload();
+  await library(page);
+  await expect(selection.locator("option")).toHaveText("Nenhum projeto salvo");
+});
 ````
 
 ## frontend/e2e/process.spec.ts
@@ -1778,7 +1818,7 @@ test("recovers the real Java stream after a transport interruption", async ({ pa
 ````
 {
   "name": "scada-hmi",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -1959,7 +1999,7 @@ export function App() {
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.7.0 · Engenharia</small>
+            <small>v0.7.1 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -3294,7 +3334,14 @@ export default function Editor({
           />
         </div>
       </div>
-      {editing && <ProjectLibrary project={project} saved={() => onDirty(false)} open={next => {
+      {editing && <ProjectLibrary project={project} saved={() => onDirty(false)} editedEntry={(entry, newName) => {
+        if (project.name !== entry.name) return;
+        if (newName === null || serializeProject(project) !== entry.document) onDirty(true);
+        else {
+          change({ ...project, name: newName });
+          onDirty(dirty);
+        }
+      }} open={next => {
         importing.current++;
         change(next);
         setSelectedIds([]);
@@ -4355,20 +4402,25 @@ export function projectReducer(
 ````
 import { useEffect, useRef, useState } from "react";
 import type { HmiProject } from "./project";
-import { listProjects, readProject, saveProject } from "./savedProjects";
+import { editSavedEntry, listProjects, readEntry, readProject, saveProject } from "./savedProjects";
 
 interface Props {
   project: HmiProject;
   open: (next: HmiProject) => void;
   saved: () => void;
+  editedEntry: (entry: Awaited<ReturnType<typeof readEntry>>, newName: string | null) => void;
 }
 
-export function ProjectLibrary({ project, open, saved }: Props) {
+export function ProjectLibrary({ project, open, saved, editedEntry }: Props) {
   const [names, setNames] = useState<string[]>([]);
   const [selection, setSelection] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [replacement, setReplacement] = useState<{ project: HmiProject; revision: string } | null>(null);
+  const [operation, setOperation] = useState<{ type: "rename" | "delete"; entry: Awaited<ReturnType<typeof readEntry>> } | null>(null);
+  const [newName, setNewName] = useState("");
+  const notifyEdit = useRef(editedEntry);
+  notifyEdit.current = editedEntry;
   const active = useRef(false);
   const latest = useRef(project);
   latest.current = project;
@@ -4407,6 +4459,12 @@ export function ProjectLibrary({ project, open, saved }: Props) {
     const result = await saveProject(project, revision);
     if (!active.current) return;
     if (!result.saved) {
+      if (result.revision === null) {
+        setReplacement(null);
+        await refresh();
+        setMessage("A cópia foi removida ou renomeada em outra aba. Use Salvar projeto para criar uma nova cópia.");
+        return;
+      }
       if (latest.current === project) {
         setReplacement({ project, revision: result.revision });
         setMessage(revision ? "Outra aba atualizou esta tela. Confirme para substituir a versão mais recente." : "");
@@ -4419,27 +4477,65 @@ export function ProjectLibrary({ project, open, saved }: Props) {
     await refresh(project.name);
   }
 
+  async function begin(type: "rename" | "delete") {
+    const entry = await readEntry(selection);
+    if (!active.current) return;
+    setReplacement(null);
+    setOperation({ type, entry });
+    setNewName(entry.name);
+  }
+
+  async function confirmEdit() {
+    if (!operation) return;
+    const name = operation.type === "rename" ? newName.trim() : null;
+    try {
+      await editSavedEntry(operation.entry, name);
+    } catch (error) {
+      setOperation(null);
+      await refresh();
+      throw error;
+    }
+    if (!active.current) return;
+    setOperation(null);
+    notifyEdit.current(operation.entry, name);
+    await refresh(name ?? undefined);
+    setMessage(name ? `Projeto renomeado para “${name}”.` : `Projeto “${operation.entry.name}” excluído da biblioteca.`);
+  }
+
   return <details className="project-library" onToggle={event => {
     if (event.currentTarget.open) void perform(() => refresh());
-    else setReplacement(null);
+    else { setReplacement(null); setOperation(null); }
   }}>
     <summary>Projetos salvos</summary>
     <p>Biblioteca deste navegador. Use Exportar JSON para guardar uma cópia fora deste dispositivo.</p>
     <div className="library-controls">
-      <button disabled={busy || !!pending} onClick={() => void perform(() => save())}>Salvar projeto</button>
+      <button disabled={busy || !!pending || !!operation} onClick={() => void perform(() => save())}>Salvar projeto</button>
       <label>Projeto <select aria-label="Projeto salvo" value={selection} disabled={busy || !names.length}
-        onChange={event => { setSelection(event.target.value); setReplacement(null); }}>
+        onChange={event => { setSelection(event.target.value); setReplacement(null); setOperation(null); }}>
         {!names.length && <option value="">Nenhum projeto salvo</option>}
         {names.map(name => <option key={name}>{name}</option>)}
       </select></label>
-      <button disabled={busy || !selection} onClick={() => void perform(async () => {
+      <button disabled={busy || !selection || !!operation} onClick={() => void perform(async () => {
         const next = await readProject(selection);
         if (!active.current || latest.current !== project) return;
         setReplacement(null);
         open(next);
         setMessage(`Projeto “${next.name}” aberto. Desfazer recupera a tela anterior.`);
       })}>Abrir projeto salvo</button>
+      <button disabled={busy || !selection || !!operation} onClick={() => void perform(() => begin("rename"))}>Renomear</button>
+      <button disabled={busy || !selection || !!operation} onClick={() => void perform(() => begin("delete"))}>Excluir da biblioteca</button>
     </div>
+    {operation && <form className="library-controls" onSubmit={event => {
+      event.preventDefault();
+      void perform(confirmEdit);
+    }}>
+      {operation.type === "rename" ? <label>Novo nome de “{operation.entry.name}” <input aria-label="Novo nome do projeto" value={newName} maxLength={80} required autoFocus onChange={event => setNewName(event.target.value)} /></label>
+        : <span>Excluir a cópia salva de “{operation.entry.name}” deste navegador?</span>}
+      <button disabled={busy || (operation.type === "rename" && (!newName.trim() || newName.trim() === operation.entry.name))}>
+        {operation.type === "rename" ? "Confirmar nome" : "Confirmar exclusão"}
+      </button>
+      <button type="button" disabled={busy} onClick={() => setOperation(null)}>Cancelar</button>
+    </form>}
     {pending && <div className="library-controls">
       <span>Já existe um projeto chamado “{project.name}”. Substituir a cópia salva?</span>
       <button disabled={busy} onClick={() => void perform(() => save(pending.revision))}>Substituir projeto</button>
@@ -4597,16 +4693,53 @@ export function listProjects() {
   });
 }
 
-export async function readProject(name: string) {
+export async function readEntry(name: string) {
   const entry = await useStore<Entry | undefined>("readonly", (store, result) => {
     const request = store.get(name);
     request.onsuccess = () => result(request.result);
   });
   if (!entry) throw new Error("O projeto já não está na lista deste navegador.");
-  return parseProject(entry.document);
+  return entry;
 }
 
-type SaveResult = { saved: true } | { saved: false; revision: string };
+export async function readProject(name: string) {
+  return parseProject((await readEntry(name)).document);
+}
+
+export async function editSavedEntry(entry: Entry, newName: string | null) {
+  const renamed = newName === null ? null : {
+    name: newName,
+    document: serializeProject({ ...parseProject(entry.document), name: newName }),
+    revision: crypto.randomUUID(),
+  };
+  const error = await useStore<string>("readwrite", (store, result) => {
+    const read = store.get(entry.name);
+    read.onsuccess = () => {
+      if (read.result?.revision !== entry.revision) {
+        result("O projeto mudou em outra aba. Selecione a versão atual e tente novamente.");
+        return;
+      }
+      if (!renamed) {
+        store.delete(entry.name);
+        result("");
+        return;
+      }
+      const destination = store.getKey(renamed.name);
+      destination.onsuccess = () => {
+        if (destination.result !== undefined) {
+          result("Este nome já está em uso. Escolha outro nome.");
+          return;
+        }
+        store.add(renamed);
+        store.delete(entry.name);
+        result("");
+      };
+    };
+  });
+  if (error) throw new Error(error);
+}
+
+type SaveResult = { saved: true } | { saved: false; revision: string | null };
 
 export function saveProject(project: HmiProject, expectedRevision?: string) {
   const document = serializeProject(project);
@@ -4614,6 +4747,10 @@ export function saveProject(project: HmiProject, expectedRevision?: string) {
     const request = store.get(project.name);
     request.onsuccess = () => {
       const existing: Entry | undefined = request.result;
+      if (!existing && expectedRevision !== undefined) {
+        result({ saved: false, revision: null });
+        return;
+      }
       if (existing && existing.revision !== expectedRevision) {
         result({ saved: false, revision: existing.revision });
         return;
@@ -5905,7 +6042,7 @@ Consulte o [guia de publicação](../docs/deployment.md). Serviço publicado em 
 ````
 # NEXO — Supervisão e engenharia de telas
 
-Plataforma SCADA/HMI com backend Java e interface web. Na versão **0.7.0**, o editor guarda telas na biblioteca **Projetos salvos** deste navegador. Para conectar equipamentos, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
+Plataforma SCADA/HMI com backend Java e interface web. Na versão **0.7.1**, o editor guarda telas na biblioteca **Projetos salvos** deste navegador. Para conectar equipamentos, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
 
 ## Recursos disponíveis
 
@@ -5981,7 +6118,7 @@ Para testar a nova entrega, abra **Editor → Exemplo de processo → Operação
 3. Arraste para mover. Use as alças para redimensionar e girar; valores exatos também podem ser informados no painel Propriedades.
 4. Selecione a tag vinculada. Objetos numéricos aceitam tags DOUBLE; equipamentos de estado aceitam BOOLEAN. Botões e entradas numéricas usam somente tags próprias.
 5. Use **Operação** para visualizar valores e comandar tags próprias de simulação. A geometria fica bloqueada nesse modo; as tags da demonstração continuam somente leitura.
-6. Abra **Projetos salvos → Salvar projeto** para guardar a tela pelo nome. Para recuperá-la, escolha o nome na lista e clique em **Abrir projeto salvo**. **Exportar JSON** baixa uma cópia. **Abrir JSON** recupera componentes, geometria, ordem e vínculos. **Nova tela** abre uma tela vazia; Desfazer recupera a anterior.
+6. Abra **Projetos salvos → Salvar projeto** para guardar a tela pelo nome. Para recuperá-la, escolha o nome na lista e clique em **Abrir projeto salvo**. Selecione um projeto na lista para renomeá-lo ou excluir sua cópia salva. **Exportar JSON** baixa uma cópia. **Abrir JSON** recupera componentes, geometria, ordem e vínculos. **Nova tela** abre uma tela vazia; Desfazer recupera a anterior.
 
 As alterações são mantidas ao navegar entre as páginas, mas não são gravadas automaticamente no servidor ou no navegador. Antes de recarregar ou fechar, salve na biblioteca ou exporte o arquivo. A biblioteca pertence ao perfil do navegador e ao endereço do site. Limpar os dados do site apaga as cópias locais. A tela fixa de Supervisão é independente do projeto aberto no editor.
 

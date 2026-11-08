@@ -40,16 +40,53 @@ export function listProjects() {
   });
 }
 
-export async function readProject(name: string) {
+export async function readEntry(name: string) {
   const entry = await useStore<Entry | undefined>("readonly", (store, result) => {
     const request = store.get(name);
     request.onsuccess = () => result(request.result);
   });
   if (!entry) throw new Error("O projeto já não está na lista deste navegador.");
-  return parseProject(entry.document);
+  return entry;
 }
 
-type SaveResult = { saved: true } | { saved: false; revision: string };
+export async function readProject(name: string) {
+  return parseProject((await readEntry(name)).document);
+}
+
+export async function editSavedEntry(entry: Entry, newName: string | null) {
+  const renamed = newName === null ? null : {
+    name: newName,
+    document: serializeProject({ ...parseProject(entry.document), name: newName }),
+    revision: crypto.randomUUID(),
+  };
+  const error = await useStore<string>("readwrite", (store, result) => {
+    const read = store.get(entry.name);
+    read.onsuccess = () => {
+      if (read.result?.revision !== entry.revision) {
+        result("O projeto mudou em outra aba. Selecione a versão atual e tente novamente.");
+        return;
+      }
+      if (!renamed) {
+        store.delete(entry.name);
+        result("");
+        return;
+      }
+      const destination = store.getKey(renamed.name);
+      destination.onsuccess = () => {
+        if (destination.result !== undefined) {
+          result("Este nome já está em uso. Escolha outro nome.");
+          return;
+        }
+        store.add(renamed);
+        store.delete(entry.name);
+        result("");
+      };
+    };
+  });
+  if (error) throw new Error(error);
+}
+
+type SaveResult = { saved: true } | { saved: false; revision: string | null };
 
 export function saveProject(project: HmiProject, expectedRevision?: string) {
   const document = serializeProject(project);
@@ -57,6 +94,10 @@ export function saveProject(project: HmiProject, expectedRevision?: string) {
     const request = store.get(project.name);
     request.onsuccess = () => {
       const existing: Entry | undefined = request.result;
+      if (!existing && expectedRevision !== undefined) {
+        result({ saved: false, revision: null });
+        return;
+      }
       if (existing && existing.revision !== expectedRevision) {
         result({ saved: false, revision: existing.revision });
         return;

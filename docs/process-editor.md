@@ -31,6 +31,10 @@ Os valores mostrados são os últimos valores aceitos pelo Java, não medições
 
 Tubulações não implementam fluxo físico. Compartilhar uma tag cria uma associação explícita de estado; não calcula vazão, pressão, balanço de massa ou intertravamentos. A regra explícita é independente do desenho. Este incremento não contém linguagem de programação, scripts, expressões livres, drivers ou escrita em CLPs.
 
+## Dosagem de sólidos
+
+Abra **Exemplo de dosagem** e entre em Operação. A massa começa em 200 kg. Inicie o ciclo automático e ligue DOSADOR.RUN e ESTEIRA.RUN. Cada segundo simulado acrescenta 20 kg até atingir 1000 kg. O comando do misturador altera seu estado de forma independente. Para configurar outra linha, selecione uma tag booleana em **Permissão de entrada**. O simulador aplica a taxa de entrada quando acionamento e permissão estão ligados e mantém a saída contínua configurada. Renomear a tag atualiza a regra. Excluir a tag remove a regra dependente.
+
 ## Regra automática de tanque
 
 Em **Simulação automática**, escolha uma tag DOUBLE de nível, uma BOOLEAN de acionamento e taxas entre 0 e 1000 unidades da tag por segundo simulado. O Java calcula `nível + ((ligada ? entrada : 0) - saída) × segundos`, limitado ao mínimo/máximo da tag. A saída é contínua. Há uma regra por projeto.
@@ -45,7 +49,7 @@ O formato v1 permanece aceito. Ao editar, o projeto passa a v2, mantendo os comp
 - `components`: até 100, com campos v1 e tipos adicionais da biblioteca. Campos opcionais: `color` no formato hexadecimal #RRGGBB; `rangeMin` e `rangeMax`, ambos obrigatórios quando uma escala é informada e com mínimo menor que máximo.
 - `variables`: até 32 registros com exatamente `name`, `dataType`, `unit`, `initial`, `min`, `max`. Nomes únicos de até 64 caracteres; unidades até 16; números finitos entre −1.000.000 e 1.000.000; valores iniciais dentro da faixa.
 - `connections`: até 100 registros com exatamente `id`, `from`, `to`, `fromPort`, `toPort`, `kind`, `binding`. IDs únicos; dois objetos existentes e distintos; portas left/right/top/bottom; tipo pipe/signal; vínculo booleano ou null.
-- `simulation`: opcional, com exatamente `levelTag`, `enableTag`, `fillRate`, `drainRate`; referências a tags próprias DOUBLE/BOOLEAN e taxas finitas de 0 a 1000. Projetos antigos sem regra continuam aceitos; versões anteriores à 0.5 não leem a extensão.
+- `simulation`: opcional, com `levelTag`, `enableTag`, `fillRate`, `drainRate` e, opcionalmente, `permitTag` (tag própria BOOLEAN); referências a tags próprias DOUBLE/BOOLEAN e taxas finitas de 0 a 1000. Projetos antigos sem regra continuam aceitos; versões anteriores à 0.5 não leem a extensão.
 - Limite total do arquivo: 256 KiB. Nenhuma URL, imagem remota, script, campo desconhecido ou desserialização Fabric é aceita.
 
 O endpoint Java aceita JSON de até 64 KiB com `variables` e `values`, além de `rule` e `seconds` opcionais. `rule` possui os campos de `simulation`; `seconds` é finito entre 0 e 1 (padrão zero), e passos diferentes de zero exigem regra válida. `values` é um mapa de nomes para valores; nomes ausentes usam o valor inicial. Tags desconhecidas, tipos incorretos e valores fora da faixa resultam em 400; corpo excedente resulta em 413. Um documento inválido não altera nenhum estado compartilhado.

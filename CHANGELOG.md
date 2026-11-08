@@ -1,5 +1,10 @@
 # Histórico de versões
 
+## 0.8.0 — 08/11/2026
+
+- Silo com leitura e escala, esteira transportadora, dosador de rosca e misturador com indicação de estado.
+- Exemplo de dosagem em kg e permissão booleana opcional para habilitar a entrada de material no simulador Java.
+
 ## 0.7.1 — 08/11/2026
 
 - Renomeação e exclusão de projetos na biblioteca local, com confirmação de exclusão e controle de conflitos entre abas.

@@ -4,7 +4,7 @@ import { PortOverlay, portPosition, portSides, connectionPath, type DrawingSessi
 import { arrange, layoutLabels, moveTogether, type LayoutAction } from "./layout";
 import { ProjectLibrary } from "./ProjectLibrary";
 import { ProjectTools } from "./ProjectTools";
-import { processExample } from "./processExample";
+import { dosingExample, processExample } from "./processExample";
 import { useProjectSimulation } from "./useProjectSimulation";
 import type { Snapshot } from "../tags/model";
 import type { Connection } from "../tags/useTags";
@@ -420,6 +420,7 @@ export default function Editor({
             Abrir JSON
           </button>
           <button disabled={!editing} onClick={() => { change(processExample()); setSelectedIds([]); setMessage("Exemplo carregado. Abra Operação para testar os comandos. Desfazer recupera a tela anterior."); }}>Exemplo de processo</button>
+          <button disabled={!editing} onClick={() => { change(dosingExample()); setSelectedIds([]); setMessage("Em Operação, inicie a simulação e ligue o dosador e a esteira para alimentar o silo."); }}>Exemplo de dosagem</button>
           <button className="primary-action" onClick={save}>
             Exportar JSON
           </button>
@@ -457,6 +458,7 @@ export default function Editor({
         {project.simulation && <div className="automatic-controls">
           <button disabled={!simulation.ready || simulation.busy} aria-pressed={simulation.automatic} onClick={simulation.toggleAutomatic}>{simulation.automatic ? "Pausar simulação automática" : "Iniciar simulação automática"}</button>
           <span>{simulation.automatic ? "Em execução" : "Pausada"} · {project.simulation.levelTag} · entrada {project.simulation.fillRate}, saída {project.simulation.drainRate} por segundo simulado</span>
+          {project.simulation.permitTag && <p>Permissão de entrada · {project.simulation.permitTag} · {simulation.ready ? simulation.values[project.simulation.permitTag] ? "Liberada" : "Bloqueada" : "Indisponível"}</p>}
           <p>Um segundo simulado por ciclo confirmado. Lentidão ou aba em segundo plano pode reduzir a velocidade; não há recuperação de tempo perdido.</p>
         </div>}
         <p role="status">{simulation.busy ? "Validando no Java…" : simulation.ready ? "Simulação pronta" : simulation.error || "Conectando ao simulador…"}</p>
@@ -695,7 +697,7 @@ export default function Editor({
                 </select>
               </label>
               <label>Cor do componente<input aria-label="Cor do componente" type="color" value={selected.color ?? "#318f9b"} onChange={e => patch({ color: e.target.value })} /></label>
-              {selected.kind === "tank" && <div className="geometry-fields">
+              {(selected.kind === "tank" || selected.kind === "silo") && <div className="geometry-fields">
                 <label>Escala mínima<input key={`min-${selected.id}-${selected.rangeMin}`} aria-label="Escala mínima" type="number" defaultValue={selected.rangeMin ?? 0} onBlur={e => patch({ rangeMin: Number(e.target.value), rangeMax: selected.rangeMax ?? 100 })} /></label>
                 <label>Escala máxima<input key={`max-${selected.id}-${selected.rangeMax}`} aria-label="Escala máxima" type="number" defaultValue={selected.rangeMax ?? 100} onBlur={e => patch({ rangeMin: selected.rangeMin ?? 0, rangeMax: Number(e.target.value) })} /></label>
               </div>}

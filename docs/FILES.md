@@ -1,4 +1,4 @@
-# Arquivos de autoria — versão 0.7.1
+# Arquivos de autoria — versão 0.8.0
 
 - .dockerignore
 - .gitattributes

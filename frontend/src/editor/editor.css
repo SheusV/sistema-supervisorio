@@ -501,3 +501,7 @@ main:has(.editor) {
 .project-library p { color: #465c70; }
 .library-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 10px 0; }
 .library-controls label, .library-controls select { max-width: 100%; }
+.library-symbol.silo { clip-path: polygon(0 0,100% 0,100% 65%,56% 100%,44% 100%,0 65%); background: #7992a4; }
+.library-symbol.conveyor { border-radius: 12px; height: 14px; width: 33px; }
+.library-symbol.feeder:after { content: "≋"; display: block; text-align: center; }
+.library-symbol.mixer:after { content: "Ψ"; display: block; text-align: center; }

@@ -1,8 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { availableBindings, parseProject, removeComponents, replaceVariable, serializeProject } from "./project";
-import { processExample } from "./processExample";
+import { processExample, dosingExample } from "./processExample";
 
 describe("process projects", () => {
+  it("preserves the solids equipment, validates tag types and follows a renamed permission", () => {
+    const project = dosingExample();
+    expect(parseProject(serializeProject(project))).toEqual(project);
+    expect(availableBindings("silo", project.variables)).toEqual(["SILO.MASSA"]);
+    for (const kind of ["conveyor", "mixer", "feeder"] as const) {
+      expect(availableBindings(kind, project.variables)).toContain("ESTEIRA.RUN");
+      expect(availableBindings(kind, project.variables)).not.toContain("SILO.MASSA");
+    }
+    const tag = project.variables!.find(v => v.name === "ESTEIRA.RUN")!;
+    const renamed = replaceVariable(project, tag.name, { ...tag, name: "ET01.RUN" });
+    expect(renamed.simulation?.permitTag).toBe("ET01.RUN");
+    expect(() => serializeProject({ ...project, simulation: { ...project.simulation!, permitTag: "SILO.MASSA" } })).toThrow();
+  });
   it("round trips variables, connections, colors and numeric scales", () => {
     const project = processExample();
     Object.assign(project.components[3], { color: "#aabbcc", rangeMin: -20, rangeMax: 150 });

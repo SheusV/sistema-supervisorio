@@ -31,3 +31,30 @@ export function processExample(): HmiProject {
     ],
   };
 }
+export function dosingExample(): HmiProject {
+  const item = (id: string, kind: ComponentKind, label: string, x: number, y: number, binding: string) =>
+    ({ ...createComponent(kind, 0), id, label, x, y, binding });
+  const drives = ["DOSADOR.RUN", "ESTEIRA.RUN", "MISTURA.RUN"];
+  return {
+    schemaVersion: 2, name: "Dosagem de sólidos", screen: { width: 1200, height: 720 },
+    variables: [
+      ...drives.map(name => ({ name, dataType: "BOOLEAN" as const, unit: "", initial: false, min: 0, max: 1 })),
+      { name: "SILO.MASSA", dataType: "DOUBLE", unit: "kg", initial: 200, min: 0, max: 1000 },
+    ],
+    simulation: { levelTag: "SILO.MASSA", enableTag: drives[0], permitTag: drives[1], fillRate: 20, drainRate: 0 },
+    components: [
+      item("feeder", "feeder", "DS-01 · Dosador", 65, 155, drives[0]),
+      item("belt", "conveyor", "ET-01 · Esteira", 345, 155, drives[1]),
+      { ...item("silo", "silo", "SL-01 · Silo", 650, 155, "SILO.MASSA"), rangeMin: 0, rangeMax: 1000 },
+      item("mixer", "mixer", "MX-01 · Misturador", 945, 155, drives[2]),
+      item("feed-cmd", "button", "Comandar dosador", 65, 410, drives[0]),
+      item("belt-cmd", "button", "Comandar esteira", 345, 410, drives[1]),
+      item("weigh", "setpoint", "Ajustar massa", 650, 410, "SILO.MASSA"),
+      item("mix-cmd", "button", "Comandar misturador", 945, 410, drives[2]),
+    ],
+    connections: [
+      { id: "feed-belt", from: "feeder", fromPort: "right", to: "belt", toPort: "left", kind: "signal", binding: drives[0] },
+      { id: "belt-bin", from: "belt", fromPort: "right", to: "silo", toPort: "left", kind: "signal", binding: drives[1] },
+    ],
+  };
+}

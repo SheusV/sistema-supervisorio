@@ -99,3 +99,20 @@ test("draws a signal on the screen, cancels a draft and reopens the edited conne
   await expect(draw).toBeEnabled();
   expect((await exportProject(page)).connections.at(-1)).toEqual({ ...line, binding: "LINHA.HABILITADA" });
 });
+test("fills the solids silo only when feeder and conveyor both run", async ({ page }) => {
+  await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
+  const project = await exportProject(page);
+  expect(project.components.map((item: {kind: string}) => item.kind)).toEqual(expect.arrayContaining(["silo", "conveyor", "feeder", "mixer"]));
+  await page.getByRole("button", { name: "Operação", exact: true }).click();
+  const mass = page.getByLabel("Valor de SILO.MASSA", { exact: true });
+  await expect(mass).toHaveText("200 kg");
+  await page.getByRole("button", { name: "Alternar DOSADOR.RUN" }).click();
+  await page.getByRole("button", { name: "Iniciar simulação automática" }).click();
+  await expect(page.getByText(/ESTEIRA.RUN · Bloqueada/)).toBeVisible();
+  await page.waitForTimeout(1300);
+  await expect(mass).toHaveText("200 kg");
+  await page.getByRole("button", { name: "Alternar ESTEIRA.RUN" }).click();
+  await expect.poll(async () => parseFloat((await mass.textContent())!)).toBeGreaterThan(200);
+  await page.getByRole("button", { name: "Alternar MISTURA.RUN" }).click();
+  await expect(page.getByTestId("runtime-mixer")).toContainText("true");
+});

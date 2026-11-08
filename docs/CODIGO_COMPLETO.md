@@ -1,4 +1,4 @@
-# Código completo — versão 0.7.1
+# Código completo — versão 0.8.0
 Cópia integral dos arquivos de autoria. Lockfile, ferramentas e capturas permanecem nos arquivos individuais.
 
 ## .dockerignore
@@ -319,7 +319,7 @@ import java.util.*;
 public final class ProjectSimulation {
     private ProjectSimulation() {}
     public record Variable(String name, String dataType, String unit, Object initial, Double min, Double max) {}
-    public record TankRule(String levelTag, String enableTag, Double fillRate, Double drainRate) {}
+    public record TankRule(String levelTag, String enableTag, Double fillRate, Double drainRate, String permitTag) {}
     public record Request(List<Variable> variables, Map<String, Object> values, TankRule rule, Double seconds) {}
     public record Result(String source, Map<String, Object> values) {}
 
@@ -349,7 +349,12 @@ public final class ProjectSimulation {
                     || !Double.isFinite(rule.fillRate()) || !Double.isFinite(rule.drainRate())
                     || rule.fillRate() < 0 || rule.fillRate() > 1000 || rule.drainRate() < 0 || rule.drainRate() > 1000) throw invalid();
             double previous = ((Number) result.get(level.name())).doubleValue();
-            double rate = (enabled ? rule.fillRate() : 0) - rule.drainRate();
+            boolean permitted = true;
+            if (rule.permitTag() != null) {
+                if (!(result.get(rule.permitTag()) instanceof Boolean state)) throw invalid();
+                permitted = state;
+            }
+            double rate = (enabled && permitted ? rule.fillRate() : 0) - rule.drainRate();
             double next = Math.clamp(previous + rate * seconds, level.min(), level.max());
             result.put(level.name(), next);
         } else if (seconds != 0) throw invalid();
@@ -627,7 +632,7 @@ class TankRuleTest {
     private final List<ProjectSimulation.Variable> variables = List.of(
         new ProjectSimulation.Variable("LEVEL", "DOUBLE", "%", 35, 0.0, 100.0),
         new ProjectSimulation.Variable("RUN", "BOOLEAN", "", false, 0.0, 1.0));
-    private final ProjectSimulation.TankRule rule = new ProjectSimulation.TankRule("LEVEL", "RUN", 5.0, 1.0);
+    private final ProjectSimulation.TankRule rule = new ProjectSimulation.TankRule("LEVEL", "RUN", 5.0, 1.0, null);
     private double step(double level, boolean enabled, double seconds) {
         var result = ProjectSimulation.evaluate(new ProjectSimulation.Request(variables, Map.of("LEVEL", level, "RUN", enabled), rule, seconds));
         return ((Number) result.values().get("LEVEL")).doubleValue();
@@ -637,6 +642,19 @@ class TankRuleTest {
         assertEquals(34, step(35, false, 1));
         assertEquals(37, step(35, true, 0.5));
         assertEquals(35, step(35, true, 0));
+    }
+    @Test void feedingRequiresBothCommandsAndDrainingContinues() {
+        var definitions = new ArrayList<>(variables);
+        definitions.add(new ProjectSimulation.Variable("BELT", "BOOLEAN", "", false, 0.0, 1.0));
+        var gated = new ProjectSimulation.TankRule("LEVEL", "RUN", 5.0, 1.0, "BELT");
+        for (boolean run : List.of(false, true)) {
+            for (boolean belt : List.of(false, true)) {
+                var request = new ProjectSimulation.Request(definitions, Map.of("RUN", run, "BELT", belt), gated, 1.0);
+                assertEquals(run && belt ? 39.0 : 34.0, ProjectSimulation.evaluate(request).values().get("LEVEL"));
+            }
+        }
+        assertThrows(IllegalArgumentException.class, () -> ProjectSimulation.evaluate(
+                new ProjectSimulation.Request(variables, Map.of(), gated, 1.0)));
     }
     @Test void clampsAtBothLimitsAndIsDeterministic() {
         assertEquals(100, step(99, true, 1));
@@ -650,10 +668,10 @@ class TankRuleTest {
         for (double seconds : new double[] { -1, 1.01, Double.NaN, Double.POSITIVE_INFINITY })
             assertThrows(IllegalArgumentException.class, () -> step(35, true, seconds));
         for (var invalid : List.of(
-            new ProjectSimulation.TankRule("RUN", "LEVEL", 5.0, 1.0),
-            new ProjectSimulation.TankRule("MISSING", "RUN", 5.0, 1.0),
-            new ProjectSimulation.TankRule("LEVEL", "RUN", -1.0, 1.0),
-            new ProjectSimulation.TankRule("LEVEL", "RUN", 5.0, Double.NaN)))
+            new ProjectSimulation.TankRule("RUN", "LEVEL", 5.0, 1.0, null),
+            new ProjectSimulation.TankRule("MISSING", "RUN", 5.0, 1.0, null),
+            new ProjectSimulation.TankRule("LEVEL", "RUN", -1.0, 1.0, null),
+            new ProjectSimulation.TankRule("LEVEL", "RUN", 5.0, Double.NaN, null)))
             assertThrows(IllegalArgumentException.class, () -> ProjectSimulation.evaluate(new ProjectSimulation.Request(variables, Map.of(), invalid, 1.0)));
         assertThrows(IllegalArgumentException.class, () -> ProjectSimulation.evaluate(new ProjectSimulation.Request(variables, Map.of(), null, 1.0)));
     }
@@ -700,6 +718,11 @@ class TankSimulatorTest {
 
 ````
 # Histórico de versões
+
+## 0.8.0 — 08/11/2026
+
+- Silo com leitura e escala, esteira transportadora, dosador de rosca e misturador com indicação de estado.
+- Exemplo de dosagem em kg e permissão booleana opcional para habilitar a entrada de material no simulador Java.
 
 ## 0.7.1 — 08/11/2026
 
@@ -1080,6 +1103,10 @@ Os valores mostrados são os últimos valores aceitos pelo Java, não medições
 
 Tubulações não implementam fluxo físico. Compartilhar uma tag cria uma associação explícita de estado; não calcula vazão, pressão, balanço de massa ou intertravamentos. A regra explícita é independente do desenho. Este incremento não contém linguagem de programação, scripts, expressões livres, drivers ou escrita em CLPs.
 
+## Dosagem de sólidos
+
+Abra **Exemplo de dosagem** e entre em Operação. A massa começa em 200 kg. Inicie o ciclo automático e ligue DOSADOR.RUN e ESTEIRA.RUN. Cada segundo simulado acrescenta 20 kg até atingir 1000 kg. O comando do misturador altera seu estado de forma independente. Para configurar outra linha, selecione uma tag booleana em **Permissão de entrada**. O simulador aplica a taxa de entrada quando acionamento e permissão estão ligados e mantém a saída contínua configurada. Renomear a tag atualiza a regra. Excluir a tag remove a regra dependente.
+
 ## Regra automática de tanque
 
 Em **Simulação automática**, escolha uma tag DOUBLE de nível, uma BOOLEAN de acionamento e taxas entre 0 e 1000 unidades da tag por segundo simulado. O Java calcula `nível + ((ligada ? entrada : 0) - saída) × segundos`, limitado ao mínimo/máximo da tag. A saída é contínua. Há uma regra por projeto.
@@ -1094,7 +1121,7 @@ O formato v1 permanece aceito. Ao editar, o projeto passa a v2, mantendo os comp
 - `components`: até 100, com campos v1 e tipos adicionais da biblioteca. Campos opcionais: `color` no formato hexadecimal #RRGGBB; `rangeMin` e `rangeMax`, ambos obrigatórios quando uma escala é informada e com mínimo menor que máximo.
 - `variables`: até 32 registros com exatamente `name`, `dataType`, `unit`, `initial`, `min`, `max`. Nomes únicos de até 64 caracteres; unidades até 16; números finitos entre −1.000.000 e 1.000.000; valores iniciais dentro da faixa.
 - `connections`: até 100 registros com exatamente `id`, `from`, `to`, `fromPort`, `toPort`, `kind`, `binding`. IDs únicos; dois objetos existentes e distintos; portas left/right/top/bottom; tipo pipe/signal; vínculo booleano ou null.
-- `simulation`: opcional, com exatamente `levelTag`, `enableTag`, `fillRate`, `drainRate`; referências a tags próprias DOUBLE/BOOLEAN e taxas finitas de 0 a 1000. Projetos antigos sem regra continuam aceitos; versões anteriores à 0.5 não leem a extensão.
+- `simulation`: opcional, com `levelTag`, `enableTag`, `fillRate`, `drainRate` e, opcionalmente, `permitTag` (tag própria BOOLEAN); referências a tags próprias DOUBLE/BOOLEAN e taxas finitas de 0 a 1000. Projetos antigos sem regra continuam aceitos; versões anteriores à 0.5 não leem a extensão.
 - Limite total do arquivo: 256 KiB. Nenhuma URL, imagem remota, script, campo desconhecido ou desserialização Fabric é aceita.
 
 O endpoint Java aceita JSON de até 64 KiB com `variables` e `values`, além de `rule` e `seconds` opcionais. `rule` possui os campos de `simulation`; `seconds` é finito entre 0 e 1 (padrão zero), e passos diferentes de zero exigem regra válida. `values` é um mapa de nomes para valores; nomes ausentes usam o valor inicial. Tags desconhecidas, tipos incorretos e valores fora da faixa resultam em 400; corpo excedente resulta em 413. Um documento inválido não altera nenhum estado compartilhado.
@@ -1110,7 +1137,7 @@ Testes cobrem importação/exportação, rejeição de ligações órfãs, nomes
 # Próximos incrementos
 
 1. Etapa 0 validada tecnicamente: backend, frontend e fluxo WebSocket real, incluindo reconexão após interrupção do transporte. Revisão visual pelo usuário disponível.
-2. Editor: base em 0.2.0; seleção/alinhamento em 0.3.0; ligações, biblioteca ampliada, tags próprias e comandos manuais em 0.4.0. Edição de ligações, renomeação de tags e regra de tanque entregues em 0.5.0. Ligação direta por portas disponível na versão 0.6.0. A biblioteca local da versão 0.7.0 inicia o passo 3. Grupos permanentes e imagens seguem previstos.
+2. Editor: base em 0.2.0; seleção/alinhamento em 0.3.0; ligações, biblioteca ampliada, tags próprias e comandos manuais em 0.4.0. Edição de ligações, renomeação de tags e regra de tanque entregues em 0.5.0. Ligação direta por portas disponível na versão 0.6.0. A biblioteca local da versão 0.7.0 inicia o passo 3. Em 0.8.0, o editor ganhou equipamentos para sólidos e uma permissão configurável na simulação. Grupos permanentes e imagens seguem previstos.
 3. Em andamento: salvar e reabrir telas no mesmo navegador entregue em 0.7.0, com renomeação e exclusão de projetos locais em 0.7.1. Para acesso entre dispositivos seguem previstos PostgreSQL/Flyway, projetos persistidos, autenticação, perfis e auditoria; testes com Testcontainers.
 4. Drivers de leitura, primeiro contra servidores OPC UA/Modbus/MQTT simulados, com qualidade e timeouts testados.
 5. Alarmes e histórico com ECharts.
@@ -1124,7 +1151,11 @@ Conexão com CLP físico, comandos de escrita e uso em produção exigem fases e
 ## docs/validation.md
 
 ````
-# Relatório de validação — versão 0.7.1
+# Relatório de validação — versão 0.8.0
+
+Em 08/11/2026 passaram o build, 12 testes Java, 58 de frontend e os quatro cenários de automação no navegador. A dosagem verifica massa estável com a esteira parada e aumento com a esteira e o dosador acionados. O teste Java cobre as quatro combinações de comandos com saída contínua. [Tela de dosagem](screenshots/dosagem-solidos.png).
+
+## Resultados da versão 0.7.1
 
 Em 08/11/2026, o build e os dois cenários de biblioteca passaram localmente no Edge. O novo cenário verifica a integridade do documento renomeado, cancelamento, exclusão da cópia local e rejeição de uma exclusão desatualizada em outra aba.
 
@@ -1306,6 +1337,23 @@ test("draws a signal on the screen, cancels a draft and reopens the edited conne
   });
   await expect(draw).toBeEnabled();
   expect((await exportProject(page)).connections.at(-1)).toEqual({ ...line, binding: "LINHA.HABILITADA" });
+});
+test("fills the solids silo only when feeder and conveyor both run", async ({ page }) => {
+  await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
+  const project = await exportProject(page);
+  expect(project.components.map((item: {kind: string}) => item.kind)).toEqual(expect.arrayContaining(["silo", "conveyor", "feeder", "mixer"]));
+  await page.getByRole("button", { name: "Operação", exact: true }).click();
+  const mass = page.getByLabel("Valor de SILO.MASSA", { exact: true });
+  await expect(mass).toHaveText("200 kg");
+  await page.getByRole("button", { name: "Alternar DOSADOR.RUN" }).click();
+  await page.getByRole("button", { name: "Iniciar simulação automática" }).click();
+  await expect(page.getByText(/ESTEIRA.RUN · Bloqueada/)).toBeVisible();
+  await page.waitForTimeout(1300);
+  await expect(mass).toHaveText("200 kg");
+  await page.getByRole("button", { name: "Alternar ESTEIRA.RUN" }).click();
+  await expect.poll(async () => parseFloat((await mass.textContent())!)).toBeGreaterThan(200);
+  await page.getByRole("button", { name: "Alternar MISTURA.RUN" }).click();
+  await expect(page.getByTestId("runtime-mixer")).toContainText("true");
 });
 ````
 
@@ -1818,7 +1866,7 @@ test("recovers the real Java stream after a transport interruption", async ({ pa
 ````
 {
   "name": "scada-hmi",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -1999,7 +2047,7 @@ export function App() {
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.7.1 · Engenharia</small>
+            <small>v0.8.0 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -2891,6 +2939,10 @@ main:has(.editor) {
 .project-library p { color: #465c70; }
 .library-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 10px 0; }
 .library-controls label, .library-controls select { max-width: 100%; }
+.library-symbol.silo { clip-path: polygon(0 0,100% 0,100% 65%,56% 100%,44% 100%,0 65%); background: #7992a4; }
+.library-symbol.conveyor { border-radius: 12px; height: 14px; width: 33px; }
+.library-symbol.feeder:after { content: "≋"; display: block; text-align: center; }
+.library-symbol.mixer:after { content: "Ψ"; display: block; text-align: center; }
 ````
 
 ## frontend/src/editor/Editor.tsx
@@ -2902,7 +2954,7 @@ import { PortOverlay, portPosition, portSides, connectionPath, type DrawingSessi
 import { arrange, layoutLabels, moveTogether, type LayoutAction } from "./layout";
 import { ProjectLibrary } from "./ProjectLibrary";
 import { ProjectTools } from "./ProjectTools";
-import { processExample } from "./processExample";
+import { dosingExample, processExample } from "./processExample";
 import { useProjectSimulation } from "./useProjectSimulation";
 import type { Snapshot } from "../tags/model";
 import type { Connection } from "../tags/useTags";
@@ -3318,6 +3370,7 @@ export default function Editor({
             Abrir JSON
           </button>
           <button disabled={!editing} onClick={() => { change(processExample()); setSelectedIds([]); setMessage("Exemplo carregado. Abra Operação para testar os comandos. Desfazer recupera a tela anterior."); }}>Exemplo de processo</button>
+          <button disabled={!editing} onClick={() => { change(dosingExample()); setSelectedIds([]); setMessage("Em Operação, inicie a simulação e ligue o dosador e a esteira para alimentar o silo."); }}>Exemplo de dosagem</button>
           <button className="primary-action" onClick={save}>
             Exportar JSON
           </button>
@@ -3355,6 +3408,7 @@ export default function Editor({
         {project.simulation && <div className="automatic-controls">
           <button disabled={!simulation.ready || simulation.busy} aria-pressed={simulation.automatic} onClick={simulation.toggleAutomatic}>{simulation.automatic ? "Pausar simulação automática" : "Iniciar simulação automática"}</button>
           <span>{simulation.automatic ? "Em execução" : "Pausada"} · {project.simulation.levelTag} · entrada {project.simulation.fillRate}, saída {project.simulation.drainRate} por segundo simulado</span>
+          {project.simulation.permitTag && <p>Permissão de entrada · {project.simulation.permitTag} · {simulation.ready ? simulation.values[project.simulation.permitTag] ? "Liberada" : "Bloqueada" : "Indisponível"}</p>}
           <p>Um segundo simulado por ciclo confirmado. Lentidão ou aba em segundo plano pode reduzir a velocidade; não há recuperação de tempo perdido.</p>
         </div>}
         <p role="status">{simulation.busy ? "Validando no Java…" : simulation.ready ? "Simulação pronta" : simulation.error || "Conectando ao simulador…"}</p>
@@ -3593,7 +3647,7 @@ export default function Editor({
                 </select>
               </label>
               <label>Cor do componente<input aria-label="Cor do componente" type="color" value={selected.color ?? "#318f9b"} onChange={e => patch({ color: e.target.value })} /></label>
-              {selected.kind === "tank" && <div className="geometry-fields">
+              {(selected.kind === "tank" || selected.kind === "silo") && <div className="geometry-fields">
                 <label>Escala mínima<input key={`min-${selected.id}-${selected.rangeMin}`} aria-label="Escala mínima" type="number" defaultValue={selected.rangeMin ?? 0} onBlur={e => patch({ rangeMin: Number(e.target.value), rangeMax: selected.rangeMax ?? 100 })} /></label>
                 <label>Escala máxima<input key={`max-${selected.id}-${selected.rangeMax}`} aria-label="Escala máxima" type="number" defaultValue={selected.rangeMax ?? 100} onBlur={e => patch({ rangeMin: selected.rangeMin ?? 0, rangeMax: Number(e.target.value) })} /></label>
               </div>}
@@ -3862,9 +3916,22 @@ export const portSides = Object.keys(sides) as Port[];
 ````
 import { describe, expect, it } from "vitest";
 import { availableBindings, parseProject, removeComponents, replaceVariable, serializeProject } from "./project";
-import { processExample } from "./processExample";
+import { processExample, dosingExample } from "./processExample";
 
 describe("process projects", () => {
+  it("preserves the solids equipment, validates tag types and follows a renamed permission", () => {
+    const project = dosingExample();
+    expect(parseProject(serializeProject(project))).toEqual(project);
+    expect(availableBindings("silo", project.variables)).toEqual(["SILO.MASSA"]);
+    for (const kind of ["conveyor", "mixer", "feeder"] as const) {
+      expect(availableBindings(kind, project.variables)).toContain("ESTEIRA.RUN");
+      expect(availableBindings(kind, project.variables)).not.toContain("SILO.MASSA");
+    }
+    const tag = project.variables!.find(v => v.name === "ESTEIRA.RUN")!;
+    const renamed = replaceVariable(project, tag.name, { ...tag, name: "ET01.RUN" });
+    expect(renamed.simulation?.permitTag).toBe("ET01.RUN");
+    expect(() => serializeProject({ ...project, simulation: { ...project.simulation!, permitTag: "SILO.MASSA" } })).toThrow();
+  });
   it("round trips variables, connections, colors and numeric scales", () => {
     const project = processExample();
     Object.assign(project.components[3], { color: "#aabbcc", rangeMin: -20, rangeMax: 150 });
@@ -3957,6 +4024,33 @@ export function processExample(): HmiProject {
       { id: "pipe2", from: "valve", to: "tank", fromPort: "right", toPort: "left", kind: "pipe", binding: "LINHA.HABILITADA" },
       { id: "signal1", from: "tank", to: "sensor", fromPort: "right", toPort: "left", kind: "signal", binding: null },
       { id: "signal2", from: "motor", to: "pump", fromPort: "top", toPort: "bottom", kind: "signal", binding: "LINHA.HABILITADA" },
+    ],
+  };
+}
+export function dosingExample(): HmiProject {
+  const item = (id: string, kind: ComponentKind, label: string, x: number, y: number, binding: string) =>
+    ({ ...createComponent(kind, 0), id, label, x, y, binding });
+  const drives = ["DOSADOR.RUN", "ESTEIRA.RUN", "MISTURA.RUN"];
+  return {
+    schemaVersion: 2, name: "Dosagem de sólidos", screen: { width: 1200, height: 720 },
+    variables: [
+      ...drives.map(name => ({ name, dataType: "BOOLEAN" as const, unit: "", initial: false, min: 0, max: 1 })),
+      { name: "SILO.MASSA", dataType: "DOUBLE", unit: "kg", initial: 200, min: 0, max: 1000 },
+    ],
+    simulation: { levelTag: "SILO.MASSA", enableTag: drives[0], permitTag: drives[1], fillRate: 20, drainRate: 0 },
+    components: [
+      item("feeder", "feeder", "DS-01 · Dosador", 65, 155, drives[0]),
+      item("belt", "conveyor", "ET-01 · Esteira", 345, 155, drives[1]),
+      { ...item("silo", "silo", "SL-01 · Silo", 650, 155, "SILO.MASSA"), rangeMin: 0, rangeMax: 1000 },
+      item("mixer", "mixer", "MX-01 · Misturador", 945, 155, drives[2]),
+      item("feed-cmd", "button", "Comandar dosador", 65, 410, drives[0]),
+      item("belt-cmd", "button", "Comandar esteira", 345, 410, drives[1]),
+      item("weigh", "setpoint", "Ajustar massa", 650, 410, "SILO.MASSA"),
+      item("mix-cmd", "button", "Comandar misturador", 945, 410, drives[2]),
+    ],
+    connections: [
+      { id: "feed-belt", from: "feeder", fromPort: "right", to: "belt", toPort: "left", kind: "signal", binding: drives[0] },
+      { id: "belt-bin", from: "belt", fromPort: "right", to: "silo", toPort: "left", kind: "signal", binding: drives[1] },
     ],
   };
 }
@@ -4078,13 +4172,13 @@ describe("editing history", () => {
 ````
 import type { TagName } from "../tags/model";
 
-export type ComponentKind = "tank" | "pump" | "indicator" | "text" | "valve" | "motor" | "sensor" | "button" | "setpoint" | "rectangle" | "ellipse";
+export type ComponentKind = "tank" | "pump" | "indicator" | "text" | "valve" | "motor" | "sensor" | "button" | "setpoint" | "rectangle" | "ellipse" | "silo" | "conveyor" | "feeder" | "mixer";
 export interface ProjectVariable {
   name: string; dataType: "BOOLEAN" | "DOUBLE"; unit: string;
   initial: number | boolean; min: number; max: number;
 }
 export interface TankRule {
-  levelTag: string; enableTag: string; fillRate: number; drainRate: number;
+  levelTag: string; enableTag: string; permitTag?: string; fillRate: number; drainRate: number;
 }
 export type Port = "left" | "right" | "top" | "bottom";
 export interface ConnectionLine {
@@ -4115,6 +4209,7 @@ export interface HmiProject {
   simulation?: TankRule;
 }
 export const componentNames: Record<ComponentKind, string> = {
+  silo: "Silo", conveyor: "Esteira", feeder: "Dosador de rosca", mixer: "Misturador",
   tank: "Tanque",
   pump: "Bomba",
   indicator: "Indicador",
@@ -4123,6 +4218,7 @@ export const componentNames: Record<ComponentKind, string> = {
   setpoint: "Entrada numérica", rectangle: "Retângulo", ellipse: "Elipse",
 };
 export const bindings: Record<ComponentKind, TagName[]> = {
+  silo: [], conveyor: [], feeder: [], mixer: [],
   tank: ["TQ001.LEVEL"],
   pump: ["P001.RUNNING"],
   indicator: ["TQ001.TEMPERATURE", "TQ001.LEVEL"],
@@ -4320,12 +4416,14 @@ export function parseProject(raw: string): HmiProject {
   }
   let simulation: TankRule | undefined;
   if (project.simulation !== undefined) {
-    const rule = record(project.simulation, ["levelTag", "enableTag", "fillRate", "drainRate"]);
+    const rule = record(project.simulation, ["levelTag", "enableTag", "fillRate", "drainRate"], ["permitTag"]);
     if (typeof rule.levelTag !== "string" || typeof rule.enableTag !== "string"
       || !variables.some(v => v.name === rule.levelTag && v.dataType === "DOUBLE")
       || !variables.some(v => v.name === rule.enableTag && v.dataType === "BOOLEAN"))
       throw new Error("A regra exige uma tag numérica de nível e uma tag booleana de acionamento.");
-    simulation = { levelTag: rule.levelTag, enableTag: rule.enableTag,
+    if (rule.permitTag !== undefined && (typeof rule.permitTag !== "string" || !variables.some(v => v.name === rule.permitTag && v.dataType === "BOOLEAN")))
+      throw new Error("A permissão de entrada exige uma tag booleana do projeto.");
+    simulation = { ...(typeof rule.permitTag === "string" ? { permitTag: rule.permitTag } : {}), levelTag: rule.levelTag, enableTag: rule.enableTag,
       fillRate: number(rule.fillRate, 0, 1000), drainRate: number(rule.drainRate, 0, 1000) };
   }
   return {
@@ -4345,12 +4443,13 @@ export function replaceVariable(project: HmiProject, previousName: string, varia
     connections: project.connections?.map(c => c.binding === previousName ? { ...c, binding: variable.name } : c),
     ...(project.simulation ? { simulation: { ...project.simulation,
       levelTag: project.simulation.levelTag === previousName ? variable.name : project.simulation.levelTag,
+      ...(project.simulation.permitTag === previousName ? { permitTag: variable.name } : {}),
       enableTag: project.simulation.enableTag === previousName ? variable.name : project.simulation.enableTag } } : {}),
   }));
 }
 export function availableBindings(kind: ComponentKind, variables: ProjectVariable[] = []): string[] {
-  const numeric = ["tank", "indicator", "sensor", "setpoint"].includes(kind);
-  const boolean = ["pump", "valve", "motor", "button", "rectangle", "ellipse"].includes(kind);
+  const numeric = ["tank", "silo", "indicator", "sensor", "setpoint"].includes(kind);
+  const boolean = ["pump", "valve", "motor", "conveyor", "feeder", "mixer", "button", "rectangle", "ellipse"].includes(kind);
   return [...bindings[kind], ...variables.filter(tag => numeric ? tag.dataType === "DOUBLE" : boolean && tag.dataType === "BOOLEAN").map(tag => tag.name)];
 }
 export function removeComponents(project: HmiProject, ids: string[]): HmiProject {
@@ -4574,7 +4673,7 @@ export function ProjectTools({ project, change, report }: Props) {
   }
   function removeVariable(variable: ProjectVariable) {
     const { simulation, ...base } = project;
-    commit({ ...base, ...(simulation && simulation.levelTag !== variable.name && simulation.enableTag !== variable.name ? { simulation } : {}), variables: project.variables?.filter(v => v.name !== variable.name),
+    commit({ ...base, ...(simulation && simulation.levelTag !== variable.name && simulation.enableTag !== variable.name && simulation.permitTag !== variable.name ? { simulation } : {}), variables: project.variables?.filter(v => v.name !== variable.name),
       components: project.components.map(item => item.binding === variable.name ? { ...item, binding: null } : item),
       connections: project.connections?.map(line => line.binding === variable.name ? { ...line, binding: null } : line) });
   }
@@ -4770,17 +4869,20 @@ import type { HmiProject } from "./project";
 
 export function SimulationRuleEditor({ project, commit }: { project: HmiProject; commit: (next: HmiProject) => boolean }) {
   const [level, setLevel] = useState(""), [enable, setEnable] = useState("");
+  const [permit, setPermit] = useState("");
   const [fill, setFill] = useState("5"), [drain, setDrain] = useState("1");
   useEffect(() => {
+    setPermit(project.simulation?.permitTag ?? "");
     setLevel(project.simulation?.levelTag ?? ""); setEnable(project.simulation?.enableTag ?? "");
     setFill(String(project.simulation?.fillRate ?? 5)); setDrain(String(project.simulation?.drainRate ?? 1));
   }, [project]);
   return <details>
     <summary>Simulação automática <span>{project.simulation ? "Regra configurada" : "Sem regra"}</span></summary>
-    <p>Regra de tanque: entrada quando a tag de acionamento está ligada, menos uma saída contínua. O nível respeita os limites da tag. Taxas na unidade da tag por segundo simulado; não é um modelo hidráulico das tubulações.</p>
-    <form className="project-form" onSubmit={event => { event.preventDefault(); if (fill.trim() && drain.trim()) commit({ ...project, simulation: { levelTag: level, enableTag: enable, fillRate: Number(fill), drainRate: Number(drain) } }); }}>
+    <p>O acionamento liga a entrada de material. Se houver uma permissão configurada, as duas tags precisam estar ligadas. A saída é contínua. O nível respeita os limites da tag. Taxas na unidade da tag por segundo simulado; não é um modelo hidráulico das tubulações.</p>
+    <form className="project-form" onSubmit={event => { event.preventDefault(); if (fill.trim() && drain.trim()) commit({ ...project, simulation: { levelTag: level, enableTag: enable, ...(permit ? { permitTag: permit } : {}), fillRate: Number(fill), drainRate: Number(drain) } }); }}>
       <label>Tag de nível<select aria-label="Tag de nível da regra" value={level} onChange={event => setLevel(event.target.value)} required><option value="">Selecione</option>{project.variables?.filter(v => v.dataType === "DOUBLE").map(v => <option key={v.name}>{v.name}</option>)}</select></label>
       <label>Acionamento<select aria-label="Tag de acionamento da regra" value={enable} onChange={event => setEnable(event.target.value)} required><option value="">Selecione</option>{project.variables?.filter(v => v.dataType === "BOOLEAN").map(v => <option key={v.name}>{v.name}</option>)}</select></label>
+      <label>Permissão de entrada<select value={permit} onChange={event => setPermit(event.target.value)}><option value="">Sem condição adicional</option>{project.variables?.filter(v => v.dataType === "BOOLEAN").map(v => <option key={v.name}>{v.name}</option>)}</select></label>
       <label>Entrada por segundo<input aria-label="Taxa de entrada" type="number" min="0" max="1000" step="any" value={fill} onChange={event => setFill(event.target.value)} required /></label>
       <label>Saída por segundo<input aria-label="Taxa de saída" type="number" min="0" max="1000" step="any" value={drain} onChange={event => setDrain(event.target.value)} required /></label>
       <button>Salvar regra</button>
@@ -4856,6 +4958,7 @@ export function useProjectSimulation(variables: ProjectVariable[], enabled: bool
 ````
 import {
   Circle,
+  Path,
   FabricText,
   Group,
   Rect,
@@ -4946,6 +5049,33 @@ export function createWidget(item: HmiComponent, customUnit?: string): Widget {
             ? "SIMULADO"
             : "INDISPONÍVEL",
       });
+    };
+  } else if (item.kind === "silo") {
+    const bin = new Polygon([{x: 0, y: 0}, {x: 92, y: 0}, {x: 92, y: 43}, {x: 53, y: 67}, {x: 39, y: 67}, {x: 0, y: 43}],
+      { ...origin, left: 22, top: 31, fill: "#edf3f5", stroke: ink, strokeWidth: 2 });
+    const track = new Rect({ ...origin, left: 127, top: 31, width: 12, height: 67, fill: "#dbe3e8" });
+    const bar = new Rect({ left: 127, top: 98, originX: "left", originY: "bottom", width: 12, height: 34, fill: accent, strokeWidth: 0 });
+    const reading = label("", 13, 107, 13);
+    children.push(bin, track, bar, reading);
+    update = (value, editing) => {
+      const min = item.rangeMin ?? 0, max = item.rangeMax ?? 100;
+      const amount = editing ? (min + max) / 2 : value;
+      const fraction = typeof amount === "number" ? Math.max(0, Math.min(1, (amount - min) / (max - min))) : 0;
+      bar.set({ height: fraction * 67 });
+      reading.set({ text: typeof amount === "number" ? amount.toFixed(1) + " " + (customUnit ?? "") : "INDISPONÍVEL" });
+    };
+  } else if (item.kind === "conveyor" || item.kind === "feeder" || item.kind === "mixer") {
+    const shapes = {
+      conveyor: "M 31 48 H 130 A 16 16 0 0 1 130 80 H 31 A 16 16 0 0 1 31 48 Z M 33 81 L 24 95 M 126 81 L 134 95 M 26 64 A 6 6 0 1 0 38 64 A 6 6 0 1 0 26 64 M 124 64 A 6 6 0 1 0 136 64 A 6 6 0 1 0 124 64",
+      feeder: "M 15 34 H 67 L 51 58 H 31 Z M 18 59 H 142 V 85 H 18 Z M 27 72 H 135 M 37 62 L 47 82 M 56 62 L 66 82 M 75 62 L 85 82 M 94 62 L 104 82 M 113 62 L 123 82",
+      mixer: "M 34 47 V 82 Q 34 96 49 96 H 112 Q 127 96 127 82 V 47 M 66 31 H 94 V 48 H 66 Z M 80 48 V 80 M 54 68 L 80 80 L 106 68 M 54 83 L 80 71 L 106 83",
+    };
+    const symbol = new Path(shapes[item.kind], { fill: "", stroke: ink, strokeWidth: 3, strokeLineJoin: "round" });
+    const status = label("", 12, 106, 12);
+    children.push(symbol, status);
+    update = (value, editing) => {
+      symbol.set({ stroke: editing || value === true ? accent : "#8494a3" });
+      status.set({ text: editing ? "Prévia de edição" : value === null ? "INDISPONÍVEL" : value ? "ACIONADO" : "PARADO" });
     };
   } else if (["pump", "valve", "motor", "button"].includes(item.kind)) {
     const body = new Circle({
@@ -6042,7 +6172,7 @@ Consulte o [guia de publicação](../docs/deployment.md). Serviço publicado em 
 ````
 # NEXO — Supervisão e engenharia de telas
 
-Plataforma SCADA/HMI com backend Java e interface web. Na versão **0.7.1**, o editor guarda telas na biblioteca **Projetos salvos** deste navegador. Para conectar equipamentos, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
+Plataforma SCADA/HMI com backend Java e interface web. Na versão **0.8.0**, abra **Editor → Exemplo de dosagem → Operação** para testar silo, esteira, dosador de rosca e misturador. Inicie a simulação automática e ligue o dosador e a esteira para alimentar o silo a 20 kg por segundo simulado, até 1000 kg. O misturador tem comando independente. Em **Simulação automática**, a permissão de entrada aceita uma tag booleana do projeto. Na biblioteca local, o editor guarda telas na biblioteca **Projetos salvos** deste navegador. Para conectar equipamentos, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
 
 ## Recursos disponíveis
 

@@ -79,7 +79,7 @@ export function App() {
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.7.1 · Engenharia</small>
+            <small>v0.8.0 · Engenharia</small>
         </div>
       </aside>
       <div className="main">

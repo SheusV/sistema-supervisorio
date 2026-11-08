@@ -1,4 +1,8 @@
-# Relatório de validação — versão 0.7.1
+# Relatório de validação — versão 0.8.0
+
+Em 08/11/2026 passaram o build, 12 testes Java, 58 de frontend e os quatro cenários de automação no navegador. A dosagem verifica massa estável com a esteira parada e aumento com a esteira e o dosador acionados. O teste Java cobre as quatro combinações de comandos com saída contínua. [Tela de dosagem](screenshots/dosagem-solidos.png).
+
+## Resultados da versão 0.7.1
 
 Em 08/11/2026, o build e os dois cenários de biblioteca passaram localmente no Edge. O novo cenário verifica a integridade do documento renomeado, cancelamento, exclusão da cópia local e rejeição de uma exclusão desatualizada em outra aba.
 

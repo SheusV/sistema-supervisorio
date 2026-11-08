@@ -1,5 +1,6 @@
 import {
   Circle,
+  Path,
   FabricText,
   Group,
   Rect,
@@ -90,6 +91,33 @@ export function createWidget(item: HmiComponent, customUnit?: string): Widget {
             ? "SIMULADO"
             : "INDISPONÍVEL",
       });
+    };
+  } else if (item.kind === "silo") {
+    const bin = new Polygon([{x: 0, y: 0}, {x: 92, y: 0}, {x: 92, y: 43}, {x: 53, y: 67}, {x: 39, y: 67}, {x: 0, y: 43}],
+      { ...origin, left: 22, top: 31, fill: "#edf3f5", stroke: ink, strokeWidth: 2 });
+    const track = new Rect({ ...origin, left: 127, top: 31, width: 12, height: 67, fill: "#dbe3e8" });
+    const bar = new Rect({ left: 127, top: 98, originX: "left", originY: "bottom", width: 12, height: 34, fill: accent, strokeWidth: 0 });
+    const reading = label("", 13, 107, 13);
+    children.push(bin, track, bar, reading);
+    update = (value, editing) => {
+      const min = item.rangeMin ?? 0, max = item.rangeMax ?? 100;
+      const amount = editing ? (min + max) / 2 : value;
+      const fraction = typeof amount === "number" ? Math.max(0, Math.min(1, (amount - min) / (max - min))) : 0;
+      bar.set({ height: fraction * 67 });
+      reading.set({ text: typeof amount === "number" ? amount.toFixed(1) + " " + (customUnit ?? "") : "INDISPONÍVEL" });
+    };
+  } else if (item.kind === "conveyor" || item.kind === "feeder" || item.kind === "mixer") {
+    const shapes = {
+      conveyor: "M 31 48 H 130 A 16 16 0 0 1 130 80 H 31 A 16 16 0 0 1 31 48 Z M 33 81 L 24 95 M 126 81 L 134 95 M 26 64 A 6 6 0 1 0 38 64 A 6 6 0 1 0 26 64 M 124 64 A 6 6 0 1 0 136 64 A 6 6 0 1 0 124 64",
+      feeder: "M 15 34 H 67 L 51 58 H 31 Z M 18 59 H 142 V 85 H 18 Z M 27 72 H 135 M 37 62 L 47 82 M 56 62 L 66 82 M 75 62 L 85 82 M 94 62 L 104 82 M 113 62 L 123 82",
+      mixer: "M 34 47 V 82 Q 34 96 49 96 H 112 Q 127 96 127 82 V 47 M 66 31 H 94 V 48 H 66 Z M 80 48 V 80 M 54 68 L 80 80 L 106 68 M 54 83 L 80 71 L 106 83",
+    };
+    const symbol = new Path(shapes[item.kind], { fill: "", stroke: ink, strokeWidth: 3, strokeLineJoin: "round" });
+    const status = label("", 12, 106, 12);
+    children.push(symbol, status);
+    update = (value, editing) => {
+      symbol.set({ stroke: editing || value === true ? accent : "#8494a3" });
+      status.set({ text: editing ? "Prévia de edição" : value === null ? "INDISPONÍVEL" : value ? "ACIONADO" : "PARADO" });
     };
   } else if (["pump", "valve", "motor", "button"].includes(item.kind)) {
     const body = new Circle({

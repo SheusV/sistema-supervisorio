@@ -477,18 +477,21 @@ export default function Editor({
           <p role="status">{!simulation.ready ? "Sem comunicação" : batch.phase === "finished" ? "Lote seco" :
             batch.phase === "loading" ? batch.mass > 0 ? "Recebendo lote" : "Aguardando grãos" :
             !simulation.automatic || !simulation.values[ovenTag] ? "Secagem pausada" :
-            batch.temperature < batch.target ? "Aquecendo" : "Secando"}</p>
-          <p>Grãos no forno: <strong>{batch.mass.toLocaleString("pt-BR")} {measured?.unit}</strong> · Temperatura simulada: <strong>{batch.temperature.toLocaleString("pt-BR")} °C</strong></p>
+            batch.temperature < batch.target ? "Aquecendo" : batch.elapsed >= batch.duration ? "Secando até a umidade final" :
+            batch.moisture <= batch.moistureTarget ? "Cumprindo tempo mínimo" : "Secando"}</p>
+          <p>Massa carregada: <strong>{batch.mass.toLocaleString("pt-BR")} {measured?.unit}</strong> · Temperatura simulada: <strong>{batch.temperature.toLocaleString("pt-BR")} °C</strong></p>
+          <p>Umidade simulada dos grãos: <strong>{batch.mass > 0 && simulation.ready ? batch.moisture.toLocaleString("pt-BR", {maximumFractionDigits: 2}) + "%" : "—"}</strong></p>
           {batch.phase === "loading" ? <form className="project-form" onSubmit={e => {
             e.preventDefault();
             const recipe = new FormData(e.currentTarget);
-            simulation.startBatch(Number(recipe.get("target")), Number(recipe.get("duration")));
+            simulation.startBatch(Number(recipe.get("target")), Number(recipe.get("duration")), Number(recipe.get("moistureTarget")));
           }}>
             <label>Temperatura alvo (°C)<input type="number" name="target" min="20" max="120" step="1" defaultValue={batch.target} required /></label>
-            <label>Tempo de secagem (s)<input type="number" name="duration" min="1" max="3600" defaultValue={batch.duration} required /></label>
+            <label>Tempo mínimo de secagem (s)<input type="number" name="duration" min="1" max="3600" defaultValue={batch.duration} required /></label>
+            <label>Umidade final máxima (%)<input type="number" name="moistureTarget" min="0" max="100" step="0.1" defaultValue={batch.moistureTarget} required /></label>
             <button disabled={!simulation.ready || simulation.busy || !simulation.values[ovenTag] || batch.mass <= 0}>Iniciar secagem</button>
-          </form> : <><p>Temperatura alvo: {batch.target} °C · Tempo na temperatura: {Number(batch.elapsed.toFixed(1))} / {batch.duration} s</p>
-            <progress aria-label="Progresso da secagem" max={batch.duration} value={batch.elapsed} />
+          </form> : <><p>Temperatura alvo: {batch.target} °C · Tempo mínimo na temperatura: {Number(batch.elapsed.toFixed(1))} / {batch.duration} s · Umidade final máxima: {batch.moistureTarget.toLocaleString("pt-BR")}%</p>
+            <progress aria-label="Tempo mínimo de secagem cumprido" max={batch.duration} value={batch.elapsed} />
             {batch.phase === "finished" && <button disabled={!simulation.ready || simulation.busy} onClick={simulation.releaseBatch}>Retirar lote seco</button>}
           </>}
         </section>}

@@ -5,10 +5,13 @@ export interface Batch {
   target: number;
   duration: number;
   elapsed: number;
+  moisture: number;
+  moistureTarget: number;
 }
 
 export const emptyBatch: Batch = {
   phase: "loading", mass: 0, temperature: 20, target: 60, duration: 30, elapsed: 0,
+  moisture: 22, moistureTarget: 14,
 };
 
 // One confirmed simulator second per tick. Only time actually spent at target counts.
@@ -18,6 +21,10 @@ export function advanceBatch(batch: Batch, discharged: number, powered: boolean,
   if (!powered) return { ...batch, temperature: Math.max(20, batch.temperature - seconds) };
   const warmup = (batch.target - batch.temperature) / 5;
   const temperature = Math.min(batch.target, batch.temperature + 5 * seconds);
-  const elapsed = Math.min(batch.duration, batch.elapsed + Math.max(0, seconds - warmup));
-  return { ...batch, temperature, elapsed, phase: elapsed >= batch.duration ? "finished" : "running" };
+  const dryingSeconds = Math.max(0, seconds - warmup);
+  const elapsed = Math.min(batch.duration, batch.elapsed + dryingSeconds);
+  // Demonstration model: remove 0.25 percentage points per simulated second at target.
+  const moisture = Math.max(0, batch.moisture - 0.25 * dryingSeconds);
+  const finished = elapsed >= batch.duration && moisture <= batch.moistureTarget;
+  return { ...batch, temperature, elapsed, moisture, phase: finished ? "finished" : "running" };
 }

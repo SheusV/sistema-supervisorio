@@ -128,12 +128,17 @@ test("fills the solids silo only when feeder and conveyor both run", async ({ pa
   const dryer = page.getByRole("region", { name: "Secagem dos grãos" });
   await expect(dryer).toContainText("60 kg");
   await dryer.getByLabel("Temperatura alvo (°C)").fill("25");
-  await dryer.getByLabel("Tempo de secagem (s)").fill("2");
+  await dryer.getByLabel("Tempo mínimo de secagem (s)").fill("2");
+  await dryer.getByLabel("Umidade final máxima (%)").fill("21");
   await dryer.getByRole("button", { name: "Iniciar secagem" }).click();
+  await expect(dryer.getByRole("status")).toHaveText("Secando até a umidade final");
+  await expect(dryer.getByRole("button", { name: "Retirar lote seco" })).toHaveCount(0);
   await expect(dryer.getByRole("status")).toHaveText("Lote seco", { timeout: 10000 });
   await expect(dryer).toContainText("2 / 2 s");
+  await expect(dryer.getByText(/Umidade simulada dos grãos/)).toContainText("21%");
   await dryer.getByRole("button", { name: "Retirar lote seco" }).click();
   await expect(dryer.getByRole("status")).toHaveText("Aguardando grãos");
+  await expect(dryer.getByLabel("Umidade final máxima (%)")).toHaveValue("21");
 });
 test("records the high mass alarm, its acknowledgment and its return across reload", async ({ page }) => {
   const loadDose = async () => {

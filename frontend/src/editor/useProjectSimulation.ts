@@ -57,12 +57,13 @@ export function useProjectSimulation(variables: ProjectVariable[], enabled: bool
     return () => window.clearInterval(timer);
   }, [enabled, ready, automatic, ruleConfig]);
   return { values, ready, busy, error, automatic, batch,
-    startBatch: (target: number, duration: number) => {
+    startBatch: (target: number, duration: number, moistureTarget: number) => {
       if (!ready || pending.current || !ovenTag || !currentValues.current[ovenTag] ||
+        !Number.isFinite(moistureTarget) || moistureTarget < 0 || moistureTarget > 100 ||
         !Number.isFinite(target) || target < 20 || target > 120 || !Number.isInteger(duration) || duration < 1 || duration > 3600) return;
-      setBatch(b => b.phase === "loading" && b.mass > 0 ? { ...b, target, duration, phase: "running" } : b);
+      setBatch(b => b.phase === "loading" && b.mass > 0 ? { ...b, target, duration, moistureTarget, phase: "running" } : b);
     },
-    releaseBatch: () => { if (ready && !pending.current) setBatch(b => b.phase === "finished" ? { ...emptyBatch, target: b.target, duration: b.duration } : b); },
+    releaseBatch: () => { if (ready && !pending.current) setBatch(b => b.phase === "finished" ? { ...emptyBatch, target: b.target, duration: b.duration, moistureTarget: b.moistureTarget } : b); },
     toggleAutomatic: () => { if (rule && ready && !pending.current) setAutomatic(value => !value); },
     write: (name: string, value: number | boolean) => { if (ready) void evaluate({ ...currentValues.current, [name]: value }); },
     retry: () => void evaluate(currentValues.current),

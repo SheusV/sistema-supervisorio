@@ -205,6 +205,14 @@ test("fills the solids silo only when feeder and conveyor both run", async ({ pa
   await batches.getByRole("button", { name: "Ver curvas do lote" }).click();
   await expect(batches.getByRole("img")).toHaveCount(2);
   await expect(batches.getByRole("img").first().locator("canvas")).toBeVisible();
+  const downloaded = page.waitForEvent("download");
+  await batches.getByRole("button", { name: "Exportar lotes em CSV" }).click();
+  const file = await downloaded;
+  expect(file.suggestedFilename()).toBe("nexo-lotes-secos.csv");
+  const csv = await readFile((await file.path())!, "utf8");
+  expect(csv).toContain('"Dosagem de sólidos";"FORNO.RUN"');
+  expect(csv).toContain('"60";"kg"');
+  expect(csv).toContain('"24";"23";"23"');
 });
 test("records the high mass alarm, its acknowledgment and its return across reload", async ({ page }) => {
   const loadDose = async () => {

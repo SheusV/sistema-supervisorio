@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import type { Batch } from "./drying";
 import { BatchCurves } from "./BatchCurves";
+import { batchCsv } from "./batchCsv";
 import { pastBatches, storeBatch, type RecordedBatch } from "./operationArchive";
 
-export function BatchHistory({ scope, batch, unit, dark }: { scope: string; batch: Batch; unit: string; dark: boolean }) {
+export function BatchHistory({ project, oven, batch, unit, dark }: { project: string; oven: string; batch: Batch; unit: string; dark: boolean }) {
+  const scope = JSON.stringify([project, oven]);
+  const [exportIssue, setExportIssue] = useState(false);
   const [selected, setSelected] = useState("");
   const [records, setRecords] = useState<RecordedBatch[]>([]);
   const [issue, setIssue] = useState(false);
@@ -11,6 +14,7 @@ export function BatchHistory({ scope, batch, unit, dark }: { scope: string; batc
     let current = true;
     setRecords([]);
     setIssue(false);
+    setExportIssue(false);
     async function refresh() {
       try {
         if (batch.phase === "finished" && batch.id && batch.started && batch.finishedAt) {
@@ -26,6 +30,19 @@ export function BatchHistory({ scope, batch, unit, dark }: { scope: string; batc
   return <section aria-label="Histórico de lotes secos">
     <h3>Lotes secos</h3>
     <p>Últimos 20 lotes concluídos neste navegador, por projeto e forno. O registro ocorre ao concluir a secagem.</p>
+    <button disabled={!records.length} onClick={() => {
+      setExportIssue(false);
+      try {
+        const file = new Blob([batchCsv(records, project, oven)], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(file);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "nexo-lotes-secos.csv";
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch { setExportIssue(true); }
+    }}>Exportar lotes em CSV</button>
+    {exportIssue && <p role="alert">Não foi possível exportar os lotes. Confira os registros e tente novamente.</p>}
     {records.length ? <ol>{records.map(record => {
       const b = record.batch;
       return <li key={record.id}>

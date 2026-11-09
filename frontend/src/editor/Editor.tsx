@@ -502,7 +502,7 @@ export default function Editor({
           </>}
         </section>}
         {ovenTag && batch.phase !== "loading" && <BatchCurves batch={batch} dark={dark} />}
-        {ovenTag && <BatchHistory scope={JSON.stringify([project.name, ovenTag])} batch={batch} unit={measured?.unit ?? ""} dark={dark} />}
+        {ovenTag && <BatchHistory project={project.name} oven={ovenTag} batch={batch} unit={measured?.unit ?? ""} dark={dark} />}
         <div className="simulation-values">{project.variables.map(variable => <div key={variable.name}>
           <strong>{variable.name}</strong><output aria-label={`Valor de ${variable.name}`}>{simulation.ready ? `${String(simulation.values[variable.name])} ${variable.unit}` : "Indisponível"}</output>
           {variable.dataType === "BOOLEAN" ? <button disabled={!simulation.ready || simulation.busy} onClick={() => simulation.write(variable.name, !simulation.values[variable.name])}>Alternar {variable.name}</button>

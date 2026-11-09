@@ -152,6 +152,9 @@ test("fills the solids silo only when feeder and conveyor both run", async ({ pa
   await expect(batches.getByRole("listitem")).toHaveCount(1);
   await expect(batches.getByRole("listitem")).toContainText("60 kg");
   await expect(batches.getByRole("listitem")).toContainText("24% → 23%");
+  await batches.getByRole("button", { name: "Ver curvas do lote" }).click();
+  await expect(batches.getByRole("img")).toHaveCount(2);
+  await expect(batches.getByRole("img").first().locator("canvas")).toBeVisible();
 });
 test("records the high mass alarm, its acknowledgment and its return across reload", async ({ page }) => {
   const loadDose = async () => {

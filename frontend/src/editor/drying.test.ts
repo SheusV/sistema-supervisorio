@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { advanceBatch, emptyBatch, type Batch } from "./drying";
+import { advanceBatch, emptyBatch, sampleBatch, type Batch } from "./drying";
 
 it("counts only time at target, including after an interruption", () => {
   let batch: Batch = { ...emptyBatch, phase: "running", mass: 60, target: 27, duration: 2, moistureTarget: 22 };
@@ -26,4 +26,18 @@ it("continues drying after minimum time and finishes at the moisture limit", () 
   expect(batch).toMatchObject({ phase: "running", elapsed: 1, moisture: 21.75 });
   expect(advanceBatch(batch, 0, false, 1).moisture).toBe(21.75);
   expect(advanceBatch(batch, 0, true, 1)).toMatchObject({ phase: "finished", moisture: 21.5 });
+});
+
+it("retains a communication gap in the bounded batch curve", () => {
+  let batch: Batch = { ...emptyBatch, phase: "running" };
+  for (let at = 0; at < 610; at++) batch = sampleBatch(batch, at);
+  expect(batch.samples).toHaveLength(600);
+  batch = sampleBatch(batch, 610, false);
+  expect(sampleBatch(batch, 611, false)).toBe(batch);
+  batch = sampleBatch(batch, 612);
+  expect(batch.samples?.slice(-2)).toEqual([
+    { at: 610, temperature: null, moisture: null },
+    { at: 612, temperature: 20, moisture: 22 },
+  ]);
+  expect(batch.samples).toHaveLength(600);
 });

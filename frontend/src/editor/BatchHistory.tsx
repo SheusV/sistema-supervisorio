@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Batch } from "./drying";
+import { BatchCurves } from "./BatchCurves";
 import { pastBatches, storeBatch, type RecordedBatch } from "./operationArchive";
 
-export function BatchHistory({ scope, batch, unit }: { scope: string; batch: Batch; unit: string }) {
+export function BatchHistory({ scope, batch, unit, dark }: { scope: string; batch: Batch; unit: string; dark: boolean }) {
+  const [selected, setSelected] = useState("");
   const [records, setRecords] = useState<RecordedBatch[]>([]);
   const [issue, setIssue] = useState(false);
   useEffect(() => {
@@ -33,6 +35,8 @@ export function BatchHistory({ scope, batch, unit }: { scope: string; batch: Bat
         {" · "}{b.duration} s mínimos na temperatura
         {" · "}{b.initialMoisture?.toLocaleString("pt-BR")}% → {b.moisture.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% (meta ≤ {b.moistureTarget}%)
         {b.finishedAt && <> · Concluído {new Date(b.finishedAt).toLocaleTimeString("pt-BR")}</>}
+        <button onClick={() => setSelected(selected === record.id ? "" : record.id)} aria-expanded={selected === record.id}>Ver curvas do lote</button>
+        {selected === record.id && <BatchCurves batch={b} dark={dark} />}
       </li>;
     })}</ol> : <p>Nenhum lote seco registrado.</p>}
     {issue && <p role="alert">Não foi possível consultar ou gravar os lotes. Feche outras abas do supervisório e tente reabrir esta operação.</p>}

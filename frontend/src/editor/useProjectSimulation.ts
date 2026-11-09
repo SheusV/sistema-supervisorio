@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ProjectVariable, TankRule } from "./project";
-import { advanceBatch, emptyBatch } from "./drying";
+import { advanceBatch, emptyBatch, sampleBatch } from "./drying";
 
 export function useProjectSimulation(variables: ProjectVariable[], enabled: boolean, rule?: TankRule, ovenTag?: string) {
   const [batch, setBatch] = useState(emptyBatch);
@@ -38,12 +38,17 @@ export function useProjectSimulation(variables: ProjectVariable[], enabled: bool
           const at = Date.now();
           setBatch(previous => {
             const next = advanceBatch(previous, data.discharged, data.values[ovenTag] === true, seconds);
-            return previous.phase !== "finished" && next.phase === "finished" ? { ...next, finishedAt: at } : next;
+            if (previous.phase === "finished") return previous;
+            return sampleBatch(next.phase === "finished" ? { ...next, finishedAt: at } : next, at);
           });
         }
       }
     } catch (cause) {
-      if (epoch === generation.current) { setAutomatic(false); setReady(false); setError(cause instanceof Error && cause.name !== "TimeoutError" ? cause.message : "Simulador sem resposta. Tente reconectar."); }
+      if (epoch === generation.current) {
+        const at = Date.now();
+        if (ovenTag) setBatch(b => b.phase === "running" ? sampleBatch(b, at, false) : b);
+        setAutomatic(false); setReady(false); setError(cause instanceof Error && cause.name !== "TimeoutError" ? cause.message : "Simulador sem resposta. Tente reconectar.");
+      }
     } finally {
       if (epoch === generation.current) { pending.current = false; setBusy(false); }
     }
@@ -72,7 +77,7 @@ export function useProjectSimulation(variables: ProjectVariable[], enabled: bool
         !Number.isFinite(moistureTarget) || moistureTarget < 0 || moistureTarget > 100 ||
         !Number.isFinite(target) || target < 20 || target > 120 || !Number.isInteger(duration) || duration < 1 || duration > 3600) return;
       const id = crypto.randomUUID(), started = Date.now();
-      setBatch(b => b.phase === "loading" && b.mass > 0 ? { ...b, id, started, initialMoisture: b.moisture, target, duration, moistureTarget, phase: "running" } : b);
+      setBatch(b => b.phase === "loading" && b.mass > 0 ? sampleBatch({ ...b, id, started, initialMoisture: b.moisture, target, duration, moistureTarget, phase: "running" }, started) : b);
     },
     releaseBatch: () => { if (ready && !pending.current) setBatch(b => b.phase === "finished" ? { ...emptyBatch, target: b.target, duration: b.duration, moistureTarget: b.moistureTarget } : b); },
     toggleAutomatic: () => { if (rule && ready && !pending.current) setAutomatic(value => !value); },

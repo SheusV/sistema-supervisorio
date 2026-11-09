@@ -3,6 +3,7 @@ export interface Batch {
   started?: number;
   finishedAt?: number;
   initialMoisture?: number;
+  samples?: { at: number; temperature: number | null; moisture: number | null }[];
   phase: "loading" | "running" | "finished";
   mass: number;
   temperature: number;
@@ -17,6 +18,15 @@ export const emptyBatch: Batch = {
   phase: "loading", mass: 0, temperature: 20, target: 60, duration: 30, elapsed: 0,
   moisture: 22, moistureTarget: 14,
 };
+
+export function sampleBatch(batch: Batch, at: number, available = true): Batch {
+  if (batch.phase === "loading") return batch;
+  const samples = batch.samples ?? [];
+  if (!available && samples.at(-1)?.temperature === null) return batch;
+  return { ...batch, samples: [...samples.slice(-599), {
+    at, temperature: available ? batch.temperature : null, moisture: available ? batch.moisture : null,
+  }] };
+}
 
 // One confirmed simulator second per tick. Only time actually spent at target counts.
 export function advanceBatch(batch: Batch, discharged: number, powered: boolean, seconds: number): Batch {

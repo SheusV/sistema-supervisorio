@@ -125,6 +125,15 @@ test("fills the solids silo only when feeder and conveyor both run", async ({ pa
   await expect(page.getByText(/Descarga · .*Liberada/)).toBeVisible();
   await page.getByRole("button", { name: "Iniciar simulação automática" }).click();
   await expect(mass).toHaveText("0 kg");
+  const dryer = page.getByRole("region", { name: "Secagem dos grãos" });
+  await expect(dryer).toContainText("60 kg");
+  await dryer.getByLabel("Temperatura alvo (°C)").fill("25");
+  await dryer.getByLabel("Tempo de secagem (s)").fill("2");
+  await dryer.getByRole("button", { name: "Iniciar secagem" }).click();
+  await expect(dryer.getByRole("status")).toHaveText("Lote seco", { timeout: 10000 });
+  await expect(dryer).toContainText("2 / 2 s");
+  await dryer.getByRole("button", { name: "Retirar lote seco" }).click();
+  await expect(dryer.getByRole("status")).toHaveText("Aguardando grãos");
 });
 test("records the high mass alarm, its acknowledgment and its return across reload", async ({ page }) => {
   const loadDose = async () => {

@@ -59,7 +59,9 @@ export default function Editor({
   const [snap, setSnap] = useState(true);
   const [message, setMessage] = useState("");
   const [sceneRevision, setSceneRevision] = useState(0);
-  const simulation = useProjectSimulation(project.variables ?? [], !editing, project.simulation);
+  const ovenTag = project.components.find(c => c.kind === "oven" && c.binding && project.simulation?.drainTags?.includes(c.binding))?.binding ?? undefined;
+  const simulation = useProjectSimulation(project.variables ?? [], !editing, project.simulation, ovenTag);
+  const batch = simulation.batch;
   const measured = project.variables?.find(v => v.name === project.simulation?.levelTag);
   const lines = useRef<Path[]>([]);
   const [drawing, setDrawing] = useState<DrawingSession | null>(null);
@@ -463,12 +465,33 @@ export default function Editor({
         {project.simulation && <div className="automatic-controls">
           <button disabled={!simulation.ready || simulation.busy} aria-pressed={simulation.automatic} onClick={simulation.toggleAutomatic}>{simulation.automatic ? "Pausar simulação automática" : "Iniciar simulação automática"}</button>
           <span>{simulation.automatic ? "Em execução" : "Pausada"} · {project.simulation.levelTag} · entrada {project.simulation.fillRate}, saída {project.simulation.drainRate} por segundo simulado</span>
-          {!!project.simulation.drainTags?.length && <p>Descarga · {project.simulation.drainTags.join(" + ")} · {simulation.ready ? project.simulation.drainTags.every(name => simulation.values[name] === true) ? "Liberada" : "Bloqueada" : "Indisponível"}</p>}
+          {!!project.simulation.drainTags?.length && <p>Descarga · {project.simulation.drainTags.join(" + ")} · {simulation.ready ? ovenTag && batch.phase !== "loading" ? "Bloqueada pelo lote no forno" : project.simulation.drainTags.every(name => simulation.values[name] === true) ? "Liberada" : "Bloqueada" : "Indisponível"}</p>}
           {project.simulation.permitTag && <p>Permissão de entrada · {project.simulation.permitTag} · {simulation.ready ? simulation.values[project.simulation.permitTag] ? "Liberada" : "Bloqueada" : "Indisponível"}</p>}
           <p>Um segundo simulado por ciclo confirmado. Lentidão ou aba em segundo plano pode reduzir a velocidade; não há recuperação de tempo perdido.</p>
         </div>}
         <p role="status">{simulation.busy ? "Validando no Java…" : simulation.ready ? "Simulação pronta" : simulation.error || "Conectando ao simulador…"}</p>
         {simulation.error && <button disabled={simulation.busy} onClick={simulation.retry}>Reconectar simulação</button>}
+        {ovenTag && <section className="drying-panel" aria-label="Secagem dos grãos">
+          <h3>Secagem dos grãos</h3>
+          <p>Com a simulação em execução, ligue o triturador e o forno para receber grãos. Iniciar a secagem fecha a entrada do lote até a retirada.</p>
+          <p role="status">{!simulation.ready ? "Sem comunicação" : batch.phase === "finished" ? "Lote seco" :
+            batch.phase === "loading" ? batch.mass > 0 ? "Recebendo lote" : "Aguardando grãos" :
+            !simulation.automatic || !simulation.values[ovenTag] ? "Secagem pausada" :
+            batch.temperature < batch.target ? "Aquecendo" : "Secando"}</p>
+          <p>Grãos no forno: <strong>{batch.mass.toLocaleString("pt-BR")} {measured?.unit}</strong> · Temperatura simulada: <strong>{batch.temperature.toLocaleString("pt-BR")} °C</strong></p>
+          {batch.phase === "loading" ? <form className="project-form" onSubmit={e => {
+            e.preventDefault();
+            const recipe = new FormData(e.currentTarget);
+            simulation.startBatch(Number(recipe.get("target")), Number(recipe.get("duration")));
+          }}>
+            <label>Temperatura alvo (°C)<input type="number" name="target" min="20" max="120" step="1" defaultValue={batch.target} required /></label>
+            <label>Tempo de secagem (s)<input type="number" name="duration" min="1" max="3600" defaultValue={batch.duration} required /></label>
+            <button disabled={!simulation.ready || simulation.busy || !simulation.values[ovenTag] || batch.mass <= 0}>Iniciar secagem</button>
+          </form> : <><p>Temperatura alvo: {batch.target} °C · Tempo na temperatura: {Number(batch.elapsed.toFixed(1))} / {batch.duration} s</p>
+            <progress aria-label="Progresso da secagem" max={batch.duration} value={batch.elapsed} />
+            {batch.phase === "finished" && <button disabled={!simulation.ready || simulation.busy} onClick={simulation.releaseBatch}>Retirar lote seco</button>}
+          </>}
+        </section>}
         <div className="simulation-values">{project.variables.map(variable => <div key={variable.name}>
           <strong>{variable.name}</strong><output aria-label={`Valor de ${variable.name}`}>{simulation.ready ? `${String(simulation.values[variable.name])} ${variable.unit}` : "Indisponível"}</output>
           {variable.dataType === "BOOLEAN" ? <button disabled={!simulation.ready || simulation.busy} onClick={() => simulation.write(variable.name, !simulation.values[variable.name])}>Alternar {variable.name}</button>

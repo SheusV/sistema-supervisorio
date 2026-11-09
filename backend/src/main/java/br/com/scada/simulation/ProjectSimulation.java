@@ -8,7 +8,7 @@ public final class ProjectSimulation {
     public record Variable(String name, String dataType, String unit, Object initial, Double min, Double max) {}
     public record TankRule(String levelTag, String enableTag, Double fillRate, Double drainRate, String permitTag, List<String> drainTags) {}
     public record Request(List<Variable> variables, Map<String, Object> values, TankRule rule, Double seconds) {}
-    public record Result(String source, Map<String, Object> values) {}
+    public record Result(String source, Map<String, Object> values, double discharged) {}
 
     public static Result evaluate(Request request) {
         if (request == null || request.variables() == null || request.values() == null || request.variables().size() > 32
@@ -28,6 +28,7 @@ public final class ProjectSimulation {
         if (!result.keySet().containsAll(request.values().keySet())) throw invalid();
         double seconds = request.seconds() == null ? 0 : request.seconds();
         if (!Double.isFinite(seconds) || seconds < 0 || seconds > 1) throw invalid();
+        double discharged = 0;
         if (request.rule() != null) {
             TankRule rule = request.rule();
             Variable level = request.variables().stream().filter(v -> v.name().equals(rule.levelTag()) && "DOUBLE".equals(v.dataType())).findFirst().orElseThrow(ProjectSimulation::invalid);
@@ -49,11 +50,12 @@ public final class ProjectSimulation {
                     discharge &= running;
                 }
             }
-            double rate = (enabled && permitted ? rule.fillRate() : 0) - (discharge ? rule.drainRate() : 0);
-            double next = Math.clamp(previous + rate * seconds, level.min(), level.max());
+            double incoming = enabled && permitted ? rule.fillRate() * seconds : 0;
+            discharged = discharge ? Math.min(rule.drainRate() * seconds, previous - level.min() + incoming) : 0;
+            double next = Math.clamp(previous + incoming - discharged, level.min(), level.max());
             result.put(level.name(), next);
         } else if (seconds != 0) throw invalid();
-        return new Result("SIMULATED", result);
+        return new Result("SIMULATED", result, discharged);
     }
     private static void validateValue(Variable variable, Object value) {
         if ("BOOLEAN".equals(variable.dataType())) {

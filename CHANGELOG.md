@@ -1,5 +1,10 @@
 # Histórico de versões
 
+## 0.9.0 — 08/11/2026
+
+- Alarme de massa alta do silo com limite editável, reconhecimento e registro de retorno ao normal.
+- Gráfico da variável simulada e consulta das operações anteriores salvas no navegador.
+
 ## 0.8.2 — 08/11/2026
 
 - Interruptor de sol e lua no cabeçalho. A opção de seguir o sistema fica em Ajuda → Aparência.

@@ -1,4 +1,4 @@
-# Arquivos de autoria — versão 0.8.2
+# Arquivos de autoria — versão 0.9.0
 
 - .dockerignore
 - .gitattributes
@@ -47,6 +47,11 @@
 - frontend/src/App.tsx
 - frontend/src/components/Process.tsx
 - frontend/src/editor/editor.css
+- frontend/src/editor/alarmHistory.ts
+- frontend/src/editor/alarmHistory.test.ts
+- frontend/src/editor/operationArchive.ts
+- frontend/src/editor/OperationHistory.tsx
+- frontend/src/editor/TrendChart.tsx
 - frontend/src/editor/Editor.tsx
 - frontend/src/editor/layout.test.ts
 - frontend/src/editor/layout.ts

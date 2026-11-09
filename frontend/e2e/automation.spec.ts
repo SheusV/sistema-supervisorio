@@ -116,3 +116,34 @@ test("fills the solids silo only when feeder and conveyor both run", async ({ pa
   await page.getByRole("button", { name: "Alternar MISTURA.RUN" }).click();
   await expect(page.getByTestId("runtime-mixer")).toContainText("true");
 });
+test("records the high mass alarm, its acknowledgment and its return across reload", async ({ page }) => {
+  const loadDose = async () => {
+    await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
+    await page.getByRole("button", { name: "Operação", exact: true }).click();
+    await expect(page.getByLabel("Valor de SILO.MASSA", { exact: true })).toHaveText("200 kg");
+  };
+  await loadDose();
+  const panel = page.getByRole("region", { name: "Alarmes e histórico" });
+  const apply = async (mass: string) => {
+    await page.getByLabel("Novo valor de SILO.MASSA").fill(mass);
+    await page.getByRole("button", { name: "Aplicar SILO.MASSA" }).click();
+  };
+  await apply("780");
+  for (const name of ["Alternar DOSADOR.RUN", "Alternar ESTEIRA.RUN", "Iniciar simulação automática"]) {
+    await page.getByRole("button", { name }).click();
+  }
+  await expect(panel.getByText("Alto · aguardando reconhecimento")).toBeVisible();
+  await page.getByRole("button", { name: "Pausar simulação automática" }).click();
+  await panel.getByRole("button", { name: "Reconhecer alarme" }).click();
+  await expect(panel.getByText("Alto · reconhecido")).toBeVisible();
+  await apply("790");
+  await expect(panel.getByText("Normal", { exact: true })).toBeVisible();
+  await expect(panel.getByRole("img").locator("canvas")).toBeVisible();
+  await expect(panel.getByRole("listitem")).toHaveCount(3);
+  await page.reload();
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await loadDose();
+  await panel.getByRole("combobox").selectOption({ index: 1 });
+  await expect(panel.getByText(/Última leitura/)).toContainText("790 kg");
+  await expect(panel.getByRole("listitem")).toHaveText([/Retorno ao normal/, /Reconhecimento/, /Ativação/]);
+});

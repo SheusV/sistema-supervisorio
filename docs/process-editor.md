@@ -35,6 +35,12 @@ Tubulações não implementam fluxo físico. Compartilhar uma tag cria uma assoc
 
 Abra **Exemplo de dosagem** e entre em Operação. A massa começa em 200 kg. Inicie o ciclo automático e ligue DOSADOR.RUN e ESTEIRA.RUN. Cada segundo simulado acrescenta 20 kg até atingir 1000 kg. O comando do misturador altera seu estado de forma independente. Para configurar outra linha, selecione uma tag booleana em **Permissão de entrada**. O simulador aplica a taxa de entrada quando acionamento e permissão estão ligados e mantém a saída contínua configurada. Renomear a tag atualiza a regra. Excluir a tag remove a regra dependente.
 
+## Alarme alto e histórico da operação
+
+No exemplo de dosagem, o alarme ativa em 800 kg ou mais. Configure o limite em **Simulação automática → Limite de alarme alto** e salve a regra. Um campo vazio desativa o limite e mantém a tendência. Reconhecer registra a ação; a indicação permanece alta até a leitura cair abaixo do limite. Uma falha de comunicação registra uma lacuna, preservando a condição anterior até uma nova leitura.
+
+Em Operação, o gráfico mostra a variável da regra a cada confirmação do Java. O eixo horizontal usa o horário local das leituras e o tracejado indica o limite configurado. Selecione uma execução anterior para consultar o gráfico e os eventos. O navegador guarda as últimas 20 operações por nome do projeto e tag, com até 600 leituras e 100 eventos por operação. Limpar os dados do site remove o histórico. O arquivo JSON leva as configurações, inclusive o limite.
+
 ## Regra automática de tanque
 
 Em **Simulação automática**, escolha uma tag DOUBLE de nível, uma BOOLEAN de acionamento e taxas entre 0 e 1000 unidades da tag por segundo simulado. O Java calcula `nível + ((ligada ? entrada : 0) - saída) × segundos`, limitado ao mínimo/máximo da tag. A saída é contínua. Há uma regra por projeto.
@@ -49,10 +55,10 @@ O formato v1 permanece aceito. Ao editar, o projeto passa a v2, mantendo os comp
 - `components`: até 100, com campos v1 e tipos adicionais da biblioteca. Campos opcionais: `color` no formato hexadecimal #RRGGBB; `rangeMin` e `rangeMax`, ambos obrigatórios quando uma escala é informada e com mínimo menor que máximo.
 - `variables`: até 32 registros com exatamente `name`, `dataType`, `unit`, `initial`, `min`, `max`. Nomes únicos de até 64 caracteres; unidades até 16; números finitos entre −1.000.000 e 1.000.000; valores iniciais dentro da faixa.
 - `connections`: até 100 registros com exatamente `id`, `from`, `to`, `fromPort`, `toPort`, `kind`, `binding`. IDs únicos; dois objetos existentes e distintos; portas left/right/top/bottom; tipo pipe/signal; vínculo booleano ou null.
-- `simulation`: opcional, com `levelTag`, `enableTag`, `fillRate`, `drainRate` e, opcionalmente, `permitTag` (tag própria BOOLEAN); referências a tags próprias DOUBLE/BOOLEAN e taxas finitas de 0 a 1000. Projetos antigos sem regra continuam aceitos; versões anteriores à 0.5 não leem a extensão.
+- `simulation`: opcional, com `levelTag`, `enableTag`, `fillRate`, `drainRate` e os campos opcionais `permitTag` (tag própria BOOLEAN) e `highLimit` (limite de alarme na faixa da variável medida); referências a tags próprias DOUBLE/BOOLEAN e taxas finitas de 0 a 1000. Projetos antigos sem regra continuam aceitos; versões anteriores à 0.5 não leem a extensão.
 - Limite total do arquivo: 256 KiB. Nenhuma URL, imagem remota, script, campo desconhecido ou desserialização Fabric é aceita.
 
-O endpoint Java aceita JSON de até 64 KiB com `variables` e `values`, além de `rule` e `seconds` opcionais. `rule` possui os campos de `simulation`; `seconds` é finito entre 0 e 1 (padrão zero), e passos diferentes de zero exigem regra válida. `values` é um mapa de nomes para valores; nomes ausentes usam o valor inicial. Tags desconhecidas, tipos incorretos e valores fora da faixa resultam em 400; corpo excedente resulta em 413. Um documento inválido não altera nenhum estado compartilhado.
+O endpoint Java aceita JSON de até 64 KiB com `variables` e `values`, além de `rule` e `seconds` opcionais. `rule` possui os campos de cálculo de `simulation`. O editor avalia `highLimit` após cada resposta validada; `seconds` é finito entre 0 e 1 (padrão zero), e passos diferentes de zero exigem regra válida. `values` é um mapa de nomes para valores; nomes ausentes usam o valor inicial. Tags desconhecidas, tipos incorretos e valores fora da faixa resultam em 400; corpo excedente resulta em 413. Um documento inválido não altera nenhum estado compartilhado.
 
 ## Validação
 

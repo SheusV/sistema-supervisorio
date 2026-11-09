@@ -1,4 +1,4 @@
-# Código completo — versão 0.8.2
+# Código completo — versão 0.9.0
 Cópia integral dos arquivos de autoria. Lockfile, ferramentas e capturas permanecem nos arquivos individuais.
 
 ## .dockerignore
@@ -719,6 +719,11 @@ class TankSimulatorTest {
 ````
 # Histórico de versões
 
+## 0.9.0 — 08/11/2026
+
+- Alarme de massa alta do silo com limite editável, reconhecimento e registro de retorno ao normal.
+- Gráfico da variável simulada e consulta das operações anteriores salvas no navegador.
+
 ## 0.8.2 — 08/11/2026
 
 - Interruptor de sol e lua no cabeçalho. A opção de seguir o sistema fica em Ajuda → Aparência.
@@ -1115,6 +1120,12 @@ Tubulações não implementam fluxo físico. Compartilhar uma tag cria uma assoc
 
 Abra **Exemplo de dosagem** e entre em Operação. A massa começa em 200 kg. Inicie o ciclo automático e ligue DOSADOR.RUN e ESTEIRA.RUN. Cada segundo simulado acrescenta 20 kg até atingir 1000 kg. O comando do misturador altera seu estado de forma independente. Para configurar outra linha, selecione uma tag booleana em **Permissão de entrada**. O simulador aplica a taxa de entrada quando acionamento e permissão estão ligados e mantém a saída contínua configurada. Renomear a tag atualiza a regra. Excluir a tag remove a regra dependente.
 
+## Alarme alto e histórico da operação
+
+No exemplo de dosagem, o alarme ativa em 800 kg ou mais. Configure o limite em **Simulação automática → Limite de alarme alto** e salve a regra. Um campo vazio desativa o limite e mantém a tendência. Reconhecer registra a ação; a indicação permanece alta até a leitura cair abaixo do limite. Uma falha de comunicação registra uma lacuna, preservando a condição anterior até uma nova leitura.
+
+Em Operação, o gráfico mostra a variável da regra a cada confirmação do Java. O eixo horizontal usa o horário local das leituras e o tracejado indica o limite configurado. Selecione uma execução anterior para consultar o gráfico e os eventos. O navegador guarda as últimas 20 operações por nome do projeto e tag, com até 600 leituras e 100 eventos por operação. Limpar os dados do site remove o histórico. O arquivo JSON leva as configurações, inclusive o limite.
+
 ## Regra automática de tanque
 
 Em **Simulação automática**, escolha uma tag DOUBLE de nível, uma BOOLEAN de acionamento e taxas entre 0 e 1000 unidades da tag por segundo simulado. O Java calcula `nível + ((ligada ? entrada : 0) - saída) × segundos`, limitado ao mínimo/máximo da tag. A saída é contínua. Há uma regra por projeto.
@@ -1129,10 +1140,10 @@ O formato v1 permanece aceito. Ao editar, o projeto passa a v2, mantendo os comp
 - `components`: até 100, com campos v1 e tipos adicionais da biblioteca. Campos opcionais: `color` no formato hexadecimal #RRGGBB; `rangeMin` e `rangeMax`, ambos obrigatórios quando uma escala é informada e com mínimo menor que máximo.
 - `variables`: até 32 registros com exatamente `name`, `dataType`, `unit`, `initial`, `min`, `max`. Nomes únicos de até 64 caracteres; unidades até 16; números finitos entre −1.000.000 e 1.000.000; valores iniciais dentro da faixa.
 - `connections`: até 100 registros com exatamente `id`, `from`, `to`, `fromPort`, `toPort`, `kind`, `binding`. IDs únicos; dois objetos existentes e distintos; portas left/right/top/bottom; tipo pipe/signal; vínculo booleano ou null.
-- `simulation`: opcional, com `levelTag`, `enableTag`, `fillRate`, `drainRate` e, opcionalmente, `permitTag` (tag própria BOOLEAN); referências a tags próprias DOUBLE/BOOLEAN e taxas finitas de 0 a 1000. Projetos antigos sem regra continuam aceitos; versões anteriores à 0.5 não leem a extensão.
+- `simulation`: opcional, com `levelTag`, `enableTag`, `fillRate`, `drainRate` e os campos opcionais `permitTag` (tag própria BOOLEAN) e `highLimit` (limite de alarme na faixa da variável medida); referências a tags próprias DOUBLE/BOOLEAN e taxas finitas de 0 a 1000. Projetos antigos sem regra continuam aceitos; versões anteriores à 0.5 não leem a extensão.
 - Limite total do arquivo: 256 KiB. Nenhuma URL, imagem remota, script, campo desconhecido ou desserialização Fabric é aceita.
 
-O endpoint Java aceita JSON de até 64 KiB com `variables` e `values`, além de `rule` e `seconds` opcionais. `rule` possui os campos de `simulation`; `seconds` é finito entre 0 e 1 (padrão zero), e passos diferentes de zero exigem regra válida. `values` é um mapa de nomes para valores; nomes ausentes usam o valor inicial. Tags desconhecidas, tipos incorretos e valores fora da faixa resultam em 400; corpo excedente resulta em 413. Um documento inválido não altera nenhum estado compartilhado.
+O endpoint Java aceita JSON de até 64 KiB com `variables` e `values`, além de `rule` e `seconds` opcionais. `rule` possui os campos de cálculo de `simulation`. O editor avalia `highLimit` após cada resposta validada; `seconds` é finito entre 0 e 1 (padrão zero), e passos diferentes de zero exigem regra válida. `values` é um mapa de nomes para valores; nomes ausentes usam o valor inicial. Tags desconhecidas, tipos incorretos e valores fora da faixa resultam em 400; corpo excedente resulta em 413. Um documento inválido não altera nenhum estado compartilhado.
 
 ## Validação
 
@@ -1148,7 +1159,7 @@ Testes cobrem importação/exportação, rejeição de ligações órfãs, nomes
 2. Editor: base em 0.2.0; seleção/alinhamento em 0.3.0; ligações, biblioteca ampliada, tags próprias e comandos manuais em 0.4.0. Edição de ligações, renomeação de tags e regra de tanque entregues em 0.5.0. Ligação direta por portas disponível na versão 0.6.0. A biblioteca local da versão 0.7.0 inicia o passo 3. Em 0.8.0, o editor ganhou equipamentos para sólidos e uma permissão configurável na simulação. Grupos permanentes e imagens seguem previstos.
 3. Em andamento: salvar e reabrir telas no mesmo navegador entregue em 0.7.0, com renomeação e exclusão de projetos locais em 0.7.1. Para acesso entre dispositivos seguem previstos PostgreSQL/Flyway, projetos persistidos, autenticação, perfis e auditoria; testes com Testcontainers.
 4. Drivers de leitura, primeiro contra servidores OPC UA/Modbus/MQTT simulados, com qualidade e timeouts testados.
-5. Alarmes e histórico com ECharts.
+5. Em andamento. Versão 0.9.0 entrega tendência com ECharts, limite alto configurável, reconhecimento e histórico neste navegador para a variável da regra de simulação. Primeiro exemplo: massa do silo.
 6. Laboratório offline PID/Bode com testes numéricos contra referências analíticas.
 7. Wiki pesquisável, ajuda contextual por componente e tutoriais.
 8. Extensões versionadas e critérios de segurança de plugins.
@@ -1159,7 +1170,11 @@ Conexão com CLP físico, comandos de escrita e uso em produção exigem fases e
 ## docs/validation.md
 
 ````
-# Relatório de validação — versão 0.8.2
+# Relatório de validação — versão 0.9.0
+
+Passaram o build, os 59 testes de frontend e os cinco cenários de automação no navegador. O teste do silo cobre cruzamento do limite durante a dosagem, reconhecimento, retorno ao normal e recuperação dos eventos e leituras após recarga. [Gráfico e alarme do silo](screenshots/alarme-massa.png).
+
+## Resultados da versão 0.8.2
 
 O teste de navegador verificou o interruptor por clique e teclado, preferência após recarga, redesenho do editor, retorno ao tema do sistema e acesso em tela estreita. O build de produção passou.
 
@@ -1370,6 +1385,37 @@ test("fills the solids silo only when feeder and conveyor both run", async ({ pa
   await expect.poll(async () => parseFloat((await mass.textContent())!)).toBeGreaterThan(200);
   await page.getByRole("button", { name: "Alternar MISTURA.RUN" }).click();
   await expect(page.getByTestId("runtime-mixer")).toContainText("true");
+});
+test("records the high mass alarm, its acknowledgment and its return across reload", async ({ page }) => {
+  const loadDose = async () => {
+    await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
+    await page.getByRole("button", { name: "Operação", exact: true }).click();
+    await expect(page.getByLabel("Valor de SILO.MASSA", { exact: true })).toHaveText("200 kg");
+  };
+  await loadDose();
+  const panel = page.getByRole("region", { name: "Alarmes e histórico" });
+  const apply = async (mass: string) => {
+    await page.getByLabel("Novo valor de SILO.MASSA").fill(mass);
+    await page.getByRole("button", { name: "Aplicar SILO.MASSA" }).click();
+  };
+  await apply("780");
+  for (const name of ["Alternar DOSADOR.RUN", "Alternar ESTEIRA.RUN", "Iniciar simulação automática"]) {
+    await page.getByRole("button", { name }).click();
+  }
+  await expect(panel.getByText("Alto · aguardando reconhecimento")).toBeVisible();
+  await page.getByRole("button", { name: "Pausar simulação automática" }).click();
+  await panel.getByRole("button", { name: "Reconhecer alarme" }).click();
+  await expect(panel.getByText("Alto · reconhecido")).toBeVisible();
+  await apply("790");
+  await expect(panel.getByText("Normal", { exact: true })).toBeVisible();
+  await expect(panel.getByRole("img").locator("canvas")).toBeVisible();
+  await expect(panel.getByRole("listitem")).toHaveCount(3);
+  await page.reload();
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await loadDose();
+  await panel.getByRole("combobox").selectOption({ index: 1 });
+  await expect(panel.getByText(/Última leitura/)).toContainText("790 kg");
+  await expect(panel.getByRole("listitem")).toHaveText([/Retorno ao normal/, /Reconhecimento/, /Ativação/]);
 });
 ````
 
@@ -1921,7 +1967,7 @@ test("theme follows the system, persists an override and redraws the editor", as
 ````
 {
   "name": "scada-hmi",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -1935,6 +1981,7 @@ test("theme follows the system, persists an override and redraws the editor", as
     "preview": "vite preview"
   },
   "dependencies": {
+    "echarts": "6.1.0",
     "fabric": "7.4.0",
     "react": "19.3.1",
     "react-dom": "19.3.1"
@@ -2099,12 +2146,12 @@ export function App() {
         </nav>
         <div className="future">
           <span>PRÓXIMAS ETAPAS</span>
-          <p>Alarmes e histórico</p>
+          <p>Protocolos industriais de leitura</p>
           <p>Laboratório PID</p>
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.8.2 · Engenharia</small>
+            <small>v0.9.0 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -3033,6 +3080,254 @@ main:has(.editor) {
 [data-theme="dark"] .editor .delete-component { color: #ffb4b4; }
 [data-theme="dark"] .editor .port-overlay button { background: #14323c; border-color: #6de2d6; }
 [data-theme="dark"] .editor .port-overlay button:is(:hover, :focus-visible, .chosen-port) { background: #69cfc3; }
+.operation-history { padding: 16px; border-bottom: 1px solid #96a8b5; }
+.operation-history select { max-width: 100%; padding: 4px; }
+.operation-history p, .alarm-line { font-size: 12px; }
+.alarm-line { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px; border-left: 4px solid #438a7a; }
+.alarm-line.high { border-color: #b44114; background: #fff0e5; color: #742c12; }
+[data-theme="dark"] .alarm-line.high { background: #422d23; color: #ffd2ae; border-color: #ffa068; }
+.trend-chart { width: 100%; height: 240px; }
+.alarm-events { max-height: 9em; overflow: auto; margin: 0; padding-inline-start: 22px; }
+````
+
+## frontend/src/editor/alarmHistory.ts
+
+````
+export interface Sample {
+  at: number;
+  value: number | null;
+}
+export type EventKind = "Ativação" | "Reconhecimento" | "Retorno ao normal" | "Comunicação perdida" | "Comunicação restabelecida";
+export interface AlarmEvent { at: number; kind: EventKind; value: number | null }
+export interface Run {
+  samples: Sample[];
+  events: AlarmEvent[];
+  high: boolean;
+  acknowledged: boolean;
+}
+export const emptyRun: Run = { samples: [], events: [], high: false, acknowledged: false };
+const sampleLimit = 600;
+const eventLimit = 100;
+
+export function observe(run: Run, sample: Sample, limit?: number): Run {
+  const previous = run.samples.at(-1);
+  if (sample.value === null && (!previous || previous.value === null)) return run;
+  const events = [...run.events];
+  if (sample.value === null) events.push({ ...sample, kind: "Comunicação perdida" });
+  else if (previous?.value === null) events.push({ ...sample, kind: "Comunicação restabelecida" });
+  const high = sample.value === null ? run.high : limit !== undefined && sample.value >= limit;
+  if (high !== run.high) events.push({ ...sample, kind: high ? "Ativação" : "Retorno ao normal" });
+  return {
+    samples: [...run.samples.slice(1 - sampleLimit), sample],
+    events: events.slice(-eventLimit),
+    high, acknowledged: high && run.high && run.acknowledged,
+  };
+}
+
+export function acknowledge(run: Run, at: number): Run {
+  const value = run.samples.at(-1)?.value;
+  if (value == null || !run.high || run.acknowledged) return run;
+  const event: AlarmEvent = { at, kind: "Reconhecimento", value };
+  return { ...run, acknowledged: true, events: [...run.events, event].slice(-eventLimit) };
+}
+````
+
+## frontend/src/editor/alarmHistory.test.ts
+
+````
+import { describe, expect, it } from "vitest";
+import { acknowledge, emptyRun, observe } from "./alarmHistory";
+
+describe("high alarm", () => {
+  it("triggers at equality, preserves acknowledged alarms across gaps and rearms below the threshold", () => {
+    let run = emptyRun;
+    for (const [at, value] of [790, 800, 801].entries()) run = observe(run, { at, value }, 800);
+    run = acknowledge(run, 3);
+    run = acknowledge(run, 4);
+    run = observe(run, { at: 5, value: null }, 800);
+    expect(run.high && run.acknowledged).toBe(true);
+    for (const [i, value] of [805, 799, 800].entries()) run = observe(run, { at: i + 6, value }, 800);
+    expect(run.events.map(e => e.kind)).toEqual(["Ativação", "Reconhecimento", "Comunicação perdida", "Comunicação restabelecida", "Retorno ao normal", "Ativação"]);
+    expect(run.high && !run.acknowledged).toBe(true);
+  });
+});
+````
+
+## frontend/src/editor/operationArchive.ts
+
+````
+import type { Run } from "./alarmHistory";
+
+export interface RecordedRun {
+  id: string; scope: string; started: number;
+  unit: string; min: number; max: number; limit?: number; run: Run;
+}
+let opening: Promise<IDBDatabase> | undefined;
+function database() {
+  if (!opening) {
+    opening = new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("nexo-operation-history", 1);
+      request.onupgradeneeded = () => {
+        const store = request.result.createObjectStore("runs", { keyPath: "id" });
+        store.createIndex("byScope", "scope");
+        store.createIndex("byTime", ["scope", "started", "id"]);
+      };
+      request.onsuccess = () => {
+        const db = request.result;
+        db.onversionchange = () => { db.close(); opening = undefined; };
+        resolve(db);
+      };
+      request.onerror = () => reject(request.error);
+    }).catch((error: unknown) => { opening = undefined; throw error; });
+  }
+  return opening;
+}
+export async function pastRuns(scope: string, currentId: string): Promise<RecordedRun[]> {
+  const db = await database();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction("runs").objectStore("runs").index("byScope").getAll(scope);
+    request.onsuccess = () => resolve((request.result as RecordedRun[]).filter(r => r.id !== currentId).sort((a,b) => b.started - a.started));
+    request.onerror = () => reject(request.error);
+  });
+}
+export async function storeRun(record: RecordedRun) {
+  const db = await database();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction("runs", "readwrite");
+    const runs = tx.objectStore("runs");
+    runs.put(record);
+    const range = IDBKeyRange.bound([record.scope], [record.scope, []]);
+    const keys = runs.index("byTime").getAllKeys(range);
+    keys.onsuccess = () => {
+      for (const expired of keys.result.slice(0, -20)) runs.delete(expired);
+    };
+    tx.oncomplete = () => resolve();
+    tx.onabort = () => reject(tx.error);
+  });
+}
+````
+
+## frontend/src/editor/OperationHistory.tsx
+
+````
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { acknowledge, emptyRun, observe } from "./alarmHistory";
+import { pastRuns, storeRun, type RecordedRun } from "./operationArchive";
+import type { ProjectVariable } from "./project";
+const TrendChart = lazy(() => import("./TrendChart"));
+const clockLabel = (at: number) => new Date(at).toLocaleTimeString("pt-BR");
+
+interface Props {
+  projectName: string; variable: ProjectVariable; limit?: number; dark: boolean;
+  ready: boolean; values: Record<string, number | boolean>;
+}
+export function OperationHistory({ projectName, variable, limit, dark, ready, values }: Props) {
+  const [session] = useState(() => ({ id: crypto.randomUUID(), started: Date.now() }));
+  const [live, setLive] = useState(emptyRun);
+  const [archives, setArchives] = useState<RecordedRun[]>([]);
+  const [selected, select] = useState("");
+  const [storageIssue, setStorageIssue] = useState(false);
+  const lastObservation = useRef<Record<string, number | boolean> | null>(null);
+  const scope = JSON.stringify([projectName, variable.name]);
+
+  useEffect(() => {
+    let current = true;
+    pastRuns(scope, session.id).then(records => { if (current) setArchives(records); })
+      .catch(() => { if (current) setStorageIssue(true); });
+    return () => { current = false; };
+  }, [scope, session.id]);
+  useEffect(() => {
+    const snapshot = ready ? values : null;
+    if (lastObservation.current === snapshot) return;
+    lastObservation.current = snapshot;
+    const value = snapshot?.[variable.name];
+    const sample = { at: Date.now(), value: typeof value === "number" ? value : null };
+    setLive(run => observe(run, sample, limit));
+  }, [ready, values, variable.name, limit]);
+  useEffect(() => {
+    if (!live.samples.length) return;
+    let current = true;
+    storeRun({ ...session, scope, min: variable.min, max: variable.max, unit: variable.unit, limit, run: live })
+      .catch(() => { if (current) setStorageIssue(true); });
+    return () => { current = false; };
+  }, [session, scope, variable, limit, live]);
+
+  const archived = archives.find(r => r.id === selected);
+  const run = archived?.run ?? live;
+  const threshold = archived ? archived.limit : limit;
+  const unit = archived?.unit ?? variable.unit;
+  const value = run.samples.at(-1)?.value;
+  const status = value == null ? "Sem leitura" : run.high ? run.acknowledged ? "Alto · reconhecido" : "Alto · aguardando reconhecimento" : "Normal";
+  return <section className="operation-history" aria-label="Alarmes e histórico">
+    <h2>{variable.name === "SILO.MASSA" ? "Histórico da dosagem" : "Histórico da operação"}</h2>
+    <label>Operação <select value={selected} onChange={e => select(e.target.value)}>
+      <option value="">Atual · {clockLabel(session.started)}</option>
+      {archives.map(r => <option key={r.id} value={r.id}>{new Date(r.started).toLocaleString("pt-BR")}</option>)}
+    </select></label>
+    <p>{variable.name} · {archived ? "Última leitura" : "Leitura atual"} · <strong>{value == null ? "Indisponível" : value + " " + unit}</strong></p>
+    {threshold !== undefined && <div className={run.high ? "alarm-line high" : "alarm-line"}>
+      <strong>{variable.name === "SILO.MASSA" ? "Massa alta do silo" : "Alarme alto"}</strong>
+      <span>Limite ≥ {threshold} {unit}</span><span role="status">{status}</span>
+      {!archived && run.high && !run.acknowledged && <button disabled={!ready} onClick={() => {
+        const at = Date.now(); setLive(previous => acknowledge(previous, at));
+      }}>Reconhecer alarme</button>}
+    </div>}
+    {archived && live.high && <p role="status">Alarme alto na operação atual. Selecione Atual para acompanhá-lo.</p>}
+    <Suspense fallback={<p>Carregando gráfico…</p>}><TrendChart samples={run.samples} unit={unit} min={archived?.min ?? variable.min} max={archived?.max ?? variable.max} limit={threshold} dark={dark} /></Suspense>
+    <h3>Eventos</h3>
+    {run.events.length ? <ol className="alarm-events">{[...run.events].reverse().map((event,index) =>
+      <li key={run.events.length - index}><time>{clockLabel(event.at)}</time> · {event.kind}{event.value === null ? "" : " · " + event.value + " " + unit}</li>)}</ol> : <p>Nenhuma ocorrência registrada.</p>}
+    <p>Histórico neste navegador por nome do projeto e tag. Últimas 20 operações, até 600 leituras e 100 eventos por operação.</p>
+    {storageIssue && <p role="alert">Armazenamento local indisponível. A consulta ou a gravação do histórico pode estar incompleta.</p>}
+  </section>;
+}
+````
+
+## frontend/src/editor/TrendChart.tsx
+
+````
+import { useEffect, useRef } from "react";
+import { init, use, type ECharts } from "echarts/core";
+import { LineChart } from "echarts/charts";
+import { GridComponent, MarkLineComponent, TooltipComponent } from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
+import type { Sample } from "./alarmHistory";
+
+use([LineChart, GridComponent, MarkLineComponent, TooltipComponent, CanvasRenderer]);
+const clockLabel = (at: number) => new Date(at).toLocaleTimeString("pt-BR");
+
+export default function TrendChart({ samples, unit, min, max, limit, dark }: {
+  samples: Sample[]; unit: string; min: number; max: number; limit?: number; dark: boolean;
+}) {
+  const host = useRef<HTMLDivElement>(null);
+  const chart = useRef<ECharts | null>(null);
+  useEffect(() => {
+    if (!host.current) return;
+    const instance = init(host.current);
+    chart.current = instance;
+    const resize = new ResizeObserver(() => instance.resize());
+    resize.observe(host.current);
+    return () => { resize.disconnect(); instance.dispose(); chart.current = null; };
+  }, []);
+  useEffect(() => {
+    const ink = dark ? "#c4d6df" : "#445968";
+    const line = dark ? "#72dccc" : "#117d73";
+    chart.current?.setOption({
+      animation: false, useUTC: false, grid: { left: 64, right: 30, top: 38, bottom: 38 },
+      tooltip: { trigger: "axis", renderMode: "richText" },
+      xAxis: { type: "time", axisLabel: { color: ink, hideOverlap: true, formatter: clockLabel }, splitNumber: 4 },
+      yAxis: { type: "value", min, max, name: unit, nameTextStyle: { color: ink }, axisLabel: { color: ink, formatter: (value: number) => value.toLocaleString("pt-BR") },
+        splitLine: { lineStyle: { color: dark ? "#324554" : "#dde4e8" } } },
+      series: [{ type: "line", name: unit || "Valor", showSymbol: samples.length < 25, symbolSize: 5,
+        itemStyle: { color: line }, lineStyle: { color: line, width: 2 }, connectNulls: false,
+        data: samples.map(s => [s.at, s.value]),
+        markLine: { silent: true, symbol: "none", label: { position: "insideEndTop", formatter: "Limite {c}", color: ink },
+          lineStyle: { color: dark ? "#ffa981" : "#af4c20", type: "dashed" },
+          data: limit === undefined ? [] : [{ yAxis: limit }] } }],
+    });
+  }, [samples, dark, unit, min, max, limit]);
+  return <div className="trend-chart" ref={host} role="img" aria-label={`Tendência de ${unit || "valor"} ao longo do tempo. ${samples.filter(s => s.value !== null).length} amostras.`} />;
+}
 ````
 
 ## frontend/src/editor/Editor.tsx
@@ -3042,6 +3337,7 @@ import { useEffect, useRef, useState, type Dispatch } from "react";
 import { ActiveSelection, Canvas, Pattern, Path } from "fabric";
 import { PortOverlay, portPosition, portSides, connectionPath, type DrawingSession, type DrawingPort } from "./PortOverlay";
 import { arrange, layoutLabels, moveTogether, type LayoutAction } from "./layout";
+import { OperationHistory } from "./OperationHistory";
 import { ProjectLibrary } from "./ProjectLibrary";
 import { ProjectTools } from "./ProjectTools";
 import { dosingExample, processExample } from "./processExample";
@@ -3099,6 +3395,7 @@ export default function Editor({
   const [message, setMessage] = useState("");
   const [sceneRevision, setSceneRevision] = useState(0);
   const simulation = useProjectSimulation(project.variables ?? [], !editing, project.simulation);
+  const measured = project.variables?.find(v => v.name === project.simulation?.levelTag);
   const lines = useRef<Path[]>([]);
   const [drawing, setDrawing] = useState<DrawingSession | null>(null);
   const [sourcePort, setSourcePort] = useState<DrawingPort | null>(null);
@@ -3515,6 +3812,8 @@ export default function Editor({
             </form>}
         </div>)}</div>
       </section>}
+      {!editing && measured && <OperationHistory key={JSON.stringify([project.name, measured.name])} projectName={project.name} variable={measured}
+        limit={project.simulation?.highLimit} dark={dark} ready={simulation.ready} values={simulation.values} />}
       <div className={`editor-layout ${editing ? "" : "operating-layout"}`}>
         <aside
           className="component-library"
@@ -4130,7 +4429,7 @@ export function dosingExample(): HmiProject {
       ...drives.map(name => ({ name, dataType: "BOOLEAN" as const, unit: "", initial: false, min: 0, max: 1 })),
       { name: "SILO.MASSA", dataType: "DOUBLE", unit: "kg", initial: 200, min: 0, max: 1000 },
     ],
-    simulation: { levelTag: "SILO.MASSA", enableTag: drives[0], permitTag: drives[1], fillRate: 20, drainRate: 0 },
+    simulation: { levelTag: "SILO.MASSA", enableTag: drives[0], permitTag: drives[1], highLimit: 800, fillRate: 20, drainRate: 0 },
     components: [
       item("feeder", "feeder", "DS-01 · Dosador", 65, 155, drives[0]),
       item("belt", "conveyor", "ET-01 · Esteira", 345, 155, drives[1]),
@@ -4271,7 +4570,7 @@ export interface ProjectVariable {
   initial: number | boolean; min: number; max: number;
 }
 export interface TankRule {
-  levelTag: string; enableTag: string; permitTag?: string; fillRate: number; drainRate: number;
+  levelTag: string; enableTag: string; permitTag?: string; highLimit?: number; fillRate: number; drainRate: number;
 }
 export type Port = "left" | "right" | "top" | "bottom";
 export interface ConnectionLine {
@@ -4509,14 +4808,16 @@ export function parseProject(raw: string): HmiProject {
   }
   let simulation: TankRule | undefined;
   if (project.simulation !== undefined) {
-    const rule = record(project.simulation, ["levelTag", "enableTag", "fillRate", "drainRate"], ["permitTag"]);
+    const rule = record(project.simulation, ["levelTag", "enableTag", "fillRate", "drainRate"], ["permitTag", "highLimit"]);
     if (typeof rule.levelTag !== "string" || typeof rule.enableTag !== "string"
       || !variables.some(v => v.name === rule.levelTag && v.dataType === "DOUBLE")
       || !variables.some(v => v.name === rule.enableTag && v.dataType === "BOOLEAN"))
       throw new Error("A regra exige uma tag numérica de nível e uma tag booleana de acionamento.");
     if (rule.permitTag !== undefined && (typeof rule.permitTag !== "string" || !variables.some(v => v.name === rule.permitTag && v.dataType === "BOOLEAN")))
       throw new Error("A permissão de entrada exige uma tag booleana do projeto.");
-    simulation = { ...(typeof rule.permitTag === "string" ? { permitTag: rule.permitTag } : {}), levelTag: rule.levelTag, enableTag: rule.enableTag,
+    const measured = variables.find(v => v.name === rule.levelTag)!;
+    const limit = rule.highLimit === undefined ? {} : { highLimit: number(rule.highLimit, measured.min, measured.max) };
+    simulation = { ...limit, ...(typeof rule.permitTag === "string" ? { permitTag: rule.permitTag } : {}), levelTag: rule.levelTag, enableTag: rule.enableTag,
       fillRate: number(rule.fillRate, 0, 1000), drainRate: number(rule.drainRate, 0, 1000) };
   }
   return {
@@ -4962,9 +5263,11 @@ import type { HmiProject } from "./project";
 
 export function SimulationRuleEditor({ project, commit }: { project: HmiProject; commit: (next: HmiProject) => boolean }) {
   const [level, setLevel] = useState(""), [enable, setEnable] = useState("");
+  const [limit, setLimit] = useState("");
   const [permit, setPermit] = useState("");
   const [fill, setFill] = useState("5"), [drain, setDrain] = useState("1");
   useEffect(() => {
+    setLimit(String(project.simulation?.highLimit ?? ""));
     setPermit(project.simulation?.permitTag ?? "");
     setLevel(project.simulation?.levelTag ?? ""); setEnable(project.simulation?.enableTag ?? "");
     setFill(String(project.simulation?.fillRate ?? 5)); setDrain(String(project.simulation?.drainRate ?? 1));
@@ -4972,12 +5275,13 @@ export function SimulationRuleEditor({ project, commit }: { project: HmiProject;
   return <details>
     <summary>Simulação automática <span>{project.simulation ? "Regra configurada" : "Sem regra"}</span></summary>
     <p>O acionamento liga a entrada de material. Se houver uma permissão configurada, as duas tags precisam estar ligadas. A saída é contínua. O nível respeita os limites da tag. Taxas na unidade da tag por segundo simulado; não é um modelo hidráulico das tubulações.</p>
-    <form className="project-form" onSubmit={event => { event.preventDefault(); if (fill.trim() && drain.trim()) commit({ ...project, simulation: { levelTag: level, enableTag: enable, ...(permit ? { permitTag: permit } : {}), fillRate: Number(fill), drainRate: Number(drain) } }); }}>
+    <form className="project-form" onSubmit={event => { event.preventDefault(); if (fill.trim() && drain.trim()) commit({ ...project, simulation: { levelTag: level, enableTag: enable, ...(permit ? { permitTag: permit } : {}), ...(limit.trim() ? { highLimit: Number(limit) } : {}), fillRate: Number(fill), drainRate: Number(drain) } }); }}>
       <label>Tag de nível<select aria-label="Tag de nível da regra" value={level} onChange={event => setLevel(event.target.value)} required><option value="">Selecione</option>{project.variables?.filter(v => v.dataType === "DOUBLE").map(v => <option key={v.name}>{v.name}</option>)}</select></label>
       <label>Acionamento<select aria-label="Tag de acionamento da regra" value={enable} onChange={event => setEnable(event.target.value)} required><option value="">Selecione</option>{project.variables?.filter(v => v.dataType === "BOOLEAN").map(v => <option key={v.name}>{v.name}</option>)}</select></label>
       <label>Permissão de entrada<select value={permit} onChange={event => setPermit(event.target.value)}><option value="">Sem condição adicional</option>{project.variables?.filter(v => v.dataType === "BOOLEAN").map(v => <option key={v.name}>{v.name}</option>)}</select></label>
       <label>Entrada por segundo<input aria-label="Taxa de entrada" type="number" min="0" max="1000" step="any" value={fill} onChange={event => setFill(event.target.value)} required /></label>
       <label>Saída por segundo<input aria-label="Taxa de saída" type="number" min="0" max="1000" step="any" value={drain} onChange={event => setDrain(event.target.value)} required /></label>
+      <label>Limite de alarme alto<input type="number" step="any" placeholder="Opcional" min={project.variables?.find(v => v.name === level)?.min} max={project.variables?.find(v => v.name === level)?.max} value={limit} onChange={event => setLimit(event.target.value)} /></label>
       <button>Salvar regra</button>
       {project.simulation && <button type="button" onClick={() => { const { simulation: _removed, ...next } = project; commit(next); }}>Remover regra</button>}
     </form>
@@ -5008,9 +5312,11 @@ export function useProjectSimulation(variables: ProjectVariable[], enabled: bool
     if (!enabled || pending.current) return;
     pending.current = true; setBusy(true); setError("");
     try {
+      // Alarm limits belong to the display; the Java endpoint accepts only the physical rule.
+      const calculation = rule && { levelTag: rule.levelTag, enableTag: rule.enableTag, permitTag: rule.permitTag, fillRate: rule.fillRate, drainRate: rule.drainRate };
       const response = await fetch("/api/simulation/evaluate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ variables, values: next, ...(rule ? { rule, seconds } : {}) }), signal: AbortSignal.timeout(8000),
+        body: JSON.stringify({ variables, values: next, ...(calculation ? { rule: calculation, seconds } : {}) }), signal: AbortSignal.timeout(8000),
       });
       if (!response.ok) throw new Error(response.status === 400 ? "O Java recusou o valor ou a configuração das tags." : "Não foi possível comunicar com o simulador Java.");
       const data = await response.json();
@@ -6352,7 +6658,7 @@ Consulte o [guia de publicação](../docs/deployment.md). Serviço publicado em 
 ````
 # NEXO — Supervisão e engenharia de telas
 
-Plataforma SCADA/HMI com backend Java e interface web. Use o interruptor de sol e lua no cabeçalho para alternar o tema. A versão **0.8.2** guarda a escolha no navegador. Em **Ajuda → Aparência**, você pode voltar ao tema do sistema. Para experimentar os equipamentos de sólidos, abra **Editor → Exemplo de dosagem → Operação** para testar silo, esteira, dosador de rosca e misturador. Inicie a simulação automática e ligue o dosador e a esteira para alimentar o silo a 20 kg por segundo simulado, até 1000 kg. O misturador tem comando independente. Em **Simulação automática**, a permissão de entrada aceita uma tag booleana do projeto. Na biblioteca local, o editor guarda telas na biblioteca **Projetos salvos** deste navegador. Para conectar equipamentos, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
+Plataforma SCADA/HMI com backend Java e interface web. Use o interruptor de sol e lua no cabeçalho para alternar o tema. A escolha fica guardada no navegador. Na versão **0.9.0**, a operação do silo mostra gráfico de massa, alarme alto e histórico local. Em **Ajuda → Aparência**, você pode voltar ao tema do sistema. Para experimentar os equipamentos de sólidos, abra **Editor → Exemplo de dosagem → Operação** para testar silo, esteira, dosador de rosca e misturador. Inicie a simulação automática e ligue o dosador e a esteira para alimentar o silo a 20 kg por segundo simulado, até 1000 kg. O misturador tem comando independente. Em **Simulação automática**, a permissão de entrada aceita uma tag booleana do projeto. Na biblioteca local, o editor guarda telas na biblioteca **Projetos salvos** deste navegador. Para conectar equipamentos, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
 
 ## Recursos disponíveis
 

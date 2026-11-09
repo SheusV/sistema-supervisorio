@@ -41,7 +41,7 @@ export function dosingExample(): HmiProject {
       ...drives.map(name => ({ name, dataType: "BOOLEAN" as const, unit: "", initial: false, min: 0, max: 1 })),
       { name: "SILO.MASSA", dataType: "DOUBLE", unit: "kg", initial: 200, min: 0, max: 1000 },
     ],
-    simulation: { levelTag: "SILO.MASSA", enableTag: drives[0], permitTag: drives[1], fillRate: 20, drainRate: 0 },
+    simulation: { levelTag: "SILO.MASSA", enableTag: drives[0], permitTag: drives[1], highLimit: 800, fillRate: 20, drainRate: 0 },
     components: [
       item("feeder", "feeder", "DS-01 · Dosador", 65, 155, drives[0]),
       item("belt", "conveyor", "ET-01 · Esteira", 345, 155, drives[1]),

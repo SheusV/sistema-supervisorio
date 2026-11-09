@@ -6,7 +6,7 @@ export interface ProjectVariable {
   initial: number | boolean; min: number; max: number;
 }
 export interface TankRule {
-  levelTag: string; enableTag: string; permitTag?: string; fillRate: number; drainRate: number;
+  levelTag: string; enableTag: string; permitTag?: string; highLimit?: number; fillRate: number; drainRate: number;
 }
 export type Port = "left" | "right" | "top" | "bottom";
 export interface ConnectionLine {
@@ -244,14 +244,16 @@ export function parseProject(raw: string): HmiProject {
   }
   let simulation: TankRule | undefined;
   if (project.simulation !== undefined) {
-    const rule = record(project.simulation, ["levelTag", "enableTag", "fillRate", "drainRate"], ["permitTag"]);
+    const rule = record(project.simulation, ["levelTag", "enableTag", "fillRate", "drainRate"], ["permitTag", "highLimit"]);
     if (typeof rule.levelTag !== "string" || typeof rule.enableTag !== "string"
       || !variables.some(v => v.name === rule.levelTag && v.dataType === "DOUBLE")
       || !variables.some(v => v.name === rule.enableTag && v.dataType === "BOOLEAN"))
       throw new Error("A regra exige uma tag numérica de nível e uma tag booleana de acionamento.");
     if (rule.permitTag !== undefined && (typeof rule.permitTag !== "string" || !variables.some(v => v.name === rule.permitTag && v.dataType === "BOOLEAN")))
       throw new Error("A permissão de entrada exige uma tag booleana do projeto.");
-    simulation = { ...(typeof rule.permitTag === "string" ? { permitTag: rule.permitTag } : {}), levelTag: rule.levelTag, enableTag: rule.enableTag,
+    const measured = variables.find(v => v.name === rule.levelTag)!;
+    const limit = rule.highLimit === undefined ? {} : { highLimit: number(rule.highLimit, measured.min, measured.max) };
+    simulation = { ...limit, ...(typeof rule.permitTag === "string" ? { permitTag: rule.permitTag } : {}), levelTag: rule.levelTag, enableTag: rule.enableTag,
       fillRate: number(rule.fillRate, 0, 1000), drainRate: number(rule.drainRate, 0, 1000) };
   }
   return {

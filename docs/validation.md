@@ -1,4 +1,8 @@
-# Relatório de validação — versão 0.8.2
+# Relatório de validação — versão 0.9.0
+
+Passaram o build, os 59 testes de frontend e os cinco cenários de automação no navegador. O teste do silo cobre cruzamento do limite durante a dosagem, reconhecimento, retorno ao normal e recuperação dos eventos e leituras após recarga. [Gráfico e alarme do silo](screenshots/alarme-massa.png).
+
+## Resultados da versão 0.8.2
 
 O teste de navegador verificou o interruptor por clique e teclado, preferência após recarga, redesenho do editor, retorno ao tema do sistema e acesso em tela estreita. O build de produção passou.
 

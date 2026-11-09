@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type Dispatch } from "react";
 import { ActiveSelection, Canvas, Pattern, Path } from "fabric";
 import { PortOverlay, portPosition, portSides, connectionPath, type DrawingSession, type DrawingPort } from "./PortOverlay";
 import { arrange, layoutLabels, moveTogether, type LayoutAction } from "./layout";
+import { OperationHistory } from "./OperationHistory";
 import { ProjectLibrary } from "./ProjectLibrary";
 import { ProjectTools } from "./ProjectTools";
 import { dosingExample, processExample } from "./processExample";
@@ -59,6 +60,7 @@ export default function Editor({
   const [message, setMessage] = useState("");
   const [sceneRevision, setSceneRevision] = useState(0);
   const simulation = useProjectSimulation(project.variables ?? [], !editing, project.simulation);
+  const measured = project.variables?.find(v => v.name === project.simulation?.levelTag);
   const lines = useRef<Path[]>([]);
   const [drawing, setDrawing] = useState<DrawingSession | null>(null);
   const [sourcePort, setSourcePort] = useState<DrawingPort | null>(null);
@@ -475,6 +477,8 @@ export default function Editor({
             </form>}
         </div>)}</div>
       </section>}
+      {!editing && measured && <OperationHistory key={JSON.stringify([project.name, measured.name])} projectName={project.name} variable={measured}
+        limit={project.simulation?.highLimit} dark={dark} ready={simulation.ready} values={simulation.values} />}
       <div className={`editor-layout ${editing ? "" : "operating-layout"}`}>
         <aside
           className="component-library"

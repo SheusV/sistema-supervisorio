@@ -76,12 +76,12 @@ export function App() {
         </nav>
         <div className="future">
           <span>PRÓXIMAS ETAPAS</span>
-          <p>Alarmes e histórico</p>
+          <p>Protocolos industriais de leitura</p>
           <p>Laboratório PID</p>
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.8.2 · Engenharia</small>
+            <small>v0.9.0 · Engenharia</small>
         </div>
       </aside>
       <div className="main">

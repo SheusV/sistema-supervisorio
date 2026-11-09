@@ -513,7 +513,7 @@ export default function Editor({
         </div>)}</div>
       </section>}
       {!editing && measured && <OperationHistory key={JSON.stringify([project.name, measured.name])} projectName={project.name} variable={measured}
-        limit={project.simulation?.highLimit} dark={dark} ready={simulation.ready} values={simulation.values} />}
+        limit={project.simulation?.highLimit} hysteresis={project.simulation?.highHysteresis} delaySeconds={project.simulation?.highDelaySeconds} dark={dark} ready={simulation.ready} values={simulation.values} />}
       <div className={`editor-layout ${editing ? "" : "operating-layout"}`}>
         <aside
           className="component-library"

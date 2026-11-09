@@ -8,8 +8,9 @@ const clockLabel = (at: number) => new Date(at).toLocaleTimeString("pt-BR");
 interface Props {
   projectName: string; variable: ProjectVariable; limit?: number; dark: boolean;
   ready: boolean; values: Record<string, number | boolean>;
+  hysteresis?: number; delaySeconds?: number;
 }
-export function OperationHistory({ projectName, variable, limit, dark, ready, values }: Props) {
+export function OperationHistory({ projectName, variable, limit, dark, ready, values, hysteresis = 0, delaySeconds = 0 }: Props) {
   const [session] = useState(() => ({ id: crypto.randomUUID(), started: Date.now() }));
   const [live, setLive] = useState(emptyRun);
   const [archives, setArchives] = useState<RecordedRun[]>([]);
@@ -31,26 +32,28 @@ export function OperationHistory({ projectName, variable, limit, dark, ready, va
     lastObservation.current = snapshot;
     const value = snapshot?.[variable.name];
     const sample = { at: Date.now(), value: typeof value === "number" ? value : null };
-    setLive(run => observe(run, sample, limit));
-  }, [ready, values, variable.name, limit]);
+    setLive(run => observe(run, sample, limit, hysteresis, delaySeconds));
+  }, [ready, values, variable.name, limit, hysteresis, delaySeconds]);
   useEffect(() => {
     if (!live.samples.length) return;
     let current = true;
-    storeRun({ ...session, scope, min: variable.min, max: variable.max, unit: variable.unit, limit, run: live })
+    storeRun({ ...session, scope, min: variable.min, max: variable.max, unit: variable.unit, limit, hysteresis, delaySeconds, run: live })
       .catch(() => { if (current) setStorageIssue(true); });
     return () => { current = false; };
-  }, [session, scope, variable, limit, live]);
+  }, [session, scope, variable, limit, hysteresis, delaySeconds, live]);
 
   const archived = archives.find(r => r.id === selected);
   const run = archived?.run ?? live;
   const events = run.events.filter(event => !eventFilter || event.kind === eventFilter).reverse();
   const threshold = archived ? archived.limit : limit;
+  const margin = archived ? archived.hysteresis ?? 0 : hysteresis;
+  const delay = archived ? archived.delaySeconds ?? 0 : delaySeconds;
   const unit = archived?.unit ?? variable.unit;
   const value = run.samples.at(-1)?.value;
   const alarmStatus = run.acknowledged ? "Alto · reconhecido" : "Alto · aguardando reconhecimento";
   const status = value == null
     ? run.high ? `Sem leitura · último estado: ${alarmStatus}` : "Sem leitura"
-    : run.high ? alarmStatus : "Normal";
+    : run.high ? alarmStatus : run.pendingSince !== undefined ? "Confirmando alarme alto" : "Normal";
   return <section className="operation-history" aria-label="Alarmes e histórico">
     <h2>{variable.name === "SILO.MASSA" ? "Histórico da dosagem" : "Histórico da operação"}</h2>
     <label>Operação <select value={selected} onChange={e => select(e.target.value)}>
@@ -61,6 +64,8 @@ export function OperationHistory({ projectName, variable, limit, dark, ready, va
     {threshold !== undefined && <div className={run.high ? "alarm-line high" : "alarm-line"}>
       <strong>{variable.name === "SILO.MASSA" ? "Massa alta do silo" : "Alarme alto"}</strong>
       <span>Limite ≥ {threshold} {unit}</span><span role="status">{status}</span>
+      {margin > 0 && <span>Retorno ≤ {threshold - margin} {unit}</span>}
+      {delay > 0 && <span>Confirmação após {delay} s com novas leituras. Falhas reiniciam a contagem.</span>}
       {!archived && run.high && !run.acknowledged && <button disabled={!ready || value == null} onClick={() => {
         const at = Date.now(); setLive(previous => acknowledge(previous, at));
       }}>Reconhecer alarme</button>}

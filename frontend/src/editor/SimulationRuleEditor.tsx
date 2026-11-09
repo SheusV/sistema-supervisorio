@@ -4,11 +4,14 @@ import type { HmiProject } from "./project";
 export function SimulationRuleEditor({ project, commit }: { project: HmiProject; commit: (next: HmiProject) => boolean }) {
   const [level, setLevel] = useState(""), [enable, setEnable] = useState("");
   const [limit, setLimit] = useState("");
+  const [hysteresis, setHysteresis] = useState("0"), [delay, setDelay] = useState("0");
   const [drainTags, setDrainTags] = useState<string[]>([]);
   const [permit, setPermit] = useState("");
   const [fill, setFill] = useState("5"), [drain, setDrain] = useState("1");
   useEffect(() => {
     setLimit(String(project.simulation?.highLimit ?? ""));
+    setHysteresis(String(project.simulation?.highHysteresis ?? 0));
+    setDelay(String(project.simulation?.highDelaySeconds ?? 0));
     setDrainTags(project.simulation?.drainTags ?? []);
     setPermit(project.simulation?.permitTag ?? "");
     setLevel(project.simulation?.levelTag ?? ""); setEnable(project.simulation?.enableTag ?? "");
@@ -17,7 +20,7 @@ export function SimulationRuleEditor({ project, commit }: { project: HmiProject;
   return <details>
     <summary>Simulação automática <span>{project.simulation ? "Regra configurada" : "Sem regra"}</span></summary>
     <p>O acionamento liga a entrada de material. Se houver uma permissão configurada, as duas tags precisam estar ligadas. A descarga exige todos os acionamentos selecionados. Sem seleção, a saída é contínua. O nível respeita os limites da tag. Taxas na unidade da tag por segundo simulado; não é um modelo hidráulico das tubulações.</p>
-    <form className="project-form" onSubmit={event => { event.preventDefault(); if (fill.trim() && drain.trim()) commit({ ...project, simulation: { ...(project.simulation?.dryingRecipe ? { dryingRecipe: project.simulation.dryingRecipe } : {}), levelTag: level, enableTag: enable, ...(drainTags.length ? { drainTags } : {}), ...(permit ? { permitTag: permit } : {}), ...(limit.trim() ? { highLimit: Number(limit) } : {}), fillRate: Number(fill), drainRate: Number(drain) } }); }}>
+    <form className="project-form" onSubmit={event => { event.preventDefault(); if (fill.trim() && drain.trim()) commit({ ...project, simulation: { ...(project.simulation?.dryingRecipe ? { dryingRecipe: project.simulation.dryingRecipe } : {}), levelTag: level, enableTag: enable, ...(drainTags.length ? { drainTags } : {}), ...(permit ? { permitTag: permit } : {}), ...(limit.trim() ? { highLimit: Number(limit), highHysteresis: Number(hysteresis), highDelaySeconds: Number(delay) } : {}), fillRate: Number(fill), drainRate: Number(drain) } }); }}>
       <label>Tag de nível<select aria-label="Tag de nível da regra" value={level} onChange={event => setLevel(event.target.value)} required><option value="">Selecione</option>{project.variables?.filter(v => v.dataType === "DOUBLE").map(v => <option key={v.name}>{v.name}</option>)}</select></label>
       <label>Acionamento<select aria-label="Tag de acionamento da regra" value={enable} onChange={event => setEnable(event.target.value)} required><option value="">Selecione</option>{project.variables?.filter(v => v.dataType === "BOOLEAN").map(v => <option key={v.name}>{v.name}</option>)}</select></label>
       <label>Permissão de entrada<select value={permit} onChange={event => setPermit(event.target.value)}><option value="">Sem condição adicional</option>{project.variables?.filter(v => v.dataType === "BOOLEAN").map(v => <option key={v.name}>{v.name}</option>)}</select></label>
@@ -30,6 +33,9 @@ export function SimulationRuleEditor({ project, commit }: { project: HmiProject;
       </fieldset>
       <label>Saída por segundo<input aria-label="Taxa de saída" type="number" min="0" max="1000" step="any" value={drain} onChange={event => setDrain(event.target.value)} required /></label>
       <label>Limite de alarme alto<input type="number" step="any" placeholder="Opcional" min={project.variables?.find(v => v.name === level)?.min} max={project.variables?.find(v => v.name === level)?.max} value={limit} onChange={event => setLimit(event.target.value)} /></label>
+      <label>Histerese do alarme<input type="number" min="0" step="any" value={hysteresis} onChange={e => setHysteresis(e.target.value)} required /></label>
+      <label>Atraso do alarme (s)<input type="number" min="0" max="3600" step="any" value={delay} onChange={e => setDelay(e.target.value)} required /></label>
+      <p>A histerese usa a unidade da tag e define a margem de retorno ao normal. O atraso exige novas leituras acima do limite. Zero mantém a resposta imediata.</p>
       <button>Salvar regra</button>
       {project.simulation && <button type="button" onClick={() => { const { simulation: _removed, ...next } = project; commit(next); }}>Remover regra</button>}
     </form>

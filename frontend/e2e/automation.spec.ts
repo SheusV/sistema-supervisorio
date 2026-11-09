@@ -214,6 +214,30 @@ test("fills the solids silo only when feeder and conveyor both run", async ({ pa
   expect(csv).toContain('"60";"kg"');
   expect(csv).toContain('"24";"23";"23"');
 });
+test("delays a high alarm and retains it until the hysteresis return threshold", async ({ page }) => {
+  await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
+  await page.locator("summary").filter({ hasText: "Simulação automática" }).click();
+  await page.getByLabel("Histerese do alarme", { exact: true }).fill("20");
+  await page.getByLabel("Atraso do alarme (s)").fill("2");
+  await page.getByRole("button", { name: "Salvar regra" }).click();
+  await page.getByRole("button", { name: "Operação", exact: true }).click();
+  const panel = page.getByRole("region", { name: "Alarmes e histórico" });
+  const input = page.getByLabel("Novo valor de SILO.MASSA");
+  const apply = page.getByRole("button", { name: "Aplicar SILO.MASSA" });
+  await input.fill("800");
+  await apply.click();
+  await expect(panel.getByRole("status")).toHaveText("Confirmando alarme alto");
+  await page.getByRole("button", { name: "Iniciar simulação automática" }).click();
+  await expect(panel.getByRole("status")).toHaveText("Alto · aguardando reconhecimento");
+  await page.getByRole("button", { name: "Pausar simulação automática" }).click();
+  await input.fill("790");
+  await apply.click();
+  await expect(panel.getByRole("status")).toHaveText("Alto · aguardando reconhecimento");
+  await input.fill("780");
+  await apply.click();
+  await expect(panel.getByRole("status")).toHaveText("Normal");
+});
+
 test("records the high mass alarm, its acknowledgment and its return across reload", async ({ page }) => {
   const loadDose = async () => {
     await page.getByRole("button", { name: "Exemplo de dosagem" }).click();

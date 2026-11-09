@@ -5,7 +5,7 @@ export interface RecordedBatch { id: string; scope: string; started: number; uni
 
 export interface RecordedRun {
   id: string; scope: string; started: number;
-  unit: string; min: number; max: number; limit?: number; run: Run;
+  unit: string; min: number; max: number; limit?: number; hysteresis?: number; delaySeconds?: number; run: Run;
 }
 let opening: Promise<IDBDatabase> | undefined;
 function database() {

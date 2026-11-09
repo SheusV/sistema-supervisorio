@@ -7,6 +7,8 @@ export interface ProjectVariable {
   initial: number | boolean; min: number; max: number;
 }
 export interface TankRule {
+  highHysteresis?: number;
+  highDelaySeconds?: number;
   dryingRecipe?: DryingRecipe;
   levelTag: string; enableTag: string; permitTag?: string; drainTags?: string[]; highLimit?: number; fillRate: number; drainRate: number;
 }
@@ -246,7 +248,7 @@ export function parseProject(raw: string): HmiProject {
   }
   let simulation: TankRule | undefined;
   if (project.simulation !== undefined) {
-    const rule = record(project.simulation, ["levelTag", "enableTag", "fillRate", "drainRate"], ["permitTag", "highLimit", "drainTags", "dryingRecipe"]);
+    const rule = record(project.simulation, ["levelTag", "enableTag", "fillRate", "drainRate"], ["permitTag", "highLimit", "drainTags", "dryingRecipe", "highHysteresis", "highDelaySeconds"]);
     if (typeof rule.levelTag !== "string" || typeof rule.enableTag !== "string"
       || !variables.some(v => v.name === rule.levelTag && v.dataType === "DOUBLE")
       || !variables.some(v => v.name === rule.enableTag && v.dataType === "BOOLEAN"))
@@ -259,6 +261,10 @@ export function parseProject(raw: string): HmiProject {
       new Set(drainTags).size !== drainTags.length)) throw new Error("A descarga exige tags booleanas distintas do projeto.");
     const measured = variables.find(v => v.name === rule.levelTag)!;
     const limit = rule.highLimit === undefined ? {} : { highLimit: number(rule.highLimit, measured.min, measured.max) };
+    const alarmOptions = {
+      ...(rule.highHysteresis === undefined ? {} : { highHysteresis: number(rule.highHysteresis, 0, (limit.highLimit ?? measured.max) - measured.min) }),
+      ...(rule.highDelaySeconds === undefined ? {} : { highDelaySeconds: number(rule.highDelaySeconds, 0, 3600) }),
+    };
     let dryingRecipe: DryingRecipe | undefined;
     if (rule.dryingRecipe !== undefined) {
       const recipe = record(rule.dryingRecipe, ["target", "duration", "moisture", "moistureTarget"], ["capacity"]);
@@ -267,7 +273,7 @@ export function parseProject(raw: string): HmiProject {
       dryingRecipe = { ...(recipe.capacity === undefined ? {} : { capacity: number(recipe.capacity, 1, 1000000) }), target: number(recipe.target, 20, 120), duration,
         moisture: number(recipe.moisture, 0, 100), moistureTarget: number(recipe.moistureTarget, 0, 100) };
     }
-    simulation = { ...limit, ...(dryingRecipe ? { dryingRecipe } : {}), ...(drainTags?.length ? { drainTags } : {}), ...(typeof rule.permitTag === "string" ? { permitTag: rule.permitTag } : {}), levelTag: rule.levelTag, enableTag: rule.enableTag,
+    simulation = { ...limit, ...alarmOptions, ...(dryingRecipe ? { dryingRecipe } : {}), ...(drainTags?.length ? { drainTags } : {}), ...(typeof rule.permitTag === "string" ? { permitTag: rule.permitTag } : {}), levelTag: rule.levelTag, enableTag: rule.enableTag,
       fillRate: number(rule.fillRate, 0, 1000), drainRate: number(rule.drainRate, 0, 1000) };
   }
   return {

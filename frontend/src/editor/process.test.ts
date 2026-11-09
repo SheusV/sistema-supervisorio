@@ -3,6 +3,14 @@ import { availableBindings, parseProject, removeComponents, replaceVariable, ser
 import { processExample, dosingExample } from "./processExample";
 
 describe("process projects", () => {
+  it("preserves alarm options and rejects margins outside the measured range", () => {
+    const project = dosingExample();
+    project.simulation!.highHysteresis = 20;
+    project.simulation!.highDelaySeconds = 2;
+    expect(parseProject(serializeProject(project))).toEqual(project);
+    expect(() => serializeProject({ ...project, simulation: { ...project.simulation!, highHysteresis: 801 } })).toThrow();
+    expect(() => serializeProject({ ...project, simulation: { ...project.simulation!, highDelaySeconds: -1 } })).toThrow();
+  });
   it("preserves a drying recipe on export and rejects invalid or unknown recipe fields", () => {
     const project = dosingExample();
     project.simulation!.dryingRecipe = { target: 45, duration: 15, moisture: 28, moistureTarget: 12 };

@@ -57,6 +57,10 @@ export function useProjectSimulation(variables: ProjectVariable[], enabled: bool
     return () => window.clearInterval(timer);
   }, [enabled, ready, automatic, ruleConfig]);
   return { values, ready, busy, error, automatic, batch,
+    setInitialMoisture: (moisture: number) => {
+      if (!ready || pending.current || !Number.isFinite(moisture) || moisture < 0 || moisture > 100) return;
+      setBatch(b => b.phase === "loading" ? { ...b, moisture } : b);
+    },
     startBatch: (target: number, duration: number, moistureTarget: number) => {
       if (!ready || pending.current || !ovenTag || !currentValues.current[ovenTag] ||
         !Number.isFinite(moistureTarget) || moistureTarget < 0 || moistureTarget > 100 ||

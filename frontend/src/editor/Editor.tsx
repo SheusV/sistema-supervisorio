@@ -489,6 +489,9 @@ export default function Editor({
             <label>Temperatura alvo (°C)<input type="number" name="target" min="20" max="120" step="1" defaultValue={batch.target} required /></label>
             <label>Tempo mínimo de secagem (s)<input type="number" name="duration" min="1" max="3600" defaultValue={batch.duration} required /></label>
             <label>Umidade final máxima (%)<input type="number" name="moistureTarget" min="0" max="100" step="0.1" defaultValue={batch.moistureTarget} required /></label>
+            <label>Umidade inicial do lote (%)<input type="number" min="0" max="100" step="0.1" defaultValue={batch.moisture} required disabled={!simulation.ready || simulation.busy} onChange={e => {
+              if (e.currentTarget.value && e.currentTarget.validity.valid) simulation.setInitialMoisture(Number(e.currentTarget.value));
+            }} /></label>
             <button disabled={!simulation.ready || simulation.busy || !simulation.values[ovenTag] || batch.mass <= 0}>Iniciar secagem</button>
           </form> : <><p>Temperatura alvo: {batch.target} °C · Tempo mínimo na temperatura: {Number(batch.elapsed.toFixed(1))} / {batch.duration} s · Umidade final máxima: {batch.moistureTarget.toLocaleString("pt-BR")}%</p>
             <progress aria-label="Tempo mínimo de secagem cumprido" max={batch.duration} value={batch.elapsed} />

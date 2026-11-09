@@ -129,16 +129,19 @@ test("fills the solids silo only when feeder and conveyor both run", async ({ pa
   await expect(dryer).toContainText("60 kg");
   await dryer.getByLabel("Temperatura alvo (°C)").fill("25");
   await dryer.getByLabel("Tempo mínimo de secagem (s)").fill("2");
-  await dryer.getByLabel("Umidade final máxima (%)").fill("21");
+  await dryer.getByLabel("Umidade inicial do lote (%)").fill("24");
+  await expect(dryer.getByText(/Umidade simulada dos grãos/)).toContainText("24%");
+  await dryer.getByLabel("Umidade final máxima (%)").fill("23");
   await dryer.getByRole("button", { name: "Iniciar secagem" }).click();
   await expect(dryer.getByRole("status")).toHaveText("Secando até a umidade final");
   await expect(dryer.getByRole("button", { name: "Retirar lote seco" })).toHaveCount(0);
   await expect(dryer.getByRole("status")).toHaveText("Lote seco", { timeout: 10000 });
   await expect(dryer).toContainText("2 / 2 s");
-  await expect(dryer.getByText(/Umidade simulada dos grãos/)).toContainText("21%");
+  await expect(dryer.getByText(/Umidade simulada dos grãos/)).toContainText("23%");
   await dryer.getByRole("button", { name: "Retirar lote seco" }).click();
   await expect(dryer.getByRole("status")).toHaveText("Aguardando grãos");
-  await expect(dryer.getByLabel("Umidade final máxima (%)")).toHaveValue("21");
+  await expect(dryer.getByLabel("Umidade final máxima (%)")).toHaveValue("23");
+  await expect(dryer.getByLabel("Umidade inicial do lote (%)")).toHaveValue("22");
 });
 test("records the high mass alarm, its acknowledgment and its return across reload", async ({ page }) => {
   const loadDose = async () => {

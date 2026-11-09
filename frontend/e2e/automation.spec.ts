@@ -143,9 +143,16 @@ test("records the high mass alarm, its acknowledgment and its return across relo
   await page.reload();
   await page.getByRole("button", { name: "Editor", exact: true }).click();
   await loadDose();
-  await panel.getByRole("combobox").selectOption({ index: 1 });
+  await panel.getByRole("combobox", { name: "Operação", exact: true }).selectOption({ index: 1 });
   await expect(panel.getByText(/Última leitura/)).toContainText("790 kg");
   await expect(panel.getByRole("listitem")).toHaveText([/Retorno ao normal/, /Reconhecimento/, /Ativação/]);
+  const filter = panel.getByRole("combobox", { name: "Tipo de evento" });
+  await filter.selectOption("Reconhecimento");
+  await expect(panel.getByRole("listitem")).toHaveText([/Reconhecimento/]);
+  await filter.selectOption("Comunicação perdida");
+  await expect(panel.getByText("Nenhum evento deste tipo nesta operação.")).toBeVisible();
+  await filter.selectOption("");
+  await expect(panel.getByRole("listitem")).toHaveCount(3);
 });
 
 test("keeps the silo alarm visible through a lost reading and reconnection", async ({ page }) => {

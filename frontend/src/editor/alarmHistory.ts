@@ -2,7 +2,8 @@ export interface Sample {
   at: number;
   value: number | null;
 }
-export type EventKind = "Ativação" | "Reconhecimento" | "Retorno ao normal" | "Comunicação perdida" | "Comunicação restabelecida";
+export const eventKinds = ["Ativação", "Reconhecimento", "Retorno ao normal", "Comunicação perdida", "Comunicação restabelecida"] as const;
+export type EventKind = typeof eventKinds[number];
 export interface AlarmEvent { at: number; kind: EventKind; value: number | null }
 export interface Run {
   samples: Sample[];

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { acknowledge, emptyRun, observe } from "./alarmHistory";
+import { acknowledge, emptyRun, eventKinds, observe } from "./alarmHistory";
 import { pastRuns, storeRun, type RecordedRun } from "./operationArchive";
 import type { ProjectVariable } from "./project";
 const TrendChart = lazy(() => import("./TrendChart"));
@@ -14,6 +14,7 @@ export function OperationHistory({ projectName, variable, limit, dark, ready, va
   const [live, setLive] = useState(emptyRun);
   const [archives, setArchives] = useState<RecordedRun[]>([]);
   const [selected, select] = useState("");
+  const [eventFilter, setEventFilter] = useState("");
   const [storageIssue, setStorageIssue] = useState(false);
   const lastObservation = useRef<Record<string, number | boolean> | null>(null);
   const scope = JSON.stringify([projectName, variable.name]);
@@ -42,6 +43,7 @@ export function OperationHistory({ projectName, variable, limit, dark, ready, va
 
   const archived = archives.find(r => r.id === selected);
   const run = archived?.run ?? live;
+  const events = run.events.filter(event => !eventFilter || event.kind === eventFilter).reverse();
   const threshold = archived ? archived.limit : limit;
   const unit = archived?.unit ?? variable.unit;
   const value = run.samples.at(-1)?.value;
@@ -66,8 +68,12 @@ export function OperationHistory({ projectName, variable, limit, dark, ready, va
     {archived && live.high && <p role="status">Alarme alto na operação atual. Selecione Atual para acompanhá-lo.</p>}
     <Suspense fallback={<p>Carregando gráfico…</p>}><TrendChart samples={run.samples} unit={unit} min={archived?.min ?? variable.min} max={archived?.max ?? variable.max} limit={threshold} dark={dark} /></Suspense>
     <h3>Eventos</h3>
-    {run.events.length ? <ol className="alarm-events">{[...run.events].reverse().map((event,index) =>
-      <li key={run.events.length - index}><time>{clockLabel(event.at)}</time> · {event.kind}{event.value === null ? "" : " · " + event.value + " " + unit}</li>)}</ol> : <p>Nenhuma ocorrência registrada.</p>}
+    <label>Tipo de evento <select value={eventFilter} onChange={e => setEventFilter(e.target.value)}>
+      <option value="">Todos</option>
+      {eventKinds.map(kind => <option key={kind}>{kind}</option>)}
+    </select></label>
+    {events.length ? <ol className="alarm-events">{events.map((event,index) =>
+      <li key={events.length - index}><time>{clockLabel(event.at)}</time> · {event.kind}{event.value === null ? "" : " · " + event.value + " " + unit}</li>)}</ol> : <p>{eventFilter ? "Nenhum evento deste tipo nesta operação." : "Nenhuma ocorrência registrada."}</p>}
     <p>Histórico neste navegador por nome do projeto e tag. Últimas 20 operações, até 600 leituras e 100 eventos por operação.</p>
     {storageIssue && <p role="alert">Armazenamento local indisponível. A consulta ou a gravação do histórico pode estar incompleta.</p>}
   </section>;

@@ -138,10 +138,20 @@ test("fills the solids silo only when feeder and conveyor both run", async ({ pa
   await expect(dryer.getByRole("status")).toHaveText("Lote seco", { timeout: 10000 });
   await expect(dryer).toContainText("2 / 2 s");
   await expect(dryer.getByText(/Umidade simulada dos grãos/)).toContainText("23%");
+  const batches = page.getByRole("region", { name: "Histórico de lotes secos" });
+  await expect(batches.getByRole("listitem")).toHaveCount(1);
+  await expect(batches.getByRole("listitem")).toContainText("24% → 23%");
   await dryer.getByRole("button", { name: "Retirar lote seco" }).click();
   await expect(dryer.getByRole("status")).toHaveText("Aguardando grãos");
   await expect(dryer.getByLabel("Umidade final máxima (%)")).toHaveValue("23");
   await expect(dryer.getByLabel("Umidade inicial do lote (%)")).toHaveValue("22");
+  await page.reload();
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
+  await page.getByRole("button", { name: "Operação", exact: true }).click();
+  await expect(batches.getByRole("listitem")).toHaveCount(1);
+  await expect(batches.getByRole("listitem")).toContainText("60 kg");
+  await expect(batches.getByRole("listitem")).toContainText("24% → 23%");
 });
 test("records the high mass alarm, its acknowledgment and its return across reload", async ({ page }) => {
   const loadDose = async () => {

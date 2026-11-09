@@ -3,6 +3,7 @@ import { ActiveSelection, Canvas, Pattern, Path } from "fabric";
 import { PortOverlay, portPosition, portSides, connectionPath, type DrawingSession, type DrawingPort } from "./PortOverlay";
 import { arrange, layoutLabels, moveTogether, type LayoutAction } from "./layout";
 import { OperationHistory } from "./OperationHistory";
+import { BatchHistory } from "./BatchHistory";
 import { ProjectLibrary } from "./ProjectLibrary";
 import { ProjectTools } from "./ProjectTools";
 import { dosingExample, processExample } from "./processExample";
@@ -498,6 +499,7 @@ export default function Editor({
             {batch.phase === "finished" && <button disabled={!simulation.ready || simulation.busy} onClick={simulation.releaseBatch}>Retirar lote seco</button>}
           </>}
         </section>}
+        {ovenTag && <BatchHistory scope={JSON.stringify([project.name, ovenTag])} batch={batch} unit={measured?.unit ?? ""} />}
         <div className="simulation-values">{project.variables.map(variable => <div key={variable.name}>
           <strong>{variable.name}</strong><output aria-label={`Valor de ${variable.name}`}>{simulation.ready ? `${String(simulation.values[variable.name])} ${variable.unit}` : "Indisponível"}</output>
           {variable.dataType === "BOOLEAN" ? <button disabled={!simulation.ready || simulation.busy} onClick={() => simulation.write(variable.name, !simulation.values[variable.name])}>Alternar {variable.name}</button>

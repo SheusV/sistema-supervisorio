@@ -34,7 +34,13 @@ export function useProjectSimulation(variables: ProjectVariable[], enabled: bool
       if (ovenTag && (!Number.isFinite(data.discharged) || data.discharged < 0)) throw new Error("Descarga inválida do simulador.");
       if (epoch === generation.current) {
         currentValues.current = data.values; setValues(data.values); setReady(true);
-        if (ovenTag && seconds > 0) setBatch(previous => advanceBatch(previous, data.discharged, data.values[ovenTag] === true, seconds));
+        if (ovenTag && seconds > 0) {
+          const at = Date.now();
+          setBatch(previous => {
+            const next = advanceBatch(previous, data.discharged, data.values[ovenTag] === true, seconds);
+            return previous.phase !== "finished" && next.phase === "finished" ? { ...next, finishedAt: at } : next;
+          });
+        }
       }
     } catch (cause) {
       if (epoch === generation.current) { setAutomatic(false); setReady(false); setError(cause instanceof Error && cause.name !== "TimeoutError" ? cause.message : "Simulador sem resposta. Tente reconectar."); }
@@ -65,7 +71,8 @@ export function useProjectSimulation(variables: ProjectVariable[], enabled: bool
       if (!ready || pending.current || !ovenTag || !currentValues.current[ovenTag] ||
         !Number.isFinite(moistureTarget) || moistureTarget < 0 || moistureTarget > 100 ||
         !Number.isFinite(target) || target < 20 || target > 120 || !Number.isInteger(duration) || duration < 1 || duration > 3600) return;
-      setBatch(b => b.phase === "loading" && b.mass > 0 ? { ...b, target, duration, moistureTarget, phase: "running" } : b);
+      const id = crypto.randomUUID(), started = Date.now();
+      setBatch(b => b.phase === "loading" && b.mass > 0 ? { ...b, id, started, initialMoisture: b.moisture, target, duration, moistureTarget, phase: "running" } : b);
     },
     releaseBatch: () => { if (ready && !pending.current) setBatch(b => b.phase === "finished" ? { ...emptyBatch, target: b.target, duration: b.duration, moistureTarget: b.moistureTarget } : b); },
     toggleAutomatic: () => { if (rule && ready && !pending.current) setAutomatic(value => !value); },

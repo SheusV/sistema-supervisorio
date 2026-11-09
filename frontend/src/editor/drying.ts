@@ -1,4 +1,8 @@
 export interface Batch {
+  id?: string;
+  started?: number;
+  finishedAt?: number;
+  initialMoisture?: number;
   phase: "loading" | "running" | "finished";
   mass: number;
   temperature: number;

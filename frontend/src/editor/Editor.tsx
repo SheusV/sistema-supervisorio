@@ -467,7 +467,7 @@ export default function Editor({
         {project.simulation && <div className="automatic-controls">
           <button disabled={!simulation.ready || simulation.busy} aria-pressed={simulation.automatic} onClick={simulation.toggleAutomatic}>{simulation.automatic ? "Pausar simulação automática" : "Iniciar simulação automática"}</button>
           <span>{simulation.automatic ? "Em execução" : "Pausada"} · {project.simulation.levelTag} · entrada {project.simulation.fillRate}, saída {project.simulation.drainRate} por segundo simulado</span>
-          {!!project.simulation.drainTags?.length && <p>Descarga · {project.simulation.drainTags.join(" + ")} · {simulation.ready ? ovenTag && batch.phase !== "loading" ? "Bloqueada pelo lote no forno" : project.simulation.drainTags.every(name => simulation.values[name] === true) ? "Liberada" : "Bloqueada" : "Indisponível"}</p>}
+          {!!project.simulation.drainTags?.length && <p>Descarga · {project.simulation.drainTags.join(" + ")} · {simulation.ready ? ovenTag && (batch.phase !== "loading" || batch.mass >= batch.capacity) ? "Bloqueada pelo lote no forno" : project.simulation.drainTags.every(name => simulation.values[name] === true) ? "Liberada" : "Bloqueada" : "Indisponível"}</p>}
           {project.simulation.permitTag && <p>Permissão de entrada · {project.simulation.permitTag} · {simulation.ready ? simulation.values[project.simulation.permitTag] ? "Liberada" : "Bloqueada" : "Indisponível"}</p>}
           <p>Um segundo simulado por ciclo confirmado. Lentidão ou aba em segundo plano pode reduzir a velocidade; não há recuperação de tempo perdido.</p>
         </div>}
@@ -477,11 +477,12 @@ export default function Editor({
           <h3>Secagem dos grãos</h3>
           <p>Com a simulação em execução, ligue o triturador e o forno para receber grãos. Iniciar a secagem fecha a entrada do lote até a retirada.</p>
           <p role="status">{!simulation.ready ? "Sem comunicação" : batch.phase === "finished" ? "Lote seco" :
-            batch.phase === "loading" ? batch.mass > 0 ? "Recebendo lote" : "Aguardando grãos" :
+            batch.phase === "loading" ? batch.mass >= batch.capacity ? "Forno cheio · descarga bloqueada" : batch.mass > 0 ? "Recebendo lote" : "Aguardando grãos" :
             !simulation.automatic || !simulation.values[ovenTag] ? "Secagem pausada" :
             batch.temperature < batch.target ? "Aquecendo" : batch.elapsed >= batch.duration ? "Secando até a umidade final" :
             batch.moisture <= batch.moistureTarget ? "Cumprindo tempo mínimo" : "Secando"}</p>
           <p>Massa carregada: <strong>{batch.mass.toLocaleString("pt-BR")} {measured?.unit}</strong> · Temperatura simulada: <strong>{batch.temperature.toLocaleString("pt-BR")} °C</strong></p>
+          <p>Capacidade do forno · {batch.capacity.toLocaleString("pt-BR")} {measured?.unit}</p>
           <p>Umidade simulada dos grãos: <strong>{batch.mass > 0 && simulation.ready ? batch.moisture.toLocaleString("pt-BR", {maximumFractionDigits: 2}) + "%" : "—"}</strong></p>
           {batch.phase === "loading" ? <form className="project-form" onSubmit={e => {
             e.preventDefault();

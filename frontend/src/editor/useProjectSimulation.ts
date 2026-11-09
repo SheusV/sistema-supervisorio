@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ProjectVariable, TankRule } from "./project";
-import { advanceBatch, emptyBatch, newBatch, sampleBatch } from "./drying";
+import { advanceBatch, batchDischargeRate, emptyBatch, newBatch, sampleBatch } from "./drying";
 
 export function useProjectSimulation(variables: ProjectVariable[], enabled: boolean, rule?: TankRule, ovenTag?: string) {
   const [batch, setBatch] = useState(emptyBatch);
@@ -20,7 +20,7 @@ export function useProjectSimulation(variables: ProjectVariable[], enabled: bool
     pending.current = true; setBusy(true); setError("");
     try {
       // Alarm limits belong to the display; the Java endpoint accepts only the physical rule.
-      const calculation = rule && { levelTag: rule.levelTag, enableTag: rule.enableTag, permitTag: rule.permitTag, drainTags: rule.drainTags, fillRate: rule.fillRate, drainRate: ovenTag && batch.phase !== "loading" ? 0 : rule.drainRate };
+      const calculation = rule && { levelTag: rule.levelTag, enableTag: rule.enableTag, permitTag: rule.permitTag, drainTags: rule.drainTags, fillRate: rule.fillRate, drainRate: ovenTag ? batchDischargeRate(batch, rule.drainRate, seconds) : rule.drainRate };
       const response = await fetch("/api/simulation/evaluate", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ variables, values: next, ...(calculation ? { rule: calculation, seconds } : {}) }), signal: AbortSignal.timeout(8000),

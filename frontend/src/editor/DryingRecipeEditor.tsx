@@ -14,12 +14,14 @@ export function DryingRecipeEditor({ project, commit }: { project: HmiProject; c
       commit({ ...project, simulation: { ...rule, dryingRecipe: {
         target: Number(fields.get("target")), duration: Number(fields.get("duration")),
         moisture: Number(fields.get("moisture")), moistureTarget: Number(fields.get("moistureTarget")),
+        capacity: Number(fields.get("capacity")),
       } } });
     }}>
       <label>Temperatura da receita (°C)<input name="target" type="number" min="20" max="120" step="any" defaultValue={recipe.target} required /></label>
       <label>Tempo mínimo da receita (s)<input name="duration" type="number" min="1" max="3600" defaultValue={recipe.duration} required /></label>
       <label>Umidade inicial da receita (%)<input name="moisture" type="number" min="0" max="100" step="any" defaultValue={recipe.moisture} required /></label>
       <label>Umidade final da receita (%)<input name="moistureTarget" type="number" min="0" max="100" step="any" defaultValue={recipe.moistureTarget} required /></label>
+      <label>Capacidade do forno ({project.variables?.find(v => v.name === rule.levelTag)?.unit || "unidade da tag"})<input name="capacity" type="number" min="1" max="1000000" step="any" defaultValue={recipe.capacity} required /></label>
       <button>Salvar receita no projeto</button>
     </form>
   </section>;

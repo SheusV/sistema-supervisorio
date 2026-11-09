@@ -8,7 +8,7 @@ describe("process projects", () => {
     project.simulation!.dryingRecipe = { target: 45, duration: 15, moisture: 28, moistureTarget: 12 };
     expect(parseProject(serializeProject(project))).toEqual(project);
     for (const invalid of [
-      { target: 121 }, { duration: 1.5 }, { moisture: -1 }, { moistureTarget: 101 }, { script: "anything" },
+      { target: 121 }, { duration: 1.5 }, { moisture: -1 }, { moistureTarget: 101 }, { capacity: 0 }, { script: "anything" },
     ]) {
       expect(() => serializeProject({ ...project, simulation: { ...project.simulation!,
         dryingRecipe: { ...project.simulation!.dryingRecipe!, ...invalid },

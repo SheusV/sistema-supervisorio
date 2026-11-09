@@ -108,7 +108,7 @@ test("restores a saved drying recipe through JSON and applies it in operation", 
   await recipe.getByLabel("Umidade final da receita (%)").fill("12");
   await recipe.getByRole("button", { name: "Salvar receita no projeto" }).click();
   const document = await exportProject(page);
-  expect(document.simulation.dryingRecipe).toEqual({ target: 45, duration: 15, moisture: 28, moistureTarget: 12 });
+  expect(document.simulation.dryingRecipe).toEqual({ target: 45, duration: 15, moisture: 28, moistureTarget: 12, capacity: 1000 });
   await page.getByRole("button", { name: "Nova tela", exact: true }).click();
   await page.getByLabel("Arquivo de projeto").setInputFiles({
     name: "receita.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(document)),
@@ -119,6 +119,34 @@ test("restores a saved drying recipe through JSON and applies it in operation", 
   await expect(dryer.getByLabel("Tempo mínimo de secagem (s)")).toHaveValue("15");
   await expect(dryer.getByLabel("Umidade inicial do lote (%)")).toHaveValue("28");
   await expect(dryer.getByLabel("Umidade final máxima (%)")).toHaveValue("12");
+});
+
+test("preserves excess grain in the silo when the oven fills and resumes after removal", async ({ page }) => {
+  await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
+  const recipe = page.getByRole("region", { name: "Receita de secagem do projeto" });
+  await recipe.getByLabel("Capacidade do forno (kg)").fill("45");
+  await recipe.getByRole("button", { name: "Salvar receita no projeto" }).click();
+  await page.getByRole("button", { name: "Operação", exact: true }).click();
+  for (const name of ["Alternar TRITURADOR.RUN", "Alternar FORNO.RUN", "Iniciar simulação automática"]) {
+    await page.getByRole("button", { name }).click();
+  }
+  const dryer = page.getByRole("region", { name: "Secagem dos grãos" });
+  const mass = page.getByLabel("Valor de SILO.MASSA", { exact: true });
+  await expect(dryer.getByRole("status")).toHaveText("Forno cheio · descarga bloqueada");
+  await expect(mass).toHaveText("155 kg");
+  await page.waitForTimeout(1200);
+  await expect(mass).toHaveText("155 kg");
+  await dryer.getByLabel("Temperatura alvo (°C)").fill("25");
+  await dryer.getByLabel("Tempo mínimo de secagem (s)").fill("1");
+  await dryer.getByLabel("Umidade final máxima (%)").fill("100");
+  await dryer.getByRole("button", { name: "Iniciar secagem" }).click();
+  await expect(dryer.getByRole("status")).toHaveText("Lote seco");
+  await expect(mass).toHaveText("155 kg");
+  await page.getByRole("button", { name: "Pausar simulação automática" }).click();
+  await dryer.getByRole("button", { name: "Retirar lote seco" }).click();
+  await page.getByRole("button", { name: "Iniciar simulação automática" }).click();
+  await expect(dryer.getByRole("status")).toHaveText("Forno cheio · descarga bloqueada");
+  await expect(mass).toHaveText("110 kg");
 });
 
 test("fills the solids silo only when feeder and conveyor both run", async ({ page }) => {

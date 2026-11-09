@@ -1,10 +1,12 @@
 export interface DryingRecipe {
+  capacity?: number;
   target: number;
   duration: number;
   moisture: number;
   moistureTarget: number;
 }
 export interface Batch {
+  capacity: number;
   id?: string;
   started?: number;
   finishedAt?: number;
@@ -21,12 +23,20 @@ export interface Batch {
 }
 
 export const emptyBatch: Batch = {
+  capacity: 1000,
   phase: "loading", mass: 0, temperature: 20, target: 60, duration: 30, elapsed: 0,
   moisture: 22, moistureTarget: 14,
 };
 
 export function newBatch(recipe?: DryingRecipe): Batch {
   return { ...emptyBatch, ...recipe };
+}
+
+export function batchDischargeRate(batch: Batch, rate: number, seconds: number): number {
+  if (batch.phase !== "loading") return 0;
+  const remaining = Math.max(0, batch.capacity - batch.mass);
+  if (remaining === 0) return 0;
+  return seconds > 0 ? Math.min(rate, remaining / seconds) : rate;
 }
 
 export function sampleBatch(batch: Batch, at: number, available = true): Batch {

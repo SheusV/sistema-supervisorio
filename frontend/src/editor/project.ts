@@ -261,10 +261,10 @@ export function parseProject(raw: string): HmiProject {
     const limit = rule.highLimit === undefined ? {} : { highLimit: number(rule.highLimit, measured.min, measured.max) };
     let dryingRecipe: DryingRecipe | undefined;
     if (rule.dryingRecipe !== undefined) {
-      const recipe = record(rule.dryingRecipe, ["target", "duration", "moisture", "moistureTarget"]);
+      const recipe = record(rule.dryingRecipe, ["target", "duration", "moisture", "moistureTarget"], ["capacity"]);
       const duration = number(recipe.duration, 1, 3600);
       if (!Number.isInteger(duration)) throw new Error("O tempo de secagem exige segundos inteiros.");
-      dryingRecipe = { target: number(recipe.target, 20, 120), duration,
+      dryingRecipe = { ...(recipe.capacity === undefined ? {} : { capacity: number(recipe.capacity, 1, 1000000) }), target: number(recipe.target, 20, 120), duration,
         moisture: number(recipe.moisture, 0, 100), moistureTarget: number(recipe.moistureTarget, 0, 100) };
     }
     simulation = { ...limit, ...(dryingRecipe ? { dryingRecipe } : {}), ...(drainTags?.length ? { drainTags } : {}), ...(typeof rule.permitTag === "string" ? { permitTag: rule.permitTag } : {}), levelTag: rule.levelTag, enableTag: rule.enableTag,

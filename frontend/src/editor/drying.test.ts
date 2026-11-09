@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { advanceBatch, emptyBatch, sampleBatch, type Batch } from "./drying";
+import { advanceBatch, batchDischargeRate, emptyBatch, sampleBatch, type Batch } from "./drying";
 
 it("counts only time at target, including after an interruption", () => {
   let batch: Batch = { ...emptyBatch, phase: "running", mass: 60, target: 27, duration: 2, moistureTarget: 22 };
@@ -40,4 +40,17 @@ it("retains a communication gap in the bounded batch curve", () => {
     { at: 612, temperature: 20, moisture: 22 },
   ]);
   expect(batch.samples).toHaveLength(600);
+});
+
+it("limits transfer before the silo is drained and reopens after a fresh batch", () => {
+  let batch = { ...emptyBatch, capacity: 45 };
+  batch = advanceBatch(batch, batchDischargeRate(batch, 30, 1), true, 1);
+  expect(batch.mass).toBe(30);
+  const lastTransfer = batchDischargeRate(batch, 30, 1);
+  expect(lastTransfer).toBe(15);
+  batch = advanceBatch(batch, lastTransfer, true, 1);
+  expect(batch.mass).toBe(45);
+  expect(batchDischargeRate(batch, 30, 1)).toBe(0);
+  expect(batchDischargeRate({ ...batch, phase: "running" }, 30, 1)).toBe(0);
+  expect(batchDischargeRate({ ...emptyBatch, capacity: 45 }, 30, 1)).toBe(30);
 });

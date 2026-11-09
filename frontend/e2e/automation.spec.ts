@@ -214,6 +214,52 @@ test("fills the solids silo only when feeder and conveyor both run", async ({ pa
   expect(csv).toContain('"60";"kg"');
   expect(csv).toContain('"24";"23";"23"');
 });
+test("configures independent alarms, filters priorities, acknowledges and restores event history", async ({ page }) => {
+  await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
+  await page.locator("summary").filter({ hasText: "Alarmes do projeto" }).click();
+  const form = page.locator("details").filter({ has: page.locator("summary").filter({ hasText: "Alarmes do projeto" }) });
+  const create = async (name: string, tag: string, kind: string, priority: string, threshold?: string) => {
+    await form.getByLabel("Tag do alarme").selectOption(tag);
+    await form.getByLabel("Nome do alarme", { exact: true }).fill(name);
+    await form.getByLabel("Condição do alarme").selectOption(kind);
+    await form.getByLabel("Prioridade do alarme").selectOption(priority);
+    if (threshold) await form.getByLabel("Limite do alarme", { exact: true }).fill(threshold);
+    await form.getByRole("button", { name: "Criar alarme", exact: true }).click();
+  };
+  await create("Massa baixa", "SILO.MASSA", "low", "Alta", "250");
+  await create("Massa alta extra", "SILO.MASSA", "high", "Média", "300");
+  await create("Dosador ligado", "DOSADOR.RUN", "on", "Baixa");
+  await form.getByRole("button", { name: "Editar alarme Dosador ligado" }).click();
+  await form.getByLabel("Nome do alarme", { exact: true }).fill("Dosador ativo");
+  await form.getByRole("button", { name: "Salvar alarme", exact: true }).click();
+  const document = await exportProject(page);
+  expect(document.alarmRules).toHaveLength(5);
+  await page.getByRole("button", { name: "Operação", exact: true }).click();
+  const center = page.getByRole("region", { name: "Central de alarmes" });
+  const row = (name: string) => center.locator("ul.project-items > li").filter({ hasText: name });
+  await expect(row("Massa baixa").getByRole("status")).toHaveText("Ativo");
+  await center.getByRole("button", { name: "Reconhecer Massa baixa", exact: true }).click();
+  await expect(row("Massa baixa").getByRole("status")).toHaveText("Reconhecido");
+  await page.getByLabel("Novo valor de SILO.MASSA").fill("400");
+  await page.getByRole("button", { name: "Aplicar SILO.MASSA" }).click();
+  await expect(row("Massa alta extra").getByRole("status")).toHaveText("Ativo");
+  await expect(row("Massa baixa").getByRole("status")).toHaveText("Normal");
+  await page.getByRole("button", { name: "Alternar DOSADOR.RUN" }).click();
+  await expect(row("Dosador ativo").getByRole("status")).toHaveText("Ativo");
+  await center.getByLabel("Filtrar prioridade").selectOption("Baixa");
+  await center.getByRole("button", { name: "Reconhecer alarmes visíveis" }).click();
+  await expect(row("Dosador ativo").getByRole("status")).toHaveText("Reconhecido");
+  await center.getByLabel("Filtrar prioridade").selectOption("");
+  await expect(row("Massa alta extra").getByRole("status")).toHaveText("Ativo");
+  await page.reload();
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await page.getByLabel("Arquivo de projeto").setInputFiles({
+    name: "alarmes.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(document)),
+  });
+  await page.getByRole("button", { name: "Operação", exact: true }).click();
+  await expect(center.locator("ol")).toContainText("Dosador ativo · Reconhecimento");
+});
+
 test("delays a high alarm and retains it until the hysteresis return threshold", async ({ page }) => {
   await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
   await page.locator("summary").filter({ hasText: "Simulação automática" }).click();

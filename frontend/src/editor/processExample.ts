@@ -37,6 +37,10 @@ export function dosingExample(): HmiProject {
   const drives = ["DOSADOR.RUN", "ESTEIRA.RUN", "MISTURA.RUN", "TRITURADOR.RUN", "FORNO.RUN"];
   return {
     schemaVersion: 2, name: "Dosagem de sólidos", screen: { width: 1200, height: 720 },
+    alarmRules: [
+      { id: "silo-low", name: "Reserva baixa do silo", tag: "SILO.MASSA", kind: "low", priority: "Média", threshold: 50, hysteresis: 25, delaySeconds: 2 },
+      { id: "silo-capacity", name: "Silo próximo da capacidade", tag: "SILO.MASSA", kind: "high", priority: "Alta", threshold: 900, hysteresis: 50, delaySeconds: 2 },
+    ],
     variables: [
       ...drives.map(name => ({ name, dataType: "BOOLEAN" as const, unit: "", initial: false, min: 0, max: 1 })),
       { name: "SILO.MASSA", dataType: "DOUBLE", unit: "kg", initial: 200, min: 0, max: 1000 },

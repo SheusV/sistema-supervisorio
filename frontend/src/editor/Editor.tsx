@@ -3,6 +3,7 @@ import { ActiveSelection, Canvas, Pattern, Path } from "fabric";
 import { PortOverlay, portPosition, portSides, connectionPath, type DrawingSession, type DrawingPort } from "./PortOverlay";
 import { arrange, layoutLabels, moveTogether, type LayoutAction } from "./layout";
 import { OperationHistory } from "./OperationHistory";
+import { AlarmCenter } from "./AlarmCenter";
 import { BatchHistory } from "./BatchHistory";
 import { BatchCurves } from "./BatchCurves";
 import { ProjectLibrary } from "./ProjectLibrary";
@@ -414,7 +415,7 @@ export default function Editor({
           <button
             disabled={!editing}
             onClick={() => {
-              const { simulation: _removed, ...base } = project;
+              const { simulation: _removed, alarmRules: _alarms, ...base } = project;
               change({ ...base, name: "Nova tela", components: [], variables: [], connections: [] });
               setSelectedIds([]);
               setMessage("Tela criada. Desfazer recupera a tela anterior.");
@@ -514,6 +515,8 @@ export default function Editor({
       </section>}
       {!editing && measured && <OperationHistory key={JSON.stringify([project.name, measured.name])} projectName={project.name} variable={measured}
         limit={project.simulation?.highLimit} hysteresis={project.simulation?.highHysteresis} delaySeconds={project.simulation?.highDelaySeconds} dark={dark} ready={simulation.ready} values={simulation.values} />}
+      {!editing && !!project.alarmRules?.length && <AlarmCenter key={JSON.stringify([project.name, project.alarmRules])}
+        project={project.name} rules={project.alarmRules} variables={project.variables ?? []} ready={simulation.ready} values={simulation.values} />}
       <div className={`editor-layout ${editing ? "" : "operating-layout"}`}>
         <aside
           className="component-library"

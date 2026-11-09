@@ -1,5 +1,6 @@
 import type { TagName } from "../tags/model";
 import type { DryingRecipe } from "./drying";
+import { parseAlarmRules, type AlarmRule } from "./alarmRules";
 
 export type ComponentKind = "tank" | "pump" | "indicator" | "text" | "valve" | "motor" | "sensor" | "button" | "setpoint" | "rectangle" | "ellipse" | "silo" | "conveyor" | "feeder" | "mixer" | "crusher" | "oven";
 export interface ProjectVariable {
@@ -32,6 +33,7 @@ export interface HmiComponent {
   rangeMax?: number;
 }
 export interface HmiProject {
+  alarmRules?: AlarmRule[];
   schemaVersion: 1 | 2;
   name: string;
   screen: { width: 1200; height: 720 };
@@ -149,10 +151,10 @@ export function parseProject(raw: string): HmiProject {
     "name",
     "screen",
     "components",
-  ], ["variables", "connections", "simulation"]);
+  ], ["variables", "connections", "simulation", "alarmRules"]);
   if (project.schemaVersion !== 1 && project.schemaVersion !== 2)
     throw new Error("Versão de projeto não suportada.");
-  if (project.schemaVersion === 1 && (project.variables !== undefined || project.connections !== undefined || project.simulation !== undefined))
+  if (project.schemaVersion === 1 && (project.variables !== undefined || project.connections !== undefined || project.simulation !== undefined || project.alarmRules !== undefined))
     throw new Error("Tags próprias e ligações exigem projeto versão 2.");
   const variables: ProjectVariable[] = [];
   if (project.schemaVersion === 2) {
@@ -283,6 +285,7 @@ export function parseProject(raw: string): HmiProject {
     components,
     ...(project.schemaVersion === 2 ? { variables, connections } : {}),
     ...(simulation ? { simulation } : {}),
+    ...(project.alarmRules === undefined ? {} : { alarmRules: parseAlarmRules(project.alarmRules, variables) }),
   };
 }
 export function replaceVariable(project: HmiProject, previousName: string, variable: ProjectVariable): HmiProject {
@@ -291,6 +294,7 @@ export function replaceVariable(project: HmiProject, previousName: string, varia
     variables: project.variables.map(v => v.name === previousName ? variable : v),
     components: project.components.map(c => c.binding === previousName ? { ...c, binding: variable.name } : c),
     connections: project.connections?.map(c => c.binding === previousName ? { ...c, binding: variable.name } : c),
+    ...(project.alarmRules ? { alarmRules: project.alarmRules.map(rule => rule.tag === previousName ? { ...rule, tag: variable.name } : rule) } : {}),
     ...(project.simulation ? { simulation: { ...project.simulation,
       levelTag: project.simulation.levelTag === previousName ? variable.name : project.simulation.levelTag,
       ...(project.simulation.drainTags ? { drainTags: project.simulation.drainTags.map(name => name === previousName ? variable.name : name) } : {}),

@@ -4,6 +4,7 @@ import type { Batch } from "./drying";
 export interface RecordedBatch { id: string; scope: string; started: number; unit: string; batch: Batch }
 
 export interface RecordedRun {
+  alarmName?: string; alarmPriority?: string;
   id: string; scope: string; started: number;
   unit: string; min: number; max: number; limit?: number; hysteresis?: number; delaySeconds?: number; run: Run;
 }

@@ -1,5 +1,16 @@
 # Histórico de versões
 
+## 0.10.0 — 09/11/2026
+
+- Regras independentes de alarme por tag, com valores alto/baixo e estados booleanos.
+- Criação, edição e exclusão de regras com prioridade, histerese e confirmação temporizada.
+- Central de alarmes com filtros de prioridade e estado, reconhecimento individual e dos alarmes visíveis.
+- Histórico local de ocorrências por regra, incluindo reconhecimento e falhas de comunicação.
+- Importação/exportação das regras no projeto, atualização de vínculos ao renomear tags e limpeza ao excluir tags ou criar uma tela.
+- Exemplo de dosagem com alarmes de reserva baixa e proximidade da capacidade.
+
+Os incrementos entre 0.9.0 e 0.10.0 também acrescentaram triturador e forno, receitas de secagem, temperatura, umidade, capacidade do forno, histórico e curvas de lotes e exportação CSV. A lógica de secagem permanece demonstrativa.
+
 ## 0.9.0 — 08/11/2026
 
 - Alarme de massa alta do silo com limite editável, reconhecimento e registro de retorno ao normal.

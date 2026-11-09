@@ -1,5 +1,13 @@
 # NEXO — Supervisão e engenharia de telas
 
+## Atualização 0.10.0
+
+O editor permite criar até 32 alarmes independentes para tags próprias em **Edição → Alarmes do projeto**. Configure condição de valor alto/baixo ou estado booleano, prioridade, margem de retorno e atraso. Em **Operação → Central de alarmes**, acompanhe os estados, filtre por prioridade e estado e reconheça alarmes individualmente ou pelo filtro. Os eventos ficam neste navegador e as regras acompanham o projeto salvo ou exportado.
+
+O exemplo de dosagem inclui silo, triturador e forno, com receita de temperatura, tempo mínimo, umidades e capacidade. A descarga para quando o forno fica cheio. Lotes concluídos e suas curvas podem ser reabertos, e o resumo dos lotes pode ser exportado em CSV.
+
+Os alarmes da central monitoram as tags próprias do projeto. Os valores internos do ciclo térmico do forno são apresentados nos controles e gráficos de secagem. Os históricos locais dependem do perfil do navegador e do endereço do site. Lotes em andamento ficam na sessão.
+
 Plataforma SCADA/HMI com backend Java e interface web. Use o interruptor de sol e lua no cabeçalho para alternar o tema. A escolha fica guardada no navegador. Na versão **0.9.0**, a operação do silo mostra gráfico de massa, alarme alto e histórico local. Em **Ajuda → Aparência**, você pode voltar ao tema do sistema. Para experimentar os equipamentos de sólidos, abra **Editor → Exemplo de dosagem → Operação** para testar silo, esteira, dosador de rosca e misturador. Inicie a simulação automática e ligue o dosador e a esteira para alimentar o silo a 20 kg por segundo simulado, até 1000 kg. O misturador tem comando independente. Em **Simulação automática**, a permissão de entrada aceita uma tag booleana do projeto. Na biblioteca local, o editor guarda telas na biblioteca **Projetos salvos** deste navegador. Para conectar equipamentos, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
 
 ## Recursos disponíveis

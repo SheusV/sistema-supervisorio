@@ -45,7 +45,10 @@ export function OperationHistory({ projectName, variable, limit, dark, ready, va
   const threshold = archived ? archived.limit : limit;
   const unit = archived?.unit ?? variable.unit;
   const value = run.samples.at(-1)?.value;
-  const status = value == null ? "Sem leitura" : run.high ? run.acknowledged ? "Alto · reconhecido" : "Alto · aguardando reconhecimento" : "Normal";
+  const alarmStatus = run.acknowledged ? "Alto · reconhecido" : "Alto · aguardando reconhecimento";
+  const status = value == null
+    ? run.high ? `Sem leitura · último estado: ${alarmStatus}` : "Sem leitura"
+    : run.high ? alarmStatus : "Normal";
   return <section className="operation-history" aria-label="Alarmes e histórico">
     <h2>{variable.name === "SILO.MASSA" ? "Histórico da dosagem" : "Histórico da operação"}</h2>
     <label>Operação <select value={selected} onChange={e => select(e.target.value)}>
@@ -56,7 +59,7 @@ export function OperationHistory({ projectName, variable, limit, dark, ready, va
     {threshold !== undefined && <div className={run.high ? "alarm-line high" : "alarm-line"}>
       <strong>{variable.name === "SILO.MASSA" ? "Massa alta do silo" : "Alarme alto"}</strong>
       <span>Limite ≥ {threshold} {unit}</span><span role="status">{status}</span>
-      {!archived && run.high && !run.acknowledged && <button disabled={!ready} onClick={() => {
+      {!archived && run.high && !run.acknowledged && <button disabled={!ready || value == null} onClick={() => {
         const at = Date.now(); setLive(previous => acknowledge(previous, at));
       }}>Reconhecer alarme</button>}
     </div>}

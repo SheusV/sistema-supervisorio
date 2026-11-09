@@ -147,3 +147,29 @@ test("records the high mass alarm, its acknowledgment and its return across relo
   await expect(panel.getByText(/Última leitura/)).toContainText("790 kg");
   await expect(panel.getByRole("listitem")).toHaveText([/Retorno ao normal/, /Reconhecimento/, /Ativação/]);
 });
+
+test("keeps the silo alarm visible through a lost reading and reconnection", async ({ page }) => {
+  await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
+  await page.getByRole("button", { name: "Operação", exact: true }).click();
+  const panel = page.getByRole("region", { name: "Alarmes e histórico" });
+  const apply = page.getByRole("button", { name: "Aplicar SILO.MASSA" });
+  const input = page.getByLabel("Novo valor de SILO.MASSA");
+  await input.fill("800");
+  await apply.click();
+  await expect(panel.getByRole("status")).toHaveText("Alto · aguardando reconhecimento");
+  const endpoint = "**/api/simulation/evaluate";
+  await page.route(endpoint, route => route.abort());
+  await input.fill("790");
+  await apply.click();
+  await expect(panel.getByRole("status")).toHaveText("Sem leitura · último estado: Alto · aguardando reconhecimento");
+  const acknowledge = panel.getByRole("button", { name: "Reconhecer alarme" });
+  await expect(acknowledge).toBeDisabled();
+  await page.unroute(endpoint);
+  await page.getByRole("button", { name: "Reconectar simulação" }).click();
+  await expect(acknowledge).toBeEnabled();
+  await acknowledge.click();
+  await expect(panel.getByRole("status")).toHaveText("Alto · reconhecido");
+  await expect(panel.getByRole("listitem")).toHaveText([
+    /Reconhecimento/, /Comunicação restabelecida/, /Comunicação perdida/, /Ativação/,
+  ]);
+});

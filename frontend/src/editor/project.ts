@@ -1,4 +1,5 @@
 import type { TagName } from "../tags/model";
+import type { DryingRecipe } from "./drying";
 
 export type ComponentKind = "tank" | "pump" | "indicator" | "text" | "valve" | "motor" | "sensor" | "button" | "setpoint" | "rectangle" | "ellipse" | "silo" | "conveyor" | "feeder" | "mixer" | "crusher" | "oven";
 export interface ProjectVariable {
@@ -6,6 +7,7 @@ export interface ProjectVariable {
   initial: number | boolean; min: number; max: number;
 }
 export interface TankRule {
+  dryingRecipe?: DryingRecipe;
   levelTag: string; enableTag: string; permitTag?: string; drainTags?: string[]; highLimit?: number; fillRate: number; drainRate: number;
 }
 export type Port = "left" | "right" | "top" | "bottom";
@@ -244,7 +246,7 @@ export function parseProject(raw: string): HmiProject {
   }
   let simulation: TankRule | undefined;
   if (project.simulation !== undefined) {
-    const rule = record(project.simulation, ["levelTag", "enableTag", "fillRate", "drainRate"], ["permitTag", "highLimit", "drainTags"]);
+    const rule = record(project.simulation, ["levelTag", "enableTag", "fillRate", "drainRate"], ["permitTag", "highLimit", "drainTags", "dryingRecipe"]);
     if (typeof rule.levelTag !== "string" || typeof rule.enableTag !== "string"
       || !variables.some(v => v.name === rule.levelTag && v.dataType === "DOUBLE")
       || !variables.some(v => v.name === rule.enableTag && v.dataType === "BOOLEAN"))
@@ -257,7 +259,15 @@ export function parseProject(raw: string): HmiProject {
       new Set(drainTags).size !== drainTags.length)) throw new Error("A descarga exige tags booleanas distintas do projeto.");
     const measured = variables.find(v => v.name === rule.levelTag)!;
     const limit = rule.highLimit === undefined ? {} : { highLimit: number(rule.highLimit, measured.min, measured.max) };
-    simulation = { ...limit, ...(drainTags?.length ? { drainTags } : {}), ...(typeof rule.permitTag === "string" ? { permitTag: rule.permitTag } : {}), levelTag: rule.levelTag, enableTag: rule.enableTag,
+    let dryingRecipe: DryingRecipe | undefined;
+    if (rule.dryingRecipe !== undefined) {
+      const recipe = record(rule.dryingRecipe, ["target", "duration", "moisture", "moistureTarget"]);
+      const duration = number(recipe.duration, 1, 3600);
+      if (!Number.isInteger(duration)) throw new Error("O tempo de secagem exige segundos inteiros.");
+      dryingRecipe = { target: number(recipe.target, 20, 120), duration,
+        moisture: number(recipe.moisture, 0, 100), moistureTarget: number(recipe.moistureTarget, 0, 100) };
+    }
+    simulation = { ...limit, ...(dryingRecipe ? { dryingRecipe } : {}), ...(drainTags?.length ? { drainTags } : {}), ...(typeof rule.permitTag === "string" ? { permitTag: rule.permitTag } : {}), levelTag: rule.levelTag, enableTag: rule.enableTag,
       fillRate: number(rule.fillRate, 0, 1000), drainRate: number(rule.drainRate, 0, 1000) };
   }
   return {

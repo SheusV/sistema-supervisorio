@@ -99,6 +99,28 @@ test("draws a signal on the screen, cancels a draft and reopens the edited conne
   await expect(draw).toBeEnabled();
   expect((await exportProject(page)).connections.at(-1)).toEqual({ ...line, binding: "LINHA.HABILITADA" });
 });
+test("restores a saved drying recipe through JSON and applies it in operation", async ({ page }) => {
+  await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
+  const recipe = page.getByRole("region", { name: "Receita de secagem do projeto" });
+  await recipe.getByLabel("Temperatura da receita (°C)").fill("45");
+  await recipe.getByLabel("Tempo mínimo da receita (s)").fill("15");
+  await recipe.getByLabel("Umidade inicial da receita (%)").fill("28");
+  await recipe.getByLabel("Umidade final da receita (%)").fill("12");
+  await recipe.getByRole("button", { name: "Salvar receita no projeto" }).click();
+  const document = await exportProject(page);
+  expect(document.simulation.dryingRecipe).toEqual({ target: 45, duration: 15, moisture: 28, moistureTarget: 12 });
+  await page.getByRole("button", { name: "Nova tela", exact: true }).click();
+  await page.getByLabel("Arquivo de projeto").setInputFiles({
+    name: "receita.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(document)),
+  });
+  await page.getByRole("button", { name: "Operação", exact: true }).click();
+  const dryer = page.getByRole("region", { name: "Secagem dos grãos" });
+  await expect(dryer.getByLabel("Temperatura alvo (°C)")).toHaveValue("45");
+  await expect(dryer.getByLabel("Tempo mínimo de secagem (s)")).toHaveValue("15");
+  await expect(dryer.getByLabel("Umidade inicial do lote (%)")).toHaveValue("28");
+  await expect(dryer.getByLabel("Umidade final máxima (%)")).toHaveValue("12");
+});
+
 test("fills the solids silo only when feeder and conveyor both run", async ({ page }) => {
   await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
   const project = await exportProject(page);

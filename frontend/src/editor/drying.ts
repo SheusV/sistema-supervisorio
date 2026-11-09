@@ -1,3 +1,9 @@
+export interface DryingRecipe {
+  target: number;
+  duration: number;
+  moisture: number;
+  moistureTarget: number;
+}
 export interface Batch {
   id?: string;
   started?: number;
@@ -18,6 +24,10 @@ export const emptyBatch: Batch = {
   phase: "loading", mass: 0, temperature: 20, target: 60, duration: 30, elapsed: 0,
   moisture: 22, moistureTarget: 14,
 };
+
+export function newBatch(recipe?: DryingRecipe): Batch {
+  return { ...emptyBatch, ...recipe };
+}
 
 export function sampleBatch(batch: Batch, at: number, available = true): Batch {
   if (batch.phase === "loading") return batch;

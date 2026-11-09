@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { availableBindings, parseProject, replaceVariable, type HmiProject, type ProjectVariable, type Port, type ConnectionLine } from "./project";
 import { SimulationRuleEditor } from "./SimulationRuleEditor";
+import { DryingRecipeEditor } from "./DryingRecipeEditor";
 
 interface Props { project: HmiProject; change: (next: HmiProject) => void; report: (message: string) => void; }
 export function ProjectTools({ project, change, report }: Props) {
@@ -93,5 +94,6 @@ export function ProjectTools({ project, change, report }: Props) {
       <ul className="project-items">{project.connections?.map((line, index) => <li key={line.id}><span>{project.components.find(item => item.id === line.from)?.label} → {project.components.find(item => item.id === line.to)?.label} · {line.kind === "pipe" ? "Tubulação" : "Sinal"} · {line.binding ?? "Sem vínculo"}</span><div><button onClick={() => { setEditingLine(line.id); setFrom(line.from); setTo(line.to); setFromPort(line.fromPort); setToPort(line.toPort); setKind(line.kind); setBinding(line.binding ?? ""); lineForm.current?.scrollIntoView({ block: "center" }); }}>Editar ligação {index + 1}</button>{" "}<button onClick={() => commit({ ...project, connections: project.connections?.filter(item => item.id !== line.id) })}>Excluir ligação {index + 1}</button></div></li>)}</ul>
     </details>
     <SimulationRuleEditor project={project} commit={commit} />
+    <DryingRecipeEditor key={JSON.stringify(project.simulation?.dryingRecipe)} project={project} commit={commit} />
   </div>;
 }

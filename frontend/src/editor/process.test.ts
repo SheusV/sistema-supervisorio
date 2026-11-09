@@ -3,6 +3,18 @@ import { availableBindings, parseProject, removeComponents, replaceVariable, ser
 import { processExample, dosingExample } from "./processExample";
 
 describe("process projects", () => {
+  it("preserves a drying recipe on export and rejects invalid or unknown recipe fields", () => {
+    const project = dosingExample();
+    project.simulation!.dryingRecipe = { target: 45, duration: 15, moisture: 28, moistureTarget: 12 };
+    expect(parseProject(serializeProject(project))).toEqual(project);
+    for (const invalid of [
+      { target: 121 }, { duration: 1.5 }, { moisture: -1 }, { moistureTarget: 101 }, { script: "anything" },
+    ]) {
+      expect(() => serializeProject({ ...project, simulation: { ...project.simulation!,
+        dryingRecipe: { ...project.simulation!.dryingRecipe!, ...invalid },
+      } })).toThrow();
+    }
+  });
   it("preserves the solids equipment, validates tag types and follows a renamed permission", () => {
     const project = dosingExample();
     expect(parseProject(serializeProject(project))).toEqual(project);

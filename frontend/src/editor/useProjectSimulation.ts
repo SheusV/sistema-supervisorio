@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ProjectVariable, TankRule } from "./project";
-import { advanceBatch, emptyBatch, sampleBatch } from "./drying";
+import { advanceBatch, emptyBatch, newBatch, sampleBatch } from "./drying";
 
 export function useProjectSimulation(variables: ProjectVariable[], enabled: boolean, rule?: TankRule, ovenTag?: string) {
   const [batch, setBatch] = useState(emptyBatch);
@@ -55,7 +55,7 @@ export function useProjectSimulation(variables: ProjectVariable[], enabled: bool
   }
   useEffect(() => {
     const epoch = ++generation.current;
-    setBatch(emptyBatch);
+    setBatch(newBatch(rule?.dryingRecipe));
     pending.current = false; currentValues.current = {}; setAutomatic(false); setReady(false); setValues({}); setBusy(false); setError("");
     if (enabled && variables.length) void evaluate({}, epoch);
     return () => { generation.current++; };
@@ -79,7 +79,7 @@ export function useProjectSimulation(variables: ProjectVariable[], enabled: bool
       const id = crypto.randomUUID(), started = Date.now();
       setBatch(b => b.phase === "loading" && b.mass > 0 ? sampleBatch({ ...b, id, started, initialMoisture: b.moisture, target, duration, moistureTarget, phase: "running" }, started) : b);
     },
-    releaseBatch: () => { if (ready && !pending.current) setBatch(b => b.phase === "finished" ? { ...emptyBatch, target: b.target, duration: b.duration, moistureTarget: b.moistureTarget } : b); },
+    releaseBatch: () => { if (ready && !pending.current) setBatch(b => b.phase === "finished" ? { ...newBatch(rule?.dryingRecipe), target: b.target, duration: b.duration, moistureTarget: b.moistureTarget } : b); },
     toggleAutomatic: () => { if (rule && ready && !pending.current) setAutomatic(value => !value); },
     write: (name: string, value: number | boolean) => { if (ready) void evaluate({ ...currentValues.current, [name]: value }); },
     retry: () => void evaluate(currentValues.current),

@@ -1,4 +1,8 @@
-# Relatório de validação — versão 0.8.1
+# Relatório de validação — versão 0.8.2
+
+O teste de navegador verificou o interruptor por clique e teclado, preferência após recarga, redesenho do editor, retorno ao tema do sistema e acesso em tela estreita. O build de produção passou.
+
+## Resultados da versão 0.8.1
 
 Em 08/11/2026 passaram o build, os 58 testes de frontend e o cenário do tema no navegador. Foram verificados o modo Sistema, a preferência explícita após recarregar, a troca com o editor aberto e o seletor em tela de celular. [Sinótico escuro](screenshots/editor-tema-escuro.png).
 

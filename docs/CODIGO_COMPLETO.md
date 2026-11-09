@@ -1,4 +1,4 @@
-# Código completo — versão 0.8.1
+# Código completo — versão 0.8.2
 Cópia integral dos arquivos de autoria. Lockfile, ferramentas e capturas permanecem nos arquivos individuais.
 
 ## .dockerignore
@@ -719,6 +719,10 @@ class TankSimulatorTest {
 ````
 # Histórico de versões
 
+## 0.8.2 — 08/11/2026
+
+- Interruptor de sol e lua no cabeçalho. A opção de seguir o sistema fica em Ajuda → Aparência.
+
 ## 0.8.1 — 08/11/2026
 
 - Temas claro, escuro e do sistema na supervisão, tags, ajuda e editor, incluindo o sinótico. Preferência guardada no navegador.
@@ -1155,7 +1159,11 @@ Conexão com CLP físico, comandos de escrita e uso em produção exigem fases e
 ## docs/validation.md
 
 ````
-# Relatório de validação — versão 0.8.1
+# Relatório de validação — versão 0.8.2
+
+O teste de navegador verificou o interruptor por clique e teclado, preferência após recarga, redesenho do editor, retorno ao tema do sistema e acesso em tela estreita. O build de produção passou.
+
+## Resultados da versão 0.8.1
 
 Em 08/11/2026 passaram o build, os 58 testes de frontend e o cenário do tema no navegador. Foram verificados o modo Sistema, a preferência explícita após recarregar, a troca com o editor aberto e o seletor em tela de celular. [Sinótico escuro](screenshots/editor-tema-escuro.png).
 
@@ -1859,11 +1867,11 @@ import { test, expect } from "@playwright/test";
 test("theme follows the system, persists an override and redraws the editor", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/");
-  const theme = page.getByRole("combobox", { name: "Tema", exact: true });
+  const theme = page.getByRole("switch", { name: "Tema escuro", exact: true });
   const html = page.locator("html");
-  await expect(theme).toHaveValue("system");
+  await expect(theme).toBeChecked();
   await expect(html).toHaveAttribute("data-theme", "dark");
-  await theme.selectOption("light");
+  await theme.click();
   await page.reload();
   await expect(html).toHaveAttribute("data-theme", "light");
   await page.getByRole("button", { name: "Editor", exact: true }).click();
@@ -1871,12 +1879,15 @@ test("theme follows the system, persists an override and redraws the editor", as
   const canvas = page.locator("canvas.lower-canvas");
   const pixel = () => canvas.evaluate((el: HTMLCanvasElement) => Array.from(el.getContext("2d")!.getImageData(5, 5, 1, 1).data).slice(0, 3));
   await expect.poll(pixel).toEqual([255,255,255]);
-  await theme.selectOption("dark");
+  await theme.focus();
+  await theme.press("Space");
+  await expect(theme).toBeChecked();
   await expect.poll(pixel).toEqual([22,37,51]);
   await expect(page.getByLabel("Nome da tela")).toHaveValue("Dosagem de sólidos");
   await page.emulateMedia({ colorScheme: "light" });
   await expect(html).toHaveAttribute("data-theme", "dark");
-  await theme.selectOption("system");
+  await page.getByRole("button", { name: "Ajuda", exact: true }).click();
+  await page.getByRole("button", { name: "Usar tema do sistema" }).click();
   await expect(html).toHaveAttribute("data-theme", "light");
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(html).toHaveAttribute("data-theme", "dark");
@@ -1910,7 +1921,7 @@ test("theme follows the system, persists an override and redraws the editor", as
 ````
 {
   "name": "scada-hmi",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "private": true,
   "type": "module",
   "engines": {
@@ -2093,7 +2104,7 @@ export function App() {
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.8.1 · Engenharia</small>
+            <small>v0.8.2 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -2103,9 +2114,17 @@ export function App() {
             <strong>{page === "Editor" ? editorHistory.present.name : "Tanque TQ-001"}</strong>
           </span>
           <div className="header-actions">
-            <label>Tema <select value={theme} onChange={event => choose(event.target.value as typeof theme)}>
-              <option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Escuro</option>
-            </select></label>
+            <button type="button" role="switch" aria-checked={dark} aria-label="Tema escuro"
+              title={dark ? "Usar tema claro" : "Usar tema escuro"} className="theme-switch"
+              onClick={() => choose(dark ? "light" : "dark")}>
+              <span className="theme-track" aria-hidden="true">
+                <svg className="theme-moon" viewBox="0 0 24 24"><path fill="currentColor" d="M20.8 15A9 9 0 0 1 9 3.2 9.4 9.4 0 1 0 20.8 15Z" /></svg>
+                <svg className="theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" />
+                </svg>
+                <span className="theme-thumb" />
+              </span>
+            </button>
             <span className="simulation">◉ SIMULAÇÃO</span>
           </div>
         </header>
@@ -2329,6 +2348,11 @@ export function App() {
                 de fechar ou recarregar a página. Desfazer e Refazer mantêm até 60 alterações. A
                 importação aceita apenas o formato de projeto documentado.
               </p>
+              <h3>Aparência</h3>
+              <p>O interruptor no topo alterna entre os temas claro e escuro.</p>
+              <button className="system-theme" disabled={theme === "system"} onClick={() => choose("system")}>
+                Usar tema do sistema
+              </button>
               <h3>Atalho de ajuda</h3>
               <p>
                 Pressione <kbd>F1</kbd> em qualquer tela para abrir esta página.
@@ -5924,8 +5948,17 @@ kbd {
   }
 }
 .header-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
-.header-actions label { display: flex; align-items: center; gap: 5px; }
-.header-actions select { font: inherit; padding: 5px; border: 1px solid #9aaaba; border-radius: 4px; }
+.theme-switch { display: inline-grid; place-items: center; height: 44px; padding: 0 2px; background: none; border: 0; border-radius: 22px; }
+.theme-track { position: relative; display: block; width: 56px; height: 28px; border-radius: 20px; background: #b05419; box-shadow: inset 0 0 0 1px #0002; color: white; }
+.theme-track svg { position: absolute; top: 6px; width: 16px; height: 16px; }
+.theme-sun { right: 6px; }
+.theme-moon { left: 6px; visibility: hidden; }
+.theme-thumb { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0005; transition: transform 160ms ease; }
+.theme-switch[aria-checked="true"] .theme-track { background: #101827; box-shadow: inset 0 0 0 1px #8296af; }
+.theme-switch[aria-checked="true"] .theme-thumb { transform: translateX(28px); }
+.theme-switch[aria-checked="true"] .theme-sun { visibility: hidden; }
+.theme-switch[aria-checked="true"] .theme-moon { visibility: visible; }
+.system-theme { margin-top: 8px; padding: 6px 10px; border: 1px solid #899aaa; border-radius: 4px; }
 header > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px; }
 @media (max-width: 480px) { .header-actions { gap: 6px; } header { padding-inline: 10px; } }
 :root[data-theme="dark"] {
@@ -5942,7 +5975,7 @@ header > span:first-child { overflow: hidden; text-overflow: ellipsis; white-spa
 [data-theme="dark"] :is(header, .panel, .metrics article, .connection) { background: var(--surface); border-color: var(--edge); }
 [data-theme="dark"] :is(header, .page-heading p, .eyebrow, .metric-label, .metric-value small, .metric-foot, .pump-value, .panel p, .panel-footer, .pill, th, footer, .future p, .sidebar-footer small) { color: var(--muted); }
 [data-theme="dark"] :is(h1, header strong, .metric-value, .info-strip strong) { color: var(--ink); }
-[data-theme="dark"] :is(.info-strip, kbd, .header-actions select) { color: var(--ink); background: var(--raised); border-color: var(--edge); }
+[data-theme="dark"] :is(.info-strip, kbd) { color: var(--ink); background: var(--raised); border-color: var(--edge); }
 [data-theme="dark"] :is(.panel-heading, .panel-footer, td, th, footer, .pill) { border-color: var(--edge); }
 [data-theme="dark"] :is(.simulation, .notice, .metric-icon.warm) { color: #ffdb98; background: #382e20; border-color: #6c5631; }
 [data-theme="dark"] :is(.connection.live, .metric-icon:not(.warm)) { background: #173c3d; color: var(--positive); border-color: #366561; }
@@ -6319,7 +6352,7 @@ Consulte o [guia de publicação](../docs/deployment.md). Serviço publicado em 
 ````
 # NEXO — Supervisão e engenharia de telas
 
-Plataforma SCADA/HMI com backend Java e interface web. Em **Tema**, escolha **Claro**, **Escuro** ou **Sistema**. A versão **0.8.1** guarda essa preferência no navegador. Para experimentar os equipamentos de sólidos, abra **Editor → Exemplo de dosagem → Operação** para testar silo, esteira, dosador de rosca e misturador. Inicie a simulação automática e ligue o dosador e a esteira para alimentar o silo a 20 kg por segundo simulado, até 1000 kg. O misturador tem comando independente. Em **Simulação automática**, a permissão de entrada aceita uma tag booleana do projeto. Na biblioteca local, o editor guarda telas na biblioteca **Projetos salvos** deste navegador. Para conectar equipamentos, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
+Plataforma SCADA/HMI com backend Java e interface web. Use o interruptor de sol e lua no cabeçalho para alternar o tema. A versão **0.8.2** guarda a escolha no navegador. Em **Ajuda → Aparência**, você pode voltar ao tema do sistema. Para experimentar os equipamentos de sólidos, abra **Editor → Exemplo de dosagem → Operação** para testar silo, esteira, dosador de rosca e misturador. Inicie a simulação automática e ligue o dosador e a esteira para alimentar o silo a 20 kg por segundo simulado, até 1000 kg. O misturador tem comando independente. Em **Simulação automática**, a permissão de entrada aceita uma tag booleana do projeto. Na biblioteca local, o editor guarda telas na biblioteca **Projetos salvos** deste navegador. Para conectar equipamentos, use **Desenhar ligação** no editor, escolha Tubulação ou Sinal e clique nas portas de dois equipamentos. Atribua uma tag de estado em **Ligações → Editar ligação**.
 
 ## Recursos disponíveis
 

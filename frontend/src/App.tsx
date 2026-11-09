@@ -81,7 +81,7 @@ export function App() {
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.8.1 · Engenharia</small>
+            <small>v0.8.2 · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -91,9 +91,17 @@ export function App() {
             <strong>{page === "Editor" ? editorHistory.present.name : "Tanque TQ-001"}</strong>
           </span>
           <div className="header-actions">
-            <label>Tema <select value={theme} onChange={event => choose(event.target.value as typeof theme)}>
-              <option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Escuro</option>
-            </select></label>
+            <button type="button" role="switch" aria-checked={dark} aria-label="Tema escuro"
+              title={dark ? "Usar tema claro" : "Usar tema escuro"} className="theme-switch"
+              onClick={() => choose(dark ? "light" : "dark")}>
+              <span className="theme-track" aria-hidden="true">
+                <svg className="theme-moon" viewBox="0 0 24 24"><path fill="currentColor" d="M20.8 15A9 9 0 0 1 9 3.2 9.4 9.4 0 1 0 20.8 15Z" /></svg>
+                <svg className="theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" />
+                </svg>
+                <span className="theme-thumb" />
+              </span>
+            </button>
             <span className="simulation">◉ SIMULAÇÃO</span>
           </div>
         </header>
@@ -317,6 +325,11 @@ export function App() {
                 de fechar ou recarregar a página. Desfazer e Refazer mantêm até 60 alterações. A
                 importação aceita apenas o formato de projeto documentado.
               </p>
+              <h3>Aparência</h3>
+              <p>O interruptor no topo alterna entre os temas claro e escuro.</p>
+              <button className="system-theme" disabled={theme === "system"} onClick={() => choose("system")}>
+                Usar tema do sistema
+              </button>
               <h3>Atalho de ajuda</h3>
               <p>
                 Pressione <kbd>F1</kbd> em qualquer tela para abrir esta página.

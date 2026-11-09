@@ -1,5 +1,9 @@
 # Histórico de versões
 
+## 0.8.2 — 08/11/2026
+
+- Interruptor de sol e lua no cabeçalho. A opção de seguir o sistema fica em Ajuda → Aparência.
+
 ## 0.8.1 — 08/11/2026
 
 - Temas claro, escuro e do sistema na supervisão, tags, ajuda e editor, incluindo o sinótico. Preferência guardada no navegador.

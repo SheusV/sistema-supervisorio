@@ -34,25 +34,29 @@ export function processExample(): HmiProject {
 export function dosingExample(): HmiProject {
   const item = (id: string, kind: ComponentKind, label: string, x: number, y: number, binding: string) =>
     ({ ...createComponent(kind, 0), id, label, x, y, binding });
-  const drives = ["DOSADOR.RUN", "ESTEIRA.RUN", "MISTURA.RUN"];
+  const drives = ["DOSADOR.RUN", "ESTEIRA.RUN", "MISTURA.RUN", "TRITURADOR.RUN", "FORNO.RUN"];
   return {
     schemaVersion: 2, name: "Dosagem de sólidos", screen: { width: 1200, height: 720 },
     variables: [
       ...drives.map(name => ({ name, dataType: "BOOLEAN" as const, unit: "", initial: false, min: 0, max: 1 })),
       { name: "SILO.MASSA", dataType: "DOUBLE", unit: "kg", initial: 200, min: 0, max: 1000 },
     ],
-    simulation: { levelTag: "SILO.MASSA", enableTag: drives[0], permitTag: drives[1], highLimit: 800, fillRate: 20, drainRate: 0 },
+    simulation: { levelTag: "SILO.MASSA", enableTag: drives[0], permitTag: drives[1], drainTags: drives.slice(3), highLimit: 800, fillRate: 20, drainRate: 30 },
     components: [
       item("feeder", "feeder", "DS-01 · Dosador", 65, 155, drives[0]),
       item("belt", "conveyor", "ET-01 · Esteira", 345, 155, drives[1]),
       { ...item("silo", "silo", "SL-01 · Silo", 650, 155, "SILO.MASSA"), rangeMin: 0, rangeMax: 1000 },
       item("mixer", "mixer", "MX-01 · Misturador", 945, 155, drives[2]),
-      item("feed-cmd", "button", "Comandar dosador", 65, 410, drives[0]),
-      item("belt-cmd", "button", "Comandar esteira", 345, 410, drives[1]),
-      item("weigh", "setpoint", "Ajustar massa", 650, 410, "SILO.MASSA"),
-      item("mix-cmd", "button", "Comandar misturador", 945, 410, drives[2]),
+      item("crusher", "crusher", "TR-01 · Triturador", 650, 330, drives[3]),
+      item("oven", "oven", "FR-01 · Forno", 945, 330, drives[4]),
+      item("feed-cmd", "button", "Comandar dosador", 65, 530, drives[0]),
+      item("belt-cmd", "button", "Comandar esteira", 345, 530, drives[1]),
+      item("weigh", "setpoint", "Ajustar massa", 650, 530, "SILO.MASSA"),
+      item("mix-cmd", "button", "Comandar misturador", 945, 530, drives[2]),
     ],
     connections: [
+      { id: "silo-crusher", from: "silo", fromPort: "bottom", to: "crusher", toPort: "top", kind: "pipe", binding: null },
+      { id: "crusher-oven", from: "crusher", fromPort: "right", to: "oven", toPort: "left", kind: "pipe", binding: null },
       { id: "feed-belt", from: "feeder", fromPort: "right", to: "belt", toPort: "left", kind: "signal", binding: drives[0] },
       { id: "belt-bin", from: "belt", fromPort: "right", to: "silo", toPort: "left", kind: "signal", binding: drives[1] },
     ],

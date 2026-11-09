@@ -463,6 +463,7 @@ export default function Editor({
         {project.simulation && <div className="automatic-controls">
           <button disabled={!simulation.ready || simulation.busy} aria-pressed={simulation.automatic} onClick={simulation.toggleAutomatic}>{simulation.automatic ? "Pausar simulação automática" : "Iniciar simulação automática"}</button>
           <span>{simulation.automatic ? "Em execução" : "Pausada"} · {project.simulation.levelTag} · entrada {project.simulation.fillRate}, saída {project.simulation.drainRate} por segundo simulado</span>
+          {!!project.simulation.drainTags?.length && <p>Descarga · {project.simulation.drainTags.join(" + ")} · {simulation.ready ? project.simulation.drainTags.every(name => simulation.values[name] === true) ? "Liberada" : "Bloqueada" : "Indisponível"}</p>}
           {project.simulation.permitTag && <p>Permissão de entrada · {project.simulation.permitTag} · {simulation.ready ? simulation.values[project.simulation.permitTag] ? "Liberada" : "Bloqueada" : "Indisponível"}</p>}
           <p>Um segundo simulado por ciclo confirmado. Lentidão ou aba em segundo plano pode reduzir a velocidade; não há recuperação de tempo perdido.</p>
         </div>}

@@ -6,7 +6,7 @@ import java.util.*;
 public final class ProjectSimulation {
     private ProjectSimulation() {}
     public record Variable(String name, String dataType, String unit, Object initial, Double min, Double max) {}
-    public record TankRule(String levelTag, String enableTag, Double fillRate, Double drainRate, String permitTag) {}
+    public record TankRule(String levelTag, String enableTag, Double fillRate, Double drainRate, String permitTag, List<String> drainTags) {}
     public record Request(List<Variable> variables, Map<String, Object> values, TankRule rule, Double seconds) {}
     public record Result(String source, Map<String, Object> values) {}
 
@@ -41,7 +41,15 @@ public final class ProjectSimulation {
                 if (!(result.get(rule.permitTag()) instanceof Boolean state)) throw invalid();
                 permitted = state;
             }
-            double rate = (enabled && permitted ? rule.fillRate() : 0) - rule.drainRate();
+            boolean discharge = true;
+            if (rule.drainTags() != null) {
+                if (rule.drainTags().size() > 32 || new HashSet<>(rule.drainTags()).size() != rule.drainTags().size()) throw invalid();
+                for (String tag : rule.drainTags()) {
+                    if (!(result.get(tag) instanceof Boolean running)) throw invalid();
+                    discharge &= running;
+                }
+            }
+            double rate = (enabled && permitted ? rule.fillRate() : 0) - (discharge ? rule.drainRate() : 0);
             double next = Math.clamp(previous + rate * seconds, level.min(), level.max());
             result.put(level.name(), next);
         } else if (seconds != 0) throw invalid();

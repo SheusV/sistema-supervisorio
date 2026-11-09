@@ -1,12 +1,12 @@
 import type { TagName } from "../tags/model";
 
-export type ComponentKind = "tank" | "pump" | "indicator" | "text" | "valve" | "motor" | "sensor" | "button" | "setpoint" | "rectangle" | "ellipse" | "silo" | "conveyor" | "feeder" | "mixer";
+export type ComponentKind = "tank" | "pump" | "indicator" | "text" | "valve" | "motor" | "sensor" | "button" | "setpoint" | "rectangle" | "ellipse" | "silo" | "conveyor" | "feeder" | "mixer" | "crusher" | "oven";
 export interface ProjectVariable {
   name: string; dataType: "BOOLEAN" | "DOUBLE"; unit: string;
   initial: number | boolean; min: number; max: number;
 }
 export interface TankRule {
-  levelTag: string; enableTag: string; permitTag?: string; highLimit?: number; fillRate: number; drainRate: number;
+  levelTag: string; enableTag: string; permitTag?: string; drainTags?: string[]; highLimit?: number; fillRate: number; drainRate: number;
 }
 export type Port = "left" | "right" | "top" | "bottom";
 export interface ConnectionLine {
@@ -37,7 +37,7 @@ export interface HmiProject {
   simulation?: TankRule;
 }
 export const componentNames: Record<ComponentKind, string> = {
-  silo: "Silo", conveyor: "Esteira", feeder: "Dosador de rosca", mixer: "Misturador",
+  silo: "Silo", conveyor: "Esteira", feeder: "Dosador de rosca", mixer: "Misturador", crusher: "Triturador", oven: "Forno",
   tank: "Tanque",
   pump: "Bomba",
   indicator: "Indicador",
@@ -46,7 +46,7 @@ export const componentNames: Record<ComponentKind, string> = {
   setpoint: "Entrada numérica", rectangle: "Retângulo", ellipse: "Elipse",
 };
 export const bindings: Record<ComponentKind, TagName[]> = {
-  silo: [], conveyor: [], feeder: [], mixer: [],
+  silo: [], conveyor: [], feeder: [], mixer: [], crusher: [], oven: [],
   tank: ["TQ001.LEVEL"],
   pump: ["P001.RUNNING"],
   indicator: ["TQ001.TEMPERATURE", "TQ001.LEVEL"],
@@ -244,16 +244,20 @@ export function parseProject(raw: string): HmiProject {
   }
   let simulation: TankRule | undefined;
   if (project.simulation !== undefined) {
-    const rule = record(project.simulation, ["levelTag", "enableTag", "fillRate", "drainRate"], ["permitTag", "highLimit"]);
+    const rule = record(project.simulation, ["levelTag", "enableTag", "fillRate", "drainRate"], ["permitTag", "highLimit", "drainTags"]);
     if (typeof rule.levelTag !== "string" || typeof rule.enableTag !== "string"
       || !variables.some(v => v.name === rule.levelTag && v.dataType === "DOUBLE")
       || !variables.some(v => v.name === rule.enableTag && v.dataType === "BOOLEAN"))
       throw new Error("A regra exige uma tag numérica de nível e uma tag booleana de acionamento.");
     if (rule.permitTag !== undefined && (typeof rule.permitTag !== "string" || !variables.some(v => v.name === rule.permitTag && v.dataType === "BOOLEAN")))
       throw new Error("A permissão de entrada exige uma tag booleana do projeto.");
+    const drainTags = rule.drainTags;
+    if (drainTags !== undefined && (!Array.isArray(drainTags) || drainTags.length > 32 ||
+      drainTags.some(name => !variables.some(v => v.name === name && v.dataType === "BOOLEAN")) ||
+      new Set(drainTags).size !== drainTags.length)) throw new Error("A descarga exige tags booleanas distintas do projeto.");
     const measured = variables.find(v => v.name === rule.levelTag)!;
     const limit = rule.highLimit === undefined ? {} : { highLimit: number(rule.highLimit, measured.min, measured.max) };
-    simulation = { ...limit, ...(typeof rule.permitTag === "string" ? { permitTag: rule.permitTag } : {}), levelTag: rule.levelTag, enableTag: rule.enableTag,
+    simulation = { ...limit, ...(drainTags?.length ? { drainTags } : {}), ...(typeof rule.permitTag === "string" ? { permitTag: rule.permitTag } : {}), levelTag: rule.levelTag, enableTag: rule.enableTag,
       fillRate: number(rule.fillRate, 0, 1000), drainRate: number(rule.drainRate, 0, 1000) };
   }
   return {
@@ -273,13 +277,14 @@ export function replaceVariable(project: HmiProject, previousName: string, varia
     connections: project.connections?.map(c => c.binding === previousName ? { ...c, binding: variable.name } : c),
     ...(project.simulation ? { simulation: { ...project.simulation,
       levelTag: project.simulation.levelTag === previousName ? variable.name : project.simulation.levelTag,
+      ...(project.simulation.drainTags ? { drainTags: project.simulation.drainTags.map(name => name === previousName ? variable.name : name) } : {}),
       ...(project.simulation.permitTag === previousName ? { permitTag: variable.name } : {}),
       enableTag: project.simulation.enableTag === previousName ? variable.name : project.simulation.enableTag } } : {}),
   }));
 }
 export function availableBindings(kind: ComponentKind, variables: ProjectVariable[] = []): string[] {
   const numeric = ["tank", "silo", "indicator", "sensor", "setpoint"].includes(kind);
-  const boolean = ["pump", "valve", "motor", "conveyor", "feeder", "mixer", "button", "rectangle", "ellipse"].includes(kind);
+  const boolean = ["pump", "valve", "motor", "conveyor", "feeder", "mixer", "crusher", "oven", "button", "rectangle", "ellipse"].includes(kind);
   return [...bindings[kind], ...variables.filter(tag => numeric ? tag.dataType === "DOUBLE" : boolean && tag.dataType === "BOOLEAN").map(tag => tag.name)];
 }
 export function removeComponents(project: HmiProject, ids: string[]): HmiProject {

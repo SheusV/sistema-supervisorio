@@ -108,10 +108,12 @@ export function createWidget(item: HmiComponent, customUnit?: string, dark = fal
       bar.set({ height: fraction * 67 });
       reading.set({ text: typeof amount === "number" ? amount.toFixed(1) + " " + (customUnit ?? "") : "INDISPONÍVEL" });
     };
-  } else if (item.kind === "conveyor" || item.kind === "feeder" || item.kind === "mixer") {
+  } else if (item.kind === "conveyor" || item.kind === "feeder" || item.kind === "mixer" || item.kind === "crusher" || item.kind === "oven") {
     const shapes = {
       conveyor: "M 31 48 H 130 A 16 16 0 0 1 130 80 H 31 A 16 16 0 0 1 31 48 Z M 33 81 L 24 95 M 126 81 L 134 95 M 26 64 A 6 6 0 1 0 38 64 A 6 6 0 1 0 26 64 M 124 64 A 6 6 0 1 0 136 64 A 6 6 0 1 0 124 64",
       feeder: "M 15 34 H 67 L 51 58 H 31 Z M 18 59 H 142 V 85 H 18 Z M 27 72 H 135 M 37 62 L 47 82 M 56 62 L 66 82 M 75 62 L 85 82 M 94 62 L 104 82 M 113 62 L 123 82",
+      crusher: "M 26 34 H 134 L 114 58 V 82 L 98 96 H 62 L 46 82 V 58 Z M 55 67 A 12 12 0 1 0 79 67 A 12 12 0 1 0 55 67 M 81 67 A 12 12 0 1 0 105 67 A 12 12 0 1 0 81 67 M 58 60 L 74 75 M 101 60 L 86 75",
+      oven: "M 26 94 V 42 H 104 V 29 H 120 V 42 H 134 V 94 Z M 42 82 V 54 H 118 V 82 Z M 61 76 Q 54 69 63 59 M 81 76 Q 74 69 83 59 M 101 76 Q 94 69 103 59",
       mixer: "M 34 47 V 82 Q 34 96 49 96 H 112 Q 127 96 127 82 V 47 M 66 31 H 94 V 48 H 66 Z M 80 48 V 80 M 54 68 L 80 80 L 106 68 M 54 83 L 80 71 L 106 83",
     };
     const symbol = new Path(shapes[item.kind], { fill: "", stroke: ink, strokeWidth: 3, strokeLineJoin: "round" });

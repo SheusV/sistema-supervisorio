@@ -115,6 +115,16 @@ test("fills the solids silo only when feeder and conveyor both run", async ({ pa
   await expect.poll(async () => parseFloat((await mass.textContent())!)).toBeGreaterThan(200);
   await page.getByRole("button", { name: "Alternar MISTURA.RUN" }).click();
   await expect(page.getByTestId("runtime-mixer")).toContainText("true");
+  await page.getByRole("button", { name: "Pausar simulação automática" }).click();
+  await page.getByRole("button", { name: "Alternar DOSADOR.RUN" }).click();
+  await page.getByLabel("Novo valor de SILO.MASSA").fill("60");
+  await page.getByRole("button", { name: "Aplicar SILO.MASSA" }).click();
+  await page.getByRole("button", { name: "Alternar TRITURADOR.RUN" }).click();
+  await expect(page.getByText(/Descarga · .*Bloqueada/)).toBeVisible();
+  await page.getByRole("button", { name: "Alternar FORNO.RUN" }).click();
+  await expect(page.getByText(/Descarga · .*Liberada/)).toBeVisible();
+  await page.getByRole("button", { name: "Iniciar simulação automática" }).click();
+  await expect(mass).toHaveText("0 kg");
 });
 test("records the high mass alarm, its acknowledgment and its return across reload", async ({ page }) => {
   const loadDose = async () => {

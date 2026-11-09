@@ -23,7 +23,7 @@ export function ProjectTools({ project, change, report }: Props) {
   }
   function removeVariable(variable: ProjectVariable) {
     const { simulation, ...base } = project;
-    commit({ ...base, ...(simulation && simulation.levelTag !== variable.name && simulation.enableTag !== variable.name && simulation.permitTag !== variable.name ? { simulation } : {}), variables: project.variables?.filter(v => v.name !== variable.name),
+    commit({ ...base, ...(simulation && simulation.levelTag !== variable.name && simulation.enableTag !== variable.name && simulation.permitTag !== variable.name && !simulation.drainTags?.includes(variable.name) ? { simulation } : {}), variables: project.variables?.filter(v => v.name !== variable.name),
       components: project.components.map(item => item.binding === variable.name ? { ...item, binding: null } : item),
       connections: project.connections?.map(line => line.binding === variable.name ? { ...line, binding: null } : line) });
   }

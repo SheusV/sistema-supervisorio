@@ -18,7 +18,7 @@ export function useProjectSimulation(variables: ProjectVariable[], enabled: bool
     pending.current = true; setBusy(true); setError("");
     try {
       // Alarm limits belong to the display; the Java endpoint accepts only the physical rule.
-      const calculation = rule && { levelTag: rule.levelTag, enableTag: rule.enableTag, permitTag: rule.permitTag, fillRate: rule.fillRate, drainRate: rule.drainRate };
+      const calculation = rule && { levelTag: rule.levelTag, enableTag: rule.enableTag, permitTag: rule.permitTag, drainTags: rule.drainTags, fillRate: rule.fillRate, drainRate: rule.drainRate };
       const response = await fetch("/api/simulation/evaluate", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ variables, values: next, ...(calculation ? { rule: calculation, seconds } : {}) }), signal: AbortSignal.timeout(8000),

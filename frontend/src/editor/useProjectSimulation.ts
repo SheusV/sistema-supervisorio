@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ProjectVariable, TankRule } from "./project";
 import { advanceBatch, batchDischargeRate, emptyBatch, newBatch, sampleBatch } from "./drying";
+import type { OperationCheckpoint } from "./operationCheckpoint";
 
 export function useProjectSimulation(variables: ProjectVariable[], enabled: boolean, rule?: TankRule, ovenTag?: string) {
   const [batch, setBatch] = useState(emptyBatch);
@@ -16,7 +17,7 @@ export function useProjectSimulation(variables: ProjectVariable[], enabled: bool
   const config = JSON.stringify(variables);
   const ruleConfig = JSON.stringify(rule);
   async function evaluate(next: Record<string, number | boolean>, epoch = generation.current, seconds = 0) {
-    if (!enabled || pending.current) return;
+    if (!enabled || pending.current) return false;
     pending.current = true; setBusy(true); setError("");
     try {
       // Alarm limits belong to the display; the Java endpoint accepts only the physical rule.
@@ -42,13 +43,16 @@ export function useProjectSimulation(variables: ProjectVariable[], enabled: bool
             return sampleBatch(next.phase === "finished" ? { ...next, finishedAt: at } : next, at);
           });
         }
+        return true;
       }
+      return false;
     } catch (cause) {
       if (epoch === generation.current) {
         const at = Date.now();
         if (ovenTag) setBatch(b => b.phase === "running" ? sampleBatch(b, at, false) : b);
         setAutomatic(false); setReady(false); setError(cause instanceof Error && cause.name !== "TimeoutError" ? cause.message : "Simulador sem resposta. Tente reconectar.");
       }
+      return false;
     } finally {
       if (epoch === generation.current) { pending.current = false; setBusy(false); }
     }
@@ -68,6 +72,23 @@ export function useProjectSimulation(variables: ProjectVariable[], enabled: bool
     return () => window.clearInterval(timer);
   }, [enabled, ready, automatic, ruleConfig]);
   return { values, ready, busy, error, automatic, batch,
+    pause: () => setAutomatic(false),
+    restore: async (point: OperationCheckpoint) => {
+      const epoch = generation.current;
+      setAutomatic(false);
+      const accepted = await evaluate(point.values, epoch);
+      if (!accepted || generation.current !== epoch) return false;
+      setBatch(point.batch.phase === "running" ? sampleBatch(point.batch, Date.now(), false) : point.batch);
+      return true;
+    },
+    reset: async () => {
+      const epoch = generation.current;
+      setAutomatic(false);
+      const accepted = await evaluate({}, epoch);
+      if (!accepted || generation.current !== epoch) return false;
+      setBatch(newBatch(rule?.dryingRecipe));
+      return true;
+    },
     setInitialMoisture: (moisture: number) => {
       if (!ready || pending.current || !Number.isFinite(moisture) || moisture < 0 || moisture > 100) return;
       setBatch(b => b.phase === "loading" ? { ...b, moisture } : b);

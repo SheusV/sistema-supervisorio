@@ -11,6 +11,8 @@ import { ProjectLibrary } from "./ProjectLibrary";
 import { ProjectTools } from "./ProjectTools";
 import { dosingExample, processExample } from "./processExample";
 import { useProjectSimulation } from "./useProjectSimulation";
+import { useOperationRecovery } from "./useOperationRecovery";
+import { OperationRecoveryPanel } from "./OperationRecoveryPanel";
 import type { Snapshot } from "../tags/model";
 import type { Connection } from "../tags/useTags";
 import {
@@ -65,6 +67,9 @@ export default function Editor({
   const [sceneRevision, setSceneRevision] = useState(0);
   const ovenTag = project.components.find(c => c.kind === "oven" && c.binding && project.simulation?.drainTags?.includes(c.binding))?.binding ?? undefined;
   const simulation = useProjectSimulation((project.variables ?? []).filter(v => !v.source), !editing, project.simulation, ovenTag);
+  const recovery = useOperationRecovery(project, !editing && (project.variables?.some(v => !v.source) ?? false), simulation, ovenTag);
+  const operationReady = simulation.ready && !recovery.blocked;
+  useEffect(() => { if (recovery.blocked) simulation.pause(); }, [recovery.blocked]);
   const runtimeValues = useMemo(() => ({
     ...simulation.values,
     ...ovenValues(project.variables ?? [], simulation.batch, !!ovenTag),
@@ -84,7 +89,7 @@ export default function Editor({
   const commandRef = useRef<(id: string) => void>(() => {});
   const valueFor = (binding: string | null): number | boolean | null => {
     if (!binding) return null;
-    if (project.variables?.some(tag => tag.name === binding)) return simulation.ready ? runtimeValues[binding] ?? null : null;
+    if (project.variables?.some(tag => tag.name === binding)) return operationReady ? runtimeValues[binding] ?? null : null;
     const tag = snapshot?.tags.find(tag => tag.name === binding);
     return connection === "live" && tag?.quality === "GOOD" ? tag.value : null;
   };
@@ -92,7 +97,7 @@ export default function Editor({
     ?? snapshot?.tags.find(tag => tag.name === binding)?.unit ?? (binding === "TQ001.LEVEL" ? "%" : "");
   commandRef.current = id => {
     const item = project.components.find(item => item.id === id);
-    if (!item?.binding || !simulation.ready || simulation.busy) return;
+    if (!item?.binding || !operationReady || simulation.busy) return;
     if (item.kind === "button" && typeof simulation.values[item.binding] === "boolean") simulation.write(item.binding, !simulation.values[item.binding]);
     if (item.kind === "setpoint") document.getElementById(`setpoint-${item.binding}`)?.focus();
   };
@@ -256,7 +261,7 @@ export default function Editor({
     }
     canvas.current?.requestRenderAll();
     drawLinesRef.current();
-  }, [snapshot, connection, editing, project, runtimeValues, simulation.ready, dark]);
+  }, [snapshot, connection, editing, project, runtimeValues, operationReady, dark]);
 
   const fit = () => {
     if (host.current)
@@ -468,6 +473,8 @@ export default function Editor({
       }} />}
       {editing && <ProjectTools project={project} change={change} report={setMessage} />}
       {!editing && !!project.variables?.length && <section className="simulation-console" aria-label="Comandos da simulação">
+        <OperationRecoveryPanel recovery={recovery} busy={simulation.busy} unit={measured?.unit ?? ""} />
+        <fieldset className="operation-controls" disabled={recovery.blocked}>
         <h2>Simulação do projeto</h2>
         <p>Comandos e regras calculados pelo Java, isolados nesta aba. Tubulações representam o desenho; a evolução do nível segue a regra configurada.</p>
         {project.simulation && <div className="automatic-controls">
@@ -477,9 +484,9 @@ export default function Editor({
           {project.simulation.permitTag && <p>Permissão de entrada · {project.simulation.permitTag} · {simulation.ready ? simulation.values[project.simulation.permitTag] ? "Liberada" : "Bloqueada" : "Indisponível"}</p>}
           <p>Um segundo simulado por ciclo confirmado. Lentidão ou aba em segundo plano pode reduzir a velocidade; não há recuperação de tempo perdido.</p>
         </div>}
-        <p role="status">{simulation.busy ? "Validando no Java…" : simulation.ready ? "Simulação pronta" : simulation.error || "Conectando ao simulador…"}</p>
+        <p role="status">{recovery.blocked ? "Aguardando decisão de retomada" : simulation.busy ? "Validando no Java…" : simulation.ready ? "Simulação pronta" : simulation.error || "Conectando ao simulador…"}</p>
         {simulation.error && <button disabled={simulation.busy} onClick={simulation.retry}>Reconectar simulação</button>}
-        {ovenTag && <section className="drying-panel" aria-label="Secagem dos grãos">
+        {ovenTag && !recovery.blocked && <section className="drying-panel" aria-label="Secagem dos grãos">
           <h3>Secagem dos grãos</h3>
           <p>Com a simulação em execução, ligue o triturador e o forno para receber grãos. Iniciar a secagem fecha a entrada do lote até a retirada.</p>
           <p role="status">{!simulation.ready ? "Sem comunicação" : batch.phase === "finished" ? "Lote seco" :
@@ -508,20 +515,21 @@ export default function Editor({
           </>}
         </section>}
         {ovenTag && batch.phase !== "loading" && <BatchCurves batch={batch} dark={dark} />}
-        {ovenTag && <BatchHistory project={project.name} oven={ovenTag} batch={batch} unit={measured?.unit ?? ""} dark={dark} />}
         <div className="simulation-values">{project.variables.map(variable => <div key={variable.name}>
-          <strong>{variable.name}</strong><output aria-label={`Valor de ${variable.name}`}>{simulation.ready && runtimeValues[variable.name] !== undefined ? `${String(runtimeValues[variable.name])} ${variable.unit}` : "Indisponível"}</output>
+          <strong>{variable.name}</strong><output aria-label={`Valor de ${variable.name}`}>{operationReady && runtimeValues[variable.name] !== undefined ? `${String(runtimeValues[variable.name])} ${variable.unit}` : "Indisponível"}</output>
           {variable.source ? <span>Calculada · somente leitura</span> : variable.dataType === "BOOLEAN" ? <button disabled={!simulation.ready || simulation.busy} onClick={() => simulation.write(variable.name, !simulation.values[variable.name])}>Alternar {variable.name}</button>
             : <form onSubmit={event => { event.preventDefault(); const field = new FormData(event.currentTarget).get("value"); if (typeof field === "string" && field.trim()) simulation.write(variable.name, Number(field)); }}>
               <input id={`setpoint-${variable.name}`} key={String(simulation.values[variable.name])} aria-label={`Novo valor de ${variable.name}`} name="value" type="number" step="any" min={variable.min} max={variable.max} defaultValue={Number(simulation.values[variable.name] ?? variable.initial)} required disabled={!simulation.ready || simulation.busy} />
               <button disabled={!simulation.ready || simulation.busy}>Aplicar {variable.name}</button>
             </form>}
         </div>)}</div>
+        </fieldset>
+        {ovenTag && <BatchHistory project={project.name} oven={ovenTag} batch={batch} unit={measured?.unit ?? ""} dark={dark} />}
       </section>}
       {!editing && measured && <OperationHistory key={JSON.stringify([project.name, measured.name])} projectName={project.name} variable={measured}
-        limit={project.simulation?.highLimit} hysteresis={project.simulation?.highHysteresis} delaySeconds={project.simulation?.highDelaySeconds} dark={dark} ready={simulation.ready} values={simulation.values} />}
+        limit={project.simulation?.highLimit} hysteresis={project.simulation?.highHysteresis} delaySeconds={project.simulation?.highDelaySeconds} dark={dark} ready={operationReady} values={simulation.values} />}
       {!editing && !!project.alarmRules?.length && <AlarmCenter key={JSON.stringify([project.name, project.alarmRules])}
-        project={project.name} rules={project.alarmRules} variables={project.variables ?? []} ready={simulation.ready} values={runtimeValues} />}
+        project={project.name} rules={project.alarmRules} variables={project.variables ?? []} ready={operationReady} values={runtimeValues} />}
       <div className={`editor-layout ${editing ? "" : "operating-layout"}`}>
         <aside
           className="component-library"

@@ -314,6 +314,11 @@ test("records the high mass alarm, its acknowledgment and its return across relo
   const loadDose = async () => {
     await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
     await page.getByRole("button", { name: "Operação", exact: true }).click();
+    const recovery = page.getByRole("region", { name: "Retomada da operação" });
+    await expect(recovery.getByRole("status")).toBeVisible();
+    await expect(recovery.getByRole("status")).not.toHaveText("Consultando operação salva…");
+    const fresh = recovery.getByRole("button", { name: "Iniciar nova operação" });
+    if (await fresh.isVisible()) await fresh.click();
     await expect(page.getByLabel("Valor de SILO.MASSA", { exact: true })).toHaveText("200 kg");
   };
   await loadDose();

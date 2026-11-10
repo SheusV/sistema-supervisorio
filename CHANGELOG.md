@@ -1,5 +1,15 @@
 # Histórico de versões
 
+## 0.12.0 — Retomada da operação
+
+- Ponto de retomada automático no navegador para os valores manuais e o lote do forno.
+- Recuperação explícita ao reabrir o mesmo projeto, com validação da configuração e dos valores pelo Java.
+- Retomada pausada, preservando massa, temperatura, umidade, tempo acumulado, identificação e curvas do lote.
+- Proteção por revisão para evitar sobrescrita de pontos atualizados por outra aba.
+- Recuperação de lote concluído com o mesmo ID, preservando a unicidade no histórico.
+- Tratamento de ponto corrompido, incompatibilidade e falha de armazenamento ou comunicação.
+- Atualização do banco local para versão 3, preservando operações e lotes existentes.
+
 ## 0.11.0 — 09/11/2026
 
 - Medições calculadas do forno disponíveis como tags somente leitura de temperatura, umidade, massa, tempo mínimo cumprido e lote seco.

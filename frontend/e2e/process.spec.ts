@@ -41,7 +41,7 @@ test("creates a tag and anchored connection, preserves them in JSON and undoes d
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test("runs real Java commands, updates bound equipment and isolates another browser", async ({ page, context }) => {
+test("runs real Java commands, updates bound equipment and isolates another browser", async ({ page, browser }) => {
   await page.setViewportSize({ width: 1600, height: 1200 });
   await page.goto("/");
   await page.getByRole("button", { name: "Editor", exact: true }).click();
@@ -57,14 +57,15 @@ test("runs real Java commands, updates bound equipment and isolates another brow
   await page.getByLabel("Novo valor de TANQUE.NIVEL", { exact: true }).fill("101");
   await page.getByRole("button", { name: "Aplicar TANQUE.NIVEL", exact: true }).click();
   await expect(page.getByTestId("runtime-tank")).toHaveText("TQ-101: 72 %");
-  const other = await context.newPage();
+  const isolated = await browser.newContext({ baseURL: new URL(page.url()).origin });
+  const other = await isolated.newPage();
   await other.goto("/");
   await other.getByRole("button", { name: "Editor", exact: true }).click();
   await other.getByRole("button", { name: "Exemplo de processo", exact: true }).click();
   await other.getByRole("button", { name: "Operação", exact: true }).click();
   await expect(other.getByLabel("Valor de LINHA.HABILITADA", { exact: true })).toHaveText("false");
   await expect(other.getByTestId("runtime-tank")).toHaveText("TQ-101: 35 %");
-  await other.close();
+  await isolated.close();
   await page.getByLabel("Novo valor de TANQUE.NIVEL", { exact: true }).fill("72");
   await page.locator(".upper-canvas").scrollIntoViewIfNeeded();
   const area = (await page.locator(".upper-canvas").boundingBox())!;

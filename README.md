@@ -1,5 +1,11 @@
 # NEXO — Supervisão e engenharia de telas
 
+## Atualização 0.12.0
+
+A operação grava automaticamente um ponto de retomada neste navegador. Ao reabrir o mesmo projeto em **Operação**, escolha **Retomar operação salva** ou **Iniciar nova operação**. A retomada recupera valores, lote e curvas e permanece pausada até você iniciar a simulação.
+
+Aguarde a indicação **Ponto de retomada salvo** antes de fechar. A configuração precisa corresponder ao projeto usado na gravação, portanto salve a tela na biblioteca ou exporte o JSON. Alterações concorrentes em outra aba interrompem a gravação e pedem revisão do ponto salvo. Consulte o [guia da retomada](docs/operation-recovery.md).
+
 ## Atualização 0.11.0
 
 O exemplo de dosagem expõe FORNO.TEMPERATURA, FORNO.UMIDADE, FORNO.MASSA, FORNO.TEMPO e FORNO.LOTE_SECO como tags calculadas. Elas podem ser vinculadas a indicadores e alarmes. Em projetos existentes com forno, use **Edição → Tags do projeto → Adicionar medições do forno**. A umidade fica indisponível enquanto o forno está vazio.

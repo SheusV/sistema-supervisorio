@@ -33,4 +33,18 @@ Os eventos contêm ativação, reconhecimento, retorno ao normal, comunicação 
 
 As regras aceitam até 32 entradas por projeto. O parser verifica IDs únicos, vínculo com tags existentes, condição compatível, prioridade, limites e campos permitidos. Projetos sem regras continuam válidos.
 
-O runtime da central depende da aba aberta e das leituras do projeto. O ciclo térmico interno do forno ainda precisa ser exposto como tags para receber essas regras. Renomear o projeto muda o escopo da consulta. A implementação atual mantém a consulta dos registros pela configuração e escopo existentes.
+O runtime da central depende da aba aberta e das leituras do projeto. A partir da versão 0.11.0, temperatura, umidade, massa, tempo mínimo cumprido e conclusão do forno também estão disponíveis como tags calculadas. Renomear o projeto muda o escopo da consulta. A implementação atual mantém a consulta dos registros pela configuração e escopo existentes.
+
+## Medições do forno
+
+No exemplo de dosagem, as tags calculadas já estão cadastradas. Em um projeto existente com forno, use Tags do projeto → Adicionar medições do forno. A operação acrescenta somente as origens calculadas ausentes e informa conflitos de nomes ou falta de espaço nas 32 tags.
+
+As origens são temperature, moisture, mass, elapsed e finished. O nome da tag pode ser alterado. O parser conserva a origem e valida o tipo, a faixa e o valor inicial previstos para essa medição. Cada origem aparece no máximo uma vez por projeto.
+
+A interface deriva as leituras do lote e mantém o fluxo Java limitado às variáveis manuais. Tags calculadas ficam disponíveis para sensores, indicadores e alarmes; botões e entradas numéricas aceitam tags manuais.
+
+Sem forno vinculado à descarga, as medições ficam indisponíveis. A umidade também fica indisponível sem grãos no forno. A central bloqueia reconhecimento quando a leitura da regra está indisponível.
+
+O exemplo usa os limites demonstrativos de 85 °C com margem de 5 °C para temperatura alta e 20% com margem de 1 ponto percentual para umidade elevada, ambos com confirmação de 2 s. A conclusão do lote usa a condição booleana de FORNO.LOTE_SECO.
+
+O tempo publicado em FORNO.TEMPO representa o tempo mínimo cumprido, limitado ao valor configurado. A massa representa a carga do lote. O modelo continua calculando um único forno vinculado à descarga por projeto.

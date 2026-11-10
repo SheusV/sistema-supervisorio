@@ -1,4 +1,5 @@
 import { createComponent, type HmiProject, type ComponentKind } from "./project";
+import { ovenVariables } from "./ovenTags";
 
 /** Demonstrates shared tag bindings; the drawing is not a hydraulic solver. */
 export function processExample(): HmiProject {
@@ -40,10 +41,14 @@ export function dosingExample(): HmiProject {
     alarmRules: [
       { id: "silo-low", name: "Reserva baixa do silo", tag: "SILO.MASSA", kind: "low", priority: "Média", threshold: 50, hysteresis: 25, delaySeconds: 2 },
       { id: "silo-capacity", name: "Silo próximo da capacidade", tag: "SILO.MASSA", kind: "high", priority: "Alta", threshold: 900, hysteresis: 50, delaySeconds: 2 },
+      { id: "oven-hot", name: "Temperatura alta do forno", tag: "FORNO.TEMPERATURA", kind: "high", priority: "Alta", threshold: 85, hysteresis: 5, delaySeconds: 2 },
+      { id: "oven-wet", name: "Umidade elevada no forno", tag: "FORNO.UMIDADE", kind: "high", priority: "Média", threshold: 20, hysteresis: 1, delaySeconds: 2 },
+      { id: "oven-done", name: "Secagem concluída", tag: "FORNO.LOTE_SECO", kind: "on", priority: "Baixa", threshold: 0, hysteresis: 0, delaySeconds: 0 },
     ],
     variables: [
       ...drives.map(name => ({ name, dataType: "BOOLEAN" as const, unit: "", initial: false, min: 0, max: 1 })),
       { name: "SILO.MASSA", dataType: "DOUBLE", unit: "kg", initial: 200, min: 0, max: 1000 },
+      ...ovenVariables.map(v => ({ ...v })),
     ],
     simulation: { levelTag: "SILO.MASSA", enableTag: drives[0], permitTag: drives[1], drainTags: drives.slice(3), highLimit: 800, fillRate: 20, drainRate: 30 },
     components: [
@@ -53,6 +58,8 @@ export function dosingExample(): HmiProject {
       item("mixer", "mixer", "MX-01 · Misturador", 945, 155, drives[2]),
       item("crusher", "crusher", "TR-01 · Triturador", 650, 330, drives[3]),
       item("oven", "oven", "FR-01 · Forno", 945, 330, drives[4]),
+      item("oven-temp", "sensor", "Temperatura do forno", 65, 330, "FORNO.TEMPERATURA"),
+      item("oven-moisture", "sensor", "Umidade dos grãos", 345, 330, "FORNO.UMIDADE"),
       item("feed-cmd", "button", "Comandar dosador", 65, 530, drives[0]),
       item("belt-cmd", "button", "Comandar esteira", 345, 530, drives[1]),
       item("weigh", "setpoint", "Ajustar massa", 650, 530, "SILO.MASSA"),

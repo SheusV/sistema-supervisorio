@@ -3,6 +3,7 @@ import { availableBindings, parseProject, replaceVariable, type HmiProject, type
 import { SimulationRuleEditor } from "./SimulationRuleEditor";
 import { DryingRecipeEditor } from "./DryingRecipeEditor";
 import { AlarmRuleEditor } from "./AlarmRuleEditor";
+import { addOvenTags } from "./ovenTags";
 
 interface Props { project: HmiProject; change: (next: HmiProject) => void; report: (message: string) => void; }
 export function ProjectTools({ project, change, report }: Props) {
@@ -18,6 +19,7 @@ export function ProjectTools({ project, change, report }: Props) {
   const [binding, setBinding] = useState("");
   const [editingLine, setEditingLine] = useState<string | null>(null);
   const tagForm = useRef<HTMLFormElement>(null), lineForm = useRef<HTMLFormElement>(null);
+  const computedEditing = project.variables?.find(v => v.name === editingName)?.source;
   useEffect(() => { setEditingName(null); setEditingLine(null); }, [project]);
   function commit(next: HmiProject) {
     try { change(parseProject(JSON.stringify({ ...next, schemaVersion: 2, variables: next.variables ?? [], connections: next.connections ?? [] }))); report(""); return true; }
@@ -44,12 +46,16 @@ export function ProjectTools({ project, change, report }: Props) {
     </details>
     <details>
       <summary>Tags do projeto <span>{project.variables?.length ?? 0} / 32</span></summary>
+      {project.components.some(c => c.kind === "oven") && <button onClick={() => {
+        try { commit(addOvenTags(project)); } catch (error) { report((error as Error).message); }
+      }}>Adicionar medições do forno</button>}
       <p>Crie ou edite as tags na lista abaixo. Renomear atualiza seus vínculos. BOOLEAN comanda estados; DOUBLE representa valores numéricos. As três tags da demonstração permanecem somente leitura.</p>
       {editingName && <p className="editing-banner">Editando tag: <strong>{editingName}</strong></p>}
+      {computedEditing && <p>Esta tag é calculada pelo forno. Renomear preserva os vínculos; tipo, faixa e unidade seguem a medição.</p>}
       <form ref={tagForm} className="project-form" onSubmit={event => {
         event.preventDefault();
         if (![initial, min, max].every(value => value.trim())) { report("Preencha os valores da tag."); return; }
-        const variable: ProjectVariable = { name: name.trim(), dataType: type, unit,
+        const variable: ProjectVariable = { ...(computedEditing ? { source: computedEditing } : {}), name: name.trim(), dataType: type, unit,
           initial: type === "BOOLEAN" ? initial === "1" : Number(initial), min: type === "BOOLEAN" ? 0 : Number(min), max: type === "BOOLEAN" ? 1 : Number(max) };
         try {
           const saved = commit(editingName ? replaceVariable(project, editingName, variable) : { ...project, variables: [...project.variables ?? [], variable] });
@@ -58,12 +64,12 @@ export function ProjectTools({ project, change, report }: Props) {
       }}>
         <label>Nome da tag<input aria-label="Nome da tag" value={name} maxLength={64} onChange={e => setName(e.target.value)} required /></label>
         <label>Tipo<select aria-label="Tipo da tag" value={type} disabled={!!editingName} onChange={e => { setType(e.target.value as typeof type); setInitial("0"); }}><option>BOOLEAN</option><option>DOUBLE</option></select></label>
-        <label>Valor inicial{type === "BOOLEAN" ? <select aria-label="Valor inicial" value={initial} onChange={e => setInitial(e.target.value)}><option value="0">Desligado / falso</option><option value="1">Ligado / verdadeiro</option></select>
-          : <input aria-label="Valor inicial" type="number" step="any" value={initial} onChange={e => setInitial(e.target.value)} required />}</label>
+        <label>Valor inicial{type === "BOOLEAN" ? <select aria-label="Valor inicial" disabled={!!computedEditing} value={initial} onChange={e => setInitial(e.target.value)}><option value="0">Desligado / falso</option><option value="1">Ligado / verdadeiro</option></select>
+          : <input aria-label="Valor inicial" disabled={!!computedEditing} type="number" step="any" value={initial} onChange={e => setInitial(e.target.value)} required />}</label>
         {type === "DOUBLE" && <>
-          <label>Mínimo<input aria-label="Mínimo da tag" type="number" step="any" value={min} onChange={e => setMin(e.target.value)} required /></label>
-          <label>Máximo<input aria-label="Máximo da tag" type="number" step="any" value={max} onChange={e => setMax(e.target.value)} required /></label>
-          <label>Unidade<input aria-label="Unidade da tag" value={unit} maxLength={16} onChange={e => setUnit(e.target.value)} /></label>
+          <label>Mínimo<input aria-label="Mínimo da tag" disabled={!!computedEditing} type="number" step="any" value={min} onChange={e => setMin(e.target.value)} required /></label>
+          <label>Máximo<input aria-label="Máximo da tag" disabled={!!computedEditing} type="number" step="any" value={max} onChange={e => setMax(e.target.value)} required /></label>
+          <label>Unidade<input aria-label="Unidade da tag" disabled={!!computedEditing} value={unit} maxLength={16} onChange={e => setUnit(e.target.value)} /></label>
         </>}
         <button type="submit" disabled={!editingName && (project.variables?.length ?? 0) >= 32}>{editingName ? "Salvar tag" : "Criar tag"}</button>
         {editingName && <button type="button" onClick={() => setEditingName(null)}>Cancelar edição da tag</button>}

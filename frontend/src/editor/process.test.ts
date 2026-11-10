@@ -26,7 +26,7 @@ describe("process projects", () => {
   it("preserves the solids equipment, validates tag types and follows a renamed permission", () => {
     const project = dosingExample();
     expect(parseProject(serializeProject(project))).toEqual(project);
-    expect(availableBindings("silo", project.variables)).toEqual(["SILO.MASSA"]);
+    expect(availableBindings("silo", project.variables)).toEqual(expect.arrayContaining(["SILO.MASSA", "FORNO.TEMPERATURA"]));
     for (const kind of ["conveyor", "mixer", "feeder"] as const) {
       expect(availableBindings(kind, project.variables)).toContain("ESTEIRA.RUN");
       expect(availableBindings(kind, project.variables)).not.toContain("SILO.MASSA");

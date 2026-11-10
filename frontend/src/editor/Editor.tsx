@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type Dispatch } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch } from "react";
 import { ActiveSelection, Canvas, Pattern, Path } from "fabric";
 import { PortOverlay, portPosition, portSides, connectionPath, type DrawingSession, type DrawingPort } from "./PortOverlay";
 import { arrange, layoutLabels, moveTogether, type LayoutAction } from "./layout";
 import { OperationHistory } from "./OperationHistory";
 import { AlarmCenter } from "./AlarmCenter";
+import { ovenValues } from "./ovenTags";
 import { BatchHistory } from "./BatchHistory";
 import { BatchCurves } from "./BatchCurves";
 import { ProjectLibrary } from "./ProjectLibrary";
@@ -63,7 +64,11 @@ export default function Editor({
   const [message, setMessage] = useState("");
   const [sceneRevision, setSceneRevision] = useState(0);
   const ovenTag = project.components.find(c => c.kind === "oven" && c.binding && project.simulation?.drainTags?.includes(c.binding))?.binding ?? undefined;
-  const simulation = useProjectSimulation(project.variables ?? [], !editing, project.simulation, ovenTag);
+  const simulation = useProjectSimulation((project.variables ?? []).filter(v => !v.source), !editing, project.simulation, ovenTag);
+  const runtimeValues = useMemo(() => ({
+    ...simulation.values,
+    ...ovenValues(project.variables ?? [], simulation.batch, !!ovenTag),
+  }), [simulation.values, simulation.batch, project.variables, ovenTag]);
   const batch = simulation.batch;
   const measured = project.variables?.find(v => v.name === project.simulation?.levelTag);
   const lines = useRef<Path[]>([]);
@@ -79,7 +84,7 @@ export default function Editor({
   const commandRef = useRef<(id: string) => void>(() => {});
   const valueFor = (binding: string | null): number | boolean | null => {
     if (!binding) return null;
-    if (project.variables?.some(tag => tag.name === binding)) return simulation.ready ? simulation.values[binding] ?? null : null;
+    if (project.variables?.some(tag => tag.name === binding)) return simulation.ready ? runtimeValues[binding] ?? null : null;
     const tag = snapshot?.tags.find(tag => tag.name === binding);
     return connection === "live" && tag?.quality === "GOOD" ? tag.value : null;
   };
@@ -251,7 +256,7 @@ export default function Editor({
     }
     canvas.current?.requestRenderAll();
     drawLinesRef.current();
-  }, [snapshot, connection, editing, project, simulation.values, simulation.ready, dark]);
+  }, [snapshot, connection, editing, project, runtimeValues, simulation.ready, dark]);
 
   const fit = () => {
     if (host.current)
@@ -505,8 +510,8 @@ export default function Editor({
         {ovenTag && batch.phase !== "loading" && <BatchCurves batch={batch} dark={dark} />}
         {ovenTag && <BatchHistory project={project.name} oven={ovenTag} batch={batch} unit={measured?.unit ?? ""} dark={dark} />}
         <div className="simulation-values">{project.variables.map(variable => <div key={variable.name}>
-          <strong>{variable.name}</strong><output aria-label={`Valor de ${variable.name}`}>{simulation.ready ? `${String(simulation.values[variable.name])} ${variable.unit}` : "Indisponível"}</output>
-          {variable.dataType === "BOOLEAN" ? <button disabled={!simulation.ready || simulation.busy} onClick={() => simulation.write(variable.name, !simulation.values[variable.name])}>Alternar {variable.name}</button>
+          <strong>{variable.name}</strong><output aria-label={`Valor de ${variable.name}`}>{simulation.ready && runtimeValues[variable.name] !== undefined ? `${String(runtimeValues[variable.name])} ${variable.unit}` : "Indisponível"}</output>
+          {variable.source ? <span>Calculada · somente leitura</span> : variable.dataType === "BOOLEAN" ? <button disabled={!simulation.ready || simulation.busy} onClick={() => simulation.write(variable.name, !simulation.values[variable.name])}>Alternar {variable.name}</button>
             : <form onSubmit={event => { event.preventDefault(); const field = new FormData(event.currentTarget).get("value"); if (typeof field === "string" && field.trim()) simulation.write(variable.name, Number(field)); }}>
               <input id={`setpoint-${variable.name}`} key={String(simulation.values[variable.name])} aria-label={`Novo valor de ${variable.name}`} name="value" type="number" step="any" min={variable.min} max={variable.max} defaultValue={Number(simulation.values[variable.name] ?? variable.initial)} required disabled={!simulation.ready || simulation.busy} />
               <button disabled={!simulation.ready || simulation.busy}>Aplicar {variable.name}</button>
@@ -516,7 +521,7 @@ export default function Editor({
       {!editing && measured && <OperationHistory key={JSON.stringify([project.name, measured.name])} projectName={project.name} variable={measured}
         limit={project.simulation?.highLimit} hysteresis={project.simulation?.highHysteresis} delaySeconds={project.simulation?.highDelaySeconds} dark={dark} ready={simulation.ready} values={simulation.values} />}
       {!editing && !!project.alarmRules?.length && <AlarmCenter key={JSON.stringify([project.name, project.alarmRules])}
-        project={project.name} rules={project.alarmRules} variables={project.variables ?? []} ready={simulation.ready} values={simulation.values} />}
+        project={project.name} rules={project.alarmRules} variables={project.variables ?? []} ready={simulation.ready} values={runtimeValues} />}
       <div className={`editor-layout ${editing ? "" : "operating-layout"}`}>
         <aside
           className="component-library"

@@ -99,6 +99,24 @@ test("draws a signal on the screen, cancels a draft and reopens the edited conne
   await expect(draw).toBeEnabled();
   expect((await exportProject(page)).connections.at(-1)).toEqual({ ...line, binding: "LINHA.HABILITADA" });
 });
+test("renames a calculated oven measurement and preserves read-only operation", async ({ page }) => {
+  await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
+  await page.locator("summary").filter({ hasText: "Tags do projeto" }).click();
+  await page.getByRole("button", { name: "Editar tag FORNO.TEMPERATURA", exact: true }).click();
+  await expect(page.getByLabel("Máximo da tag")).toBeDisabled();
+  await page.getByLabel("Nome da tag", { exact: true }).fill("FR01.TEMP");
+  await page.getByRole("button", { name: "Salvar tag", exact: true }).click();
+  await page.getByRole("button", { name: "Adicionar medições do forno" }).click();
+  const document = await exportProject(page);
+  expect(document.variables).toHaveLength(11);
+  expect(document.variables.find((v: {name: string}) => v.name === "FR01.TEMP").source).toBe("temperature");
+  expect(document.alarmRules.find((r: {id: string}) => r.id === "oven-hot").tag).toBe("FR01.TEMP");
+  await page.getByRole("button", { name: "Operação", exact: true }).click();
+  await expect(page.getByLabel("Valor de FR01.TEMP", { exact: true })).toHaveText("20 °C");
+  await expect(page.getByLabel("Novo valor de FR01.TEMP", { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId("runtime-oven-temp")).toContainText("20");
+});
+
 test("restores a saved drying recipe through JSON and applies it in operation", async ({ page }) => {
   await page.getByRole("button", { name: "Exemplo de dosagem" }).click();
   const recipe = page.getByRole("region", { name: "Receita de secagem do projeto" });
@@ -177,15 +195,22 @@ test("fills the solids silo only when feeder and conveyor both run", async ({ pa
   await expect(mass).toHaveText("0 kg");
   const dryer = page.getByRole("region", { name: "Secagem dos grãos" });
   await expect(dryer).toContainText("60 kg");
+  await expect(page.getByLabel("Valor de FORNO.MASSA", { exact: true })).toHaveText("60 kg");
+  await expect(page.getByLabel("Novo valor de FORNO.MASSA", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Alternar FORNO.LOTE_SECO" })).toHaveCount(0);
   await dryer.getByLabel("Temperatura alvo (°C)").fill("25");
   await dryer.getByLabel("Tempo mínimo de secagem (s)").fill("2");
   await dryer.getByLabel("Umidade inicial do lote (%)").fill("24");
   await expect(dryer.getByText(/Umidade simulada dos grãos/)).toContainText("24%");
   await dryer.getByLabel("Umidade final máxima (%)").fill("23");
   await dryer.getByRole("button", { name: "Iniciar secagem" }).click();
+  await expect(page.getByLabel("Valor de FORNO.TEMPERATURA", { exact: true })).toHaveText("25 °C");
   await expect(dryer.getByRole("status")).toHaveText("Secando até a umidade final");
   await expect(dryer.getByRole("button", { name: "Retirar lote seco" })).toHaveCount(0);
   await expect(dryer.getByRole("status")).toHaveText("Lote seco", { timeout: 10000 });
+  await expect(page.getByLabel("Valor de FORNO.LOTE_SECO", { exact: true })).toHaveText("true ");
+  await expect(page.getByRole("region", { name: "Central de alarmes" }).locator("ul.project-items > li")
+    .filter({ hasText: "Secagem concluída" }).getByRole("status")).toHaveText("Ativo");
   await expect(dryer).toContainText("2 / 2 s");
   await expect(dryer.getByText(/Umidade simulada dos grãos/)).toContainText("23%");
   const batches = page.getByRole("region", { name: "Histórico de lotes secos" });
@@ -193,6 +218,7 @@ test("fills the solids silo only when feeder and conveyor both run", async ({ pa
   await expect(batches.getByRole("listitem")).toContainText("24% → 23%");
   await dryer.getByRole("button", { name: "Retirar lote seco" }).click();
   await expect(dryer.getByRole("status")).toHaveText("Aguardando grãos");
+  await expect(page.getByLabel("Valor de FORNO.LOTE_SECO", { exact: true })).toHaveText("false ");
   await expect(dryer.getByLabel("Umidade final máxima (%)")).toHaveValue("23");
   await expect(dryer.getByLabel("Umidade inicial do lote (%)")).toHaveValue("22");
   await page.reload();
@@ -233,7 +259,7 @@ test("configures independent alarms, filters priorities, acknowledges and restor
   await form.getByLabel("Nome do alarme", { exact: true }).fill("Dosador ativo");
   await form.getByRole("button", { name: "Salvar alarme", exact: true }).click();
   const document = await exportProject(page);
-  expect(document.alarmRules).toHaveLength(5);
+  expect(document.alarmRules).toHaveLength(8);
   await page.getByRole("button", { name: "Operação", exact: true }).click();
   const center = page.getByRole("region", { name: "Central de alarmes" });
   const row = (name: string) => center.locator("ul.project-items > li").filter({ hasText: name });

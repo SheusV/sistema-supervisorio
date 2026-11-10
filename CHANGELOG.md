@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## 0.11.0 — 09/11/2026
+
+- Medições calculadas do forno disponíveis como tags somente leitura de temperatura, umidade, massa, tempo mínimo cumprido e lote seco.
+- Indicadores no sinótico e regras de alarme usando as medições do ciclo real da simulação.
+- Exemplo de dosagem com indicadores de temperatura e umidade e alarmes de temperatura alta, umidade elevada e conclusão da secagem.
+- Inclusão das medições em projetos existentes, renomeação com atualização dos vínculos e persistência no JSON.
+- Campos e comandos da interface respeitam as tags calculadas. Regras de alimentação e descarga usam tags manuais.
+
 ## 0.10.0 — 09/11/2026
 
 - Regras independentes de alarme por tag, com valores alto/baixo e estados booleanos.

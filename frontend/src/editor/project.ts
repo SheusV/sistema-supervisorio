@@ -1,9 +1,11 @@
 import type { TagName } from "../tags/model";
 import type { DryingRecipe } from "./drying";
 import { parseAlarmRules, type AlarmRule } from "./alarmRules";
+import { ovenMeasurements, type OvenSource } from "./ovenTags";
 
 export type ComponentKind = "tank" | "pump" | "indicator" | "text" | "valve" | "motor" | "sensor" | "button" | "setpoint" | "rectangle" | "ellipse" | "silo" | "conveyor" | "feeder" | "mixer" | "crusher" | "oven";
 export interface ProjectVariable {
+  source?: OvenSource;
   name: string; dataType: "BOOLEAN" | "DOUBLE"; unit: string;
   initial: number | boolean; min: number; max: number;
 }
@@ -161,7 +163,7 @@ export function parseProject(raw: string): HmiProject {
     if (!Array.isArray(project.variables) || project.variables.length > 32 || !Array.isArray(project.connections))
       throw new Error("Defina até 32 tags de simulação e uma lista de ligações.");
     for (const raw of project.variables) {
-      const v = record(raw, ["name", "dataType", "unit", "initial", "min", "max"]);
+      const v = record(raw, ["name", "dataType", "unit", "initial", "min", "max"], ["source"]);
       const name = text(v.name, 64);
       if (!/^[A-Z][A-Z0-9_.]{0,63}$/.test(name) || ["TQ001.LEVEL", "P001.RUNNING", "TQ001.TEMPERATURE"].includes(name) || variables.some(tag => tag.name === name))
         throw new Error("Nome de tag inválido, reservado ou repetido. Use letras maiúsculas, números, ponto e sublinhado.");
@@ -170,7 +172,17 @@ export function parseProject(raw: string): HmiProject {
       if (v.dataType !== "DOUBLE" && v.dataType !== "BOOLEAN") throw new Error("Tipo de tag inválido.");
       if (v.dataType === "BOOLEAN" ? typeof v.initial !== "boolean" : typeof v.initial !== "number" || !Number.isFinite(v.initial) || v.initial < min || v.initial > max)
         throw new Error("Valor inicial fora do tipo ou faixa da tag.");
-      variables.push({ name, dataType: v.dataType, unit: v.unit, initial: v.initial as number | boolean, min, max });
+      let source: OvenSource | undefined;
+      if (v.source !== undefined) {
+        if (typeof v.source !== "string" || !Object.hasOwn(ovenMeasurements, v.source)) throw new Error("Origem calculada inválida.");
+        source = v.source as OvenSource;
+        const definition = ovenMeasurements[source];
+        if (variables.some(tag => tag.source === source) || v.dataType !== definition.dataType ||
+          min !== definition.min || max !== definition.max || v.initial !== definition.initial ||
+          (source !== "mass" && v.unit !== definition.unit))
+          throw new Error("Medição calculada repetida ou com tipo e faixa incompatíveis.");
+      }
+      variables.push({ name, dataType: v.dataType, unit: v.unit, initial: v.initial as number | boolean, min, max, ...(source ? { source } : {}) });
     }
   }
   const screen = record(project.screen, ["width", "height"]);
@@ -252,14 +264,14 @@ export function parseProject(raw: string): HmiProject {
   if (project.simulation !== undefined) {
     const rule = record(project.simulation, ["levelTag", "enableTag", "fillRate", "drainRate"], ["permitTag", "highLimit", "drainTags", "dryingRecipe", "highHysteresis", "highDelaySeconds"]);
     if (typeof rule.levelTag !== "string" || typeof rule.enableTag !== "string"
-      || !variables.some(v => v.name === rule.levelTag && v.dataType === "DOUBLE")
-      || !variables.some(v => v.name === rule.enableTag && v.dataType === "BOOLEAN"))
+      || !variables.some(v => v.name === rule.levelTag && v.dataType === "DOUBLE" && !v.source)
+      || !variables.some(v => v.name === rule.enableTag && v.dataType === "BOOLEAN" && !v.source))
       throw new Error("A regra exige uma tag numérica de nível e uma tag booleana de acionamento.");
-    if (rule.permitTag !== undefined && (typeof rule.permitTag !== "string" || !variables.some(v => v.name === rule.permitTag && v.dataType === "BOOLEAN")))
+    if (rule.permitTag !== undefined && (typeof rule.permitTag !== "string" || !variables.some(v => v.name === rule.permitTag && v.dataType === "BOOLEAN" && !v.source)))
       throw new Error("A permissão de entrada exige uma tag booleana do projeto.");
     const drainTags = rule.drainTags;
     if (drainTags !== undefined && (!Array.isArray(drainTags) || drainTags.length > 32 ||
-      drainTags.some(name => !variables.some(v => v.name === name && v.dataType === "BOOLEAN")) ||
+      drainTags.some(name => !variables.some(v => v.name === name && v.dataType === "BOOLEAN" && !v.source)) ||
       new Set(drainTags).size !== drainTags.length)) throw new Error("A descarga exige tags booleanas distintas do projeto.");
     const measured = variables.find(v => v.name === rule.levelTag)!;
     const limit = rule.highLimit === undefined ? {} : { highLimit: number(rule.highLimit, measured.min, measured.max) };
@@ -277,6 +289,10 @@ export function parseProject(raw: string): HmiProject {
     }
     simulation = { ...limit, ...alarmOptions, ...(dryingRecipe ? { dryingRecipe } : {}), ...(drainTags?.length ? { drainTags } : {}), ...(typeof rule.permitTag === "string" ? { permitTag: rule.permitTag } : {}), levelTag: rule.levelTag, enableTag: rule.enableTag,
       fillRate: number(rule.fillRate, 0, 1000), drainRate: number(rule.drainRate, 0, 1000) };
+  }
+  if (simulation) {
+    const mass = variables.find(v => v.source === "mass");
+    if (mass) mass.unit = variables.find(v => v.name === simulation.levelTag)!.unit;
   }
   return {
     schemaVersion: project.schemaVersion,
@@ -305,7 +321,8 @@ export function replaceVariable(project: HmiProject, previousName: string, varia
 export function availableBindings(kind: ComponentKind, variables: ProjectVariable[] = []): string[] {
   const numeric = ["tank", "silo", "indicator", "sensor", "setpoint"].includes(kind);
   const boolean = ["pump", "valve", "motor", "conveyor", "feeder", "mixer", "crusher", "oven", "button", "rectangle", "ellipse"].includes(kind);
-  return [...bindings[kind], ...variables.filter(tag => numeric ? tag.dataType === "DOUBLE" : boolean && tag.dataType === "BOOLEAN").map(tag => tag.name)];
+  return [...bindings[kind], ...variables.filter(tag => (!["button", "setpoint"].includes(kind) || !tag.source) &&
+    (numeric ? tag.dataType === "DOUBLE" : boolean && tag.dataType === "BOOLEAN")).map(tag => tag.name)];
 }
 export function removeComponents(project: HmiProject, ids: string[]): HmiProject {
   return { ...project, components: project.components.filter(item => !ids.includes(item.id)),

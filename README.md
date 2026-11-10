@@ -1,5 +1,11 @@
 # NEXO — Supervisão e engenharia de telas
 
+## Atualização 0.11.0
+
+O exemplo de dosagem expõe FORNO.TEMPERATURA, FORNO.UMIDADE, FORNO.MASSA, FORNO.TEMPO e FORNO.LOTE_SECO como tags calculadas. Elas podem ser vinculadas a indicadores e alarmes. Em projetos existentes com forno, use **Edição → Tags do projeto → Adicionar medições do forno**. A umidade fica indisponível enquanto o forno está vazio.
+
+O sinótico inclui indicadores de temperatura e umidade. A central recebe alarmes de temperatura alta, umidade elevada e conclusão do lote. As tags calculadas acompanham o JSON e podem ser renomeadas preservando seus vínculos.
+
 ## Atualização 0.10.0
 
 O editor permite criar até 32 alarmes independentes para tags próprias em **Edição → Alarmes do projeto**. Configure condição de valor alto/baixo ou estado booleano, prioridade, margem de retorno e atraso. Em **Operação → Central de alarmes**, acompanhe os estados, filtre por prioridade e estado e reconheça alarmes individualmente ou pelo filtro. Os eventos ficam neste navegador e as regras acompanham o projeto salvo ou exportado.

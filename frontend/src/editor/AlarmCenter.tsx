@@ -61,9 +61,9 @@ export function AlarmCenter({ project, rules, variables, values, ready }: Props)
     <p>{active} alarmes ativos · {rules.length} regras. Sem leitura, o último estado ativo é preservado.</p>
     <label>Filtrar prioridade<select value={priority} onChange={e => setPriority(e.target.value)}><option value="">Todas</option>{priorities.map(p => <option key={p}>{p}</option>)}</select></label>
     <label>Filtrar estado<select value={state} onChange={e => setState(e.target.value)}><option value="">Todos</option>{["Ativo", "Reconhecido", "Confirmando", "Normal", "Sem leitura"].map(s => <option key={s}>{s}</option>)}</select></label>
-    <button disabled={!ready || !visible.some(r => runs[r.id]?.high && !runs[r.id]?.acknowledged)} onClick={() => {
+    <button disabled={!ready || !visible.some(r => values[r.tag] !== undefined && runs[r.id]?.high && !runs[r.id]?.acknowledged)} onClick={() => {
       const at = Date.now();
-      setRuns(previous => ({ ...previous, ...Object.fromEntries(visible.map(r => [r.id, acknowledge(previous[r.id] ?? emptyRun, at)])) }));
+      setRuns(previous => ({ ...previous, ...Object.fromEntries(visible.filter(r => values[r.tag] !== undefined).map(r => [r.id, acknowledge(previous[r.id] ?? emptyRun, at)])) }));
     }}>Reconhecer alarmes visíveis</button>
     {visible.length ? <ul className="project-items">{visible.map(rule => {
       const run = runs[rule.id] ?? emptyRun;
@@ -72,8 +72,8 @@ export function AlarmCenter({ project, rules, variables, values, ready }: Props)
         <strong>{rule.name}</strong><span>{rule.priority} · {rule.tag}</span>
         <span>{ready ? String(values[rule.tag] ?? "—") + " " + variable.unit : "Indisponível"}</span>
         <span role="status">{status(rule)}</span>
-        {!ready && run.high && <span>Último estado · {run.acknowledged ? "Reconhecido" : "Ativo"}</span>}
-        <button disabled={!ready || !run.high || run.acknowledged} onClick={() => {
+        {(!ready || values[rule.tag] === undefined) && run.high && <span>Último estado · {run.acknowledged ? "Reconhecido" : "Ativo"}</span>}
+        <button disabled={!ready || values[rule.tag] === undefined || !run.high || run.acknowledged} onClick={() => {
           const at = Date.now();
           setRuns(previous => ({ ...previous, [rule.id]: acknowledge(previous[rule.id] ?? emptyRun, at) }));
         }}>Reconhecer {rule.name}</button>

@@ -1,5 +1,5 @@
 import { newBatch, type Batch } from "./drying";
-import { serializeProject, type HmiProject } from "./project";
+import { operationFingerprint, projectComponents, type HmiProject } from "./project";
 
 export interface OperationCheckpoint {
   schemaVersion: 1;
@@ -19,7 +19,7 @@ export function parseCheckpoint(raw: unknown, project: HmiProject, scope: string
   if (!raw || typeof raw !== "object" || JSON.stringify(raw).length > 1048576) return fail();
   const point = raw as OperationCheckpoint;
   if (point.schemaVersion !== 1 || Object.keys(point).some(key => !["schemaVersion", "scope", "revision", "fingerprint", "savedAt", "values", "batch"].includes(key))
-    || point.scope !== scope || point.fingerprint !== serializeProject(project)
+    || point.scope !== scope || point.fingerprint !== operationFingerprint(project)
     || typeof point.revision !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(point.revision)
     || !finite(point.savedAt, 0, Number.MAX_SAFE_INTEGER)
     || !point.values || typeof point.values !== "object" || Array.isArray(point.values)) return fail();
@@ -37,7 +37,7 @@ export function parseCheckpoint(raw: unknown, project: HmiProject, scope: string
   if (b.temperature > b.target || (b.phase === "loading" && (b.elapsed !== 0 || b.temperature !== 20
     || b.id !== undefined || b.started !== undefined || b.finishedAt !== undefined
     || b.initialMoisture !== undefined || b.samples !== undefined))) return fail();
-  if ((b.mass > 0 || b.phase !== "loading") && !project.components.some(c =>
+  if ((b.mass > 0 || b.phase !== "loading") && !projectComponents(project).some(c =>
     c.kind === "oven" && c.binding && project.simulation?.drainTags?.includes(c.binding))) return fail();
   if (b.phase !== "loading" && (b.mass <= 0 || typeof b.id !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(b.id)
     || !finite(b.started, 0, Number.MAX_SAFE_INTEGER) || !finite(b.initialMoisture, 0, 100))) return fail();

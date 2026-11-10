@@ -1,5 +1,11 @@
 # NEXO — Supervisão e engenharia de telas
 
+## Atualização 0.13.0
+
+Cada projeto pode reunir até 16 telas. Em **Editor → Telas do projeto**, adicione, duplique, renomeie e exclua telas. Cada uma tem seus objetos e ligações. As tags, os alarmes e a configuração do processo são compartilhados. O campo **Nome do projeto** identifica o conjunto e **Nome da tela exibida** identifica a vista atual.
+
+Abra **Exemplo com várias telas** para experimentar **Visão geral**, **Recebimento** e **Secagem**. Em **Operação**, use **Tela exibida** para navegar enquanto a simulação e o lote continuam. A navegação preserva o ponto de retomada. Todas as telas acompanham o JSON e a biblioteca local, incluindo os vínculos atualizados ao editar tags. Consulte o [guia de telas](docs/screens.md).
+
 ## Atualização 0.12.0
 
 A operação grava automaticamente um ponto de retomada neste navegador. Ao reabrir o mesmo projeto em **Operação**, escolha **Retomar operação salva** ou **Iniciar nova operação**. A retomada recupera valores, lote e curvas e permanece pausada até você iniciar a simulação.

@@ -4,6 +4,7 @@ import { SimulationRuleEditor } from "./SimulationRuleEditor";
 import { DryingRecipeEditor } from "./DryingRecipeEditor";
 import { AlarmRuleEditor } from "./AlarmRuleEditor";
 import { addOvenTags } from "./ovenTags";
+import { projectComponents } from "./project";
 
 interface Props { project: HmiProject; change: (next: HmiProject) => void; report: (message: string) => void; }
 export function ProjectTools({ project, change, report }: Props) {
@@ -30,7 +31,11 @@ export function ProjectTools({ project, change, report }: Props) {
     commit({ ...base, ...(simulation && simulation.levelTag !== variable.name && simulation.enableTag !== variable.name && simulation.permitTag !== variable.name && !simulation.drainTags?.includes(variable.name) ? { simulation } : {}), variables: project.variables?.filter(v => v.name !== variable.name),
       components: project.components.map(item => item.binding === variable.name ? { ...item, binding: null } : item),
       connections: project.connections?.map(line => line.binding === variable.name ? { ...line, binding: null } : line),
-      ...(project.alarmRules ? { alarmRules: project.alarmRules.filter(rule => rule.tag !== variable.name) } : {}) });
+      ...(project.alarmRules ? { alarmRules: project.alarmRules.filter(rule => rule.tag !== variable.name) } : {}),
+      ...(project.additionalScreens ? { additionalScreens: project.additionalScreens.map(s => ({ ...s,
+        components: s.components.map(c => c.binding === variable.name ? { ...c, binding: null } : c),
+        connections: s.connections.map(c => c.binding === variable.name ? { ...c, binding: null } : c),
+      })) } : {}) });
   }
   const ports: Record<Port, string> = { left: "Esquerda", right: "Direita", top: "Topo", bottom: "Base" };
   return <div className="project-tools">
@@ -46,7 +51,7 @@ export function ProjectTools({ project, change, report }: Props) {
     </details>
     <details>
       <summary>Tags do projeto <span>{project.variables?.length ?? 0} / 32</span></summary>
-      {project.components.some(c => c.kind === "oven") && <button onClick={() => {
+      {projectComponents(project).some(c => c.kind === "oven") && <button onClick={() => {
         try { commit(addOvenTags(project)); } catch (error) { report((error as Error).message); }
       }}>Adicionar medições do forno</button>}
       <p>Crie ou edite as tags na lista abaixo. Renomear atualiza seus vínculos. BOOLEAN comanda estados; DOUBLE representa valores numéricos. As três tags da demonstração permanecem somente leitura.</p>

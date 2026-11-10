@@ -1,9 +1,9 @@
-import type { HmiProject } from "./project";
+import { projectComponents, type HmiProject } from "./project";
 import { newBatch } from "./drying";
 
 export function DryingRecipeEditor({ project, commit }: { project: HmiProject; commit: (next: HmiProject) => boolean }) {
   const rule = project.simulation;
-  if (!rule || !project.components.some(c => c.kind === "oven")) return null;
+  if (!rule || !projectComponents(project).some(c => c.kind === "oven")) return null;
   const recipe = newBatch(rule.dryingRecipe);
   return <section aria-label="Receita de secagem do projeto">
     <h3>Receita de secagem do projeto</h3>

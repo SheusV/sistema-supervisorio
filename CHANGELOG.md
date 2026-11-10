@@ -1,5 +1,15 @@
 # Histórico de versões
 
+## 0.13.0 — 10/11/2026
+
+- Até 16 telas por projeto com criação, duplicação, renomeação, exclusão e desfazer/refazer.
+- Navegação em Edição e Operação com desenhos independentes e tags, alarmes, receita e simulação compartilhados.
+- Exemplo de linha de grãos com Visão geral, Recebimento e Secagem.
+- Renomeação e exclusão de tags atualizam objetos e ligações de todas as telas.
+- Exportação JSON e biblioteca local preservam o conjunto completo, com leitura de projetos anteriores.
+- Retomada da operação usa uma identificação independente da tela exibida, mantendo o mesmo lote e histórico.
+- Validação de todas as telas importadas, inclusive das que não estão abertas.
+
 ## 0.12.0 — Retomada da operação
 
 - Ponto de retomada automático no navegador para os valores manuais e o lote do forno.

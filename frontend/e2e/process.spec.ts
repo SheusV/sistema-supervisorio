@@ -11,8 +11,8 @@ test("creates a tag and anchored connection, preserves them in JSON and undoes d
   await page.getByRole("button", { name: "Editar tag VALVULA.ABERTA", exact: true }).click();
   await page.getByLabel("Valor inicial", { exact: true }).selectOption("1");
   await page.getByRole("button", { name: "Salvar tag", exact: true }).click();
-  await page.getByLabel("Nome da tela", { exact: true }).fill("Minha linha de processo");
-  await page.getByLabel("Nome da tela", { exact: true }).press("Tab");
+  await page.getByLabel("Nome do projeto", { exact: true }).fill("Minha linha de processo");
+  await page.getByLabel("Nome do projeto", { exact: true }).press("Tab");
   await page.getByRole("button", { name: "Válvula", exact: true }).click();
   await page.getByLabel("Tag vinculada").selectOption("VALVULA.ABERTA");
   await page.getByLabel("Cor do componente").fill("#bc7c28");

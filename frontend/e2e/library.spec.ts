@@ -34,11 +34,11 @@ test("keeps the full project after closing the browser and confirms replacement"
     await page.goto("/");
     await library(page);
     await page.getByRole("button", { name: "Abrir projeto salvo" }).click();
-    await expect(page.getByLabel("Nome da tela")).toHaveValue(original.name);
+    await expect(page.getByLabel("Nome do projeto")).toHaveValue(original.name);
     expect(await documentOf(page)).toEqual(original);
     await page.getByRole("button", { name: "Nova tela" }).click();
-    await page.getByLabel("Nome da tela").fill(original.name);
-    await page.getByLabel("Nome da tela").press("Tab");
+    await page.getByLabel("Nome do projeto").fill(original.name);
+    await page.getByLabel("Nome do projeto").press("Tab");
     await page.getByRole("button", { name: "Salvar projeto", exact: true }).click();
     await page.getByRole("button", { name: "Cancelar", exact: true }).click();
     await page.getByRole("button", { name: "Abrir projeto salvo" }).click();
@@ -52,7 +52,7 @@ test("keeps the full project after closing the browser and confirms replacement"
     await page.reload();
     await library(page);
     await page.getByRole("button", { name: "Abrir projeto salvo" }).click();
-    await expect(page.getByLabel("Nome da tela")).toHaveValue(original.name);
+    await expect(page.getByLabel("Nome do projeto")).toHaveValue(original.name);
     expect(await documentOf(page)).toEqual(revised);
   } finally { await second.close(); }
 });

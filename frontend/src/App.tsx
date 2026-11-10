@@ -3,6 +3,7 @@ import { useTheme } from "./useTheme";
 import { useTags } from "./tags/useTags";
 import { Process } from "./components/Process";
 import type { TagName } from "./tags/model";
+import { version } from "../package.json";
 import { exampleProject, projectReducer } from "./editor/project";
 const Editor = lazy(() => import("./editor/Editor"));
 
@@ -81,7 +82,7 @@ export function App() {
         </div>
         <div className="sidebar-footer">
             <span className="small-dot" /> Ambiente simulado{" "}
-            <small>v0.9.0 · Engenharia</small>
+            <small>v{version} · Engenharia</small>
         </div>
       </aside>
       <div className="main">
@@ -280,7 +281,7 @@ export function App() {
               <h3>O que vem depois?</h3>
               <p>
                 Persistência de projetos no servidor, autenticação e perfis,
-                drivers de leitura, alarmes e laboratório de controle serão
+                drivers de leitura e laboratório de controle serão
                 entregas separadas. Não há comandos para dispositivos físicos
                 nesta versão.
               </p>
@@ -299,6 +300,15 @@ export function App() {
                 Selecionar todos. Arraste o conjunto para mover; no painel
                 Propriedades, alinhe pelas bordas ou centros. Com três objetos
                 ou mais, distribua os espaços. Desfazer recupera a ação inteira.
+              </p>
+              <h3>Como dividir o projeto em telas?</h3>
+              <p>
+                Em Telas do projeto, adicione, duplique, renomeie ou exclua vistas.
+                Cada tela possui objetos e ligações próprios, com tags, alarmes e
+                regras compartilhados. Exemplo com várias telas carrega Visão geral,
+                Recebimento e Secagem. Em Operação, Tela exibida permite navegar
+                enquanto a simulação e o lote continuam. O projeto aceita até 16
+                telas dentro do limite de 256 KiB do arquivo completo.
               </p>
               <h3>Como ligar equipamentos e definir valores?</h3>
               <p>

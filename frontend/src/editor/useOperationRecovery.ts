@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { serializeProject, type HmiProject } from "./project";
+import { operationFingerprint, type HmiProject } from "./project";
 import { parseCheckpoint, type OperationCheckpoint } from "./operationCheckpoint";
 import { readCheckpoint, writeCheckpoint } from "./operationArchive";
 import type { useProjectSimulation } from "./useProjectSimulation";
@@ -7,7 +7,7 @@ import type { useProjectSimulation } from "./useProjectSimulation";
 type Mode = "inactive" | "reading" | "choice" | "working" | "active" | "error" | "volatile";
 
 export function useOperationRecovery(project: HmiProject, enabled: boolean, simulation: ReturnType<typeof useProjectSimulation>, ovenTag?: string) {
-  const fingerprint = useMemo(() => serializeProject(project), [project]);
+  const fingerprint = useMemo(() => operationFingerprint(project), [project]);
   const scope = JSON.stringify([project.name, ovenTag ?? "process"]);
   const [mode, setMode] = useState<Mode>("reading");
   const [candidate, setCandidate] = useState<OperationCheckpoint | null>(null);

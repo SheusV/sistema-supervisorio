@@ -19,7 +19,7 @@ test("theme follows the system, persists an override and redraws the editor", as
   await theme.press("Space");
   await expect(theme).toBeChecked();
   await expect.poll(pixel).toEqual([22,37,51]);
-  await expect(page.getByLabel("Nome da tela")).toHaveValue("Dosagem de sólidos");
+  await expect(page.getByLabel("Nome do projeto")).toHaveValue("Dosagem de sólidos");
   await page.emulateMedia({ colorScheme: "light" });
   await expect(html).toHaveAttribute("data-theme", "dark");
   await page.getByRole("button", { name: "Ajuda", exact: true }).click();

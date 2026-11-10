@@ -73,3 +73,27 @@ export function dosingExample(): HmiProject {
     ],
   };
 }
+
+export function multiScreenExample(): HmiProject {
+  const project = dosingExample();
+  const receivingIds = ["feeder", "belt", "silo", "feed-cmd", "belt-cmd", "weigh"];
+  const receiving = project.components.filter(c => receivingIds.includes(c.id)).map(c => ({ ...c }));
+  const positions: Record<string, [number, number]> = {
+    crusher: [80, 160], oven: [350, 160], "oven-temp": [650, 160], "oven-moisture": [920, 160],
+  };
+  const drying = project.components.filter(c => positions[c.id]).map(c => ({
+    ...c, x: positions[c.id][0], y: positions[c.id][1],
+  }));
+  drying.push(
+    { ...createComponent("button", 0), id: "crusher-command", label: "Comandar triturador", x: 80, y: 460, binding: "TRITURADOR.RUN" },
+    { ...createComponent("button", 0), id: "oven-command", label: "Comandar forno", x: 350, y: 460, binding: "FORNO.RUN" },
+    { ...createComponent("indicator", 0), id: "oven-mass", label: "Massa no forno", x: 650, y: 460, binding: "FORNO.MASSA" },
+    { ...createComponent("indicator", 0), id: "oven-time", label: "Tempo cumprido", x: 920, y: 460, binding: "FORNO.TEMPO" },
+  );
+  return { ...project, name: "Linha de grãos", screenId: "overview", screenName: "Visão geral", additionalScreens: [
+    { id: "receiving", name: "Recebimento", components: receiving,
+      connections: project.connections!.filter(c => receivingIds.includes(c.from) && receivingIds.includes(c.to)).map(c => ({ ...c })) },
+    { id: "drying", name: "Secagem", components: drying,
+      connections: project.connections!.filter(c => c.id === "crusher-oven").map(c => ({ ...c })) },
+  ] };
+}

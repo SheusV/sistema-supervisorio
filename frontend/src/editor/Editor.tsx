@@ -9,10 +9,11 @@ import { BatchHistory } from "./BatchHistory";
 import { BatchCurves } from "./BatchCurves";
 import { ProjectLibrary } from "./ProjectLibrary";
 import { ProjectTools } from "./ProjectTools";
-import { dosingExample, processExample } from "./processExample";
+import { dosingExample, multiScreenExample, processExample } from "./processExample";
 import { useProjectSimulation } from "./useProjectSimulation";
 import { useOperationRecovery } from "./useOperationRecovery";
 import { OperationRecoveryPanel } from "./OperationRecoveryPanel";
+import { ScreenTools } from "./ScreenTools";
 import type { Snapshot } from "../tags/model";
 import type { Connection } from "../tags/useTags";
 import {
@@ -25,6 +26,7 @@ import {
   MAX_PROJECT_BYTES,
   parseProject,
   serializeProject,
+  projectComponents,
   type ComponentKind,
   type HmiComponent,
   type HmiProject,
@@ -65,7 +67,7 @@ export default function Editor({
   const [snap, setSnap] = useState(true);
   const [message, setMessage] = useState("");
   const [sceneRevision, setSceneRevision] = useState(0);
-  const ovenTag = project.components.find(c => c.kind === "oven" && c.binding && project.simulation?.drainTags?.includes(c.binding))?.binding ?? undefined;
+  const ovenTag = projectComponents(project).find(c => c.kind === "oven" && c.binding && project.simulation?.drainTags?.includes(c.binding))?.binding ?? undefined;
   const simulation = useProjectSimulation((project.variables ?? []).filter(v => !v.source), !editing, project.simulation, ovenTag);
   const recovery = useOperationRecovery(project, !editing && (project.variables?.some(v => !v.source) ?? false), simulation, ovenTag);
   const operationReady = simulation.ready && !recovery.blocked;
@@ -111,6 +113,7 @@ export default function Editor({
   };
   const changeRef = useRef(change);
   changeRef.current = change;
+  useEffect(() => { setSelectedIds([]); }, [project.screenId]);
 
   useEffect(() => {
     if (!canvasElement.current) return;
@@ -424,11 +427,12 @@ export default function Editor({
           </span>
           <button
             disabled={!editing}
+            title="Cria um projeto vazio. Desfazer recupera todas as telas do projeto anterior."
             onClick={() => {
-              const { simulation: _removed, alarmRules: _alarms, ...base } = project;
+              const { simulation: _removed, alarmRules: _alarms, screenId: _screenId, screenName: _screenName, additionalScreens: _screens, ...base } = project;
               change({ ...base, name: "Nova tela", components: [], variables: [], connections: [] });
               setSelectedIds([]);
-              setMessage("Tela criada. Desfazer recupera a tela anterior.");
+              setMessage("Projeto vazio criado. Desfazer recupera todas as telas anteriores.");
             }}
           >
             Nova tela
@@ -441,6 +445,7 @@ export default function Editor({
           </button>
           <button disabled={!editing} onClick={() => { change(processExample()); setSelectedIds([]); setMessage("Exemplo carregado. Abra Operação para testar os comandos. Desfazer recupera a tela anterior."); }}>Exemplo de processo</button>
           <button disabled={!editing} onClick={() => { change(dosingExample()); setSelectedIds([]); setMessage("Em Operação, inicie a simulação e ligue o dosador e a esteira para alimentar o silo."); }}>Exemplo de dosagem</button>
+          <button disabled={!editing} onClick={() => { change(multiScreenExample()); setSelectedIds([]); setMessage("Use Tela exibida para navegar entre Visão geral, Recebimento e Secagem. As tags e a operação são compartilhadas."); }}>Exemplo com várias telas</button>
           <button className="primary-action" onClick={save}>
             Exportar JSON
           </button>
@@ -471,6 +476,8 @@ export default function Editor({
         onDirty(false);
         setMessage("");
       }} />}
+      <ScreenTools project={project} editing={editing} change={change} report={setMessage}
+        navigate={screenId => { dispatch({ type: "navigate", screenId }); setSelectedIds([]); setMessage(""); }} />
       {editing && <ProjectTools project={project} change={change} report={setMessage} />}
       {!editing && !!project.variables?.length && <section className="simulation-console" aria-label="Comandos da simulação">
         <OperationRecoveryPanel recovery={recovery} busy={simulation.busy} unit={measured?.unit ?? ""} />
@@ -573,7 +580,7 @@ export default function Editor({
         </aside>
         <div className="editor-workspace">
           <div className="screen-title">
-            {editing ? <input aria-label="Nome da tela" key={project.name} defaultValue={project.name} maxLength={80} onBlur={event => {
+            {editing ? <input aria-label="Nome do projeto" key={project.name} defaultValue={project.name} maxLength={80} onBlur={event => {
               if (event.target.value === project.name) return;
               try { change(parseProject(JSON.stringify({ ...project, name: event.target.value }))); setMessage(""); }
               catch (error) { setMessage((error as Error).message); }

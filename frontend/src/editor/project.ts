@@ -35,6 +35,9 @@ export interface HmiComponent {
   rangeMax?: number;
 }
 export interface HmiProject {
+  screenId?: string;
+  screenName?: string;
+  additionalScreens?: ProjectScreen[];
   alarmRules?: AlarmRule[];
   schemaVersion: 1 | 2;
   name: string;
@@ -44,6 +47,10 @@ export interface HmiProject {
   connections?: ConnectionLine[];
   simulation?: TankRule;
 }
+export interface ProjectScreen {
+  id: string; name: string; components: HmiComponent[]; connections: ConnectionLine[];
+}
+export const MAX_SCREENS = 16;
 export const componentNames: Record<ComponentKind, string> = {
   silo: "Silo", conveyor: "Esteira", feeder: "Dosador de rosca", mixer: "Misturador", crusher: "Triturador", oven: "Forno",
   tank: "Tanque",
@@ -153,10 +160,10 @@ export function parseProject(raw: string): HmiProject {
     "name",
     "screen",
     "components",
-  ], ["variables", "connections", "simulation", "alarmRules"]);
+  ], ["variables", "connections", "simulation", "alarmRules", "screenId", "screenName", "additionalScreens"]);
   if (project.schemaVersion !== 1 && project.schemaVersion !== 2)
     throw new Error("Versão de projeto não suportada.");
-  if (project.schemaVersion === 1 && (project.variables !== undefined || project.connections !== undefined || project.simulation !== undefined || project.alarmRules !== undefined))
+  if (project.schemaVersion === 1 && (project.variables !== undefined || project.connections !== undefined || project.simulation !== undefined || project.alarmRules !== undefined || project.screenId !== undefined || project.screenName !== undefined || project.additionalScreens !== undefined))
     throw new Error("Tags próprias e ligações exigem projeto versão 2.");
   const variables: ProjectVariable[] = [];
   if (project.schemaVersion === 2) {
@@ -294,7 +301,25 @@ export function parseProject(raw: string): HmiProject {
     const mass = variables.find(v => v.source === "mass");
     if (mass) mass.unit = variables.find(v => v.name === simulation.levelTag)!.unit;
   }
+  let navigation: Pick<HmiProject, "screenId" | "screenName" | "additionalScreens"> = {};
+  if (project.screenId !== undefined || project.screenName !== undefined || project.additionalScreens !== undefined) {
+    const screenId = text(project.screenId, 80), screenName = text(project.screenName, 64);
+    if (!/^[a-zA-Z0-9_-]+$/.test(screenId) || !Array.isArray(project.additionalScreens) || project.additionalScreens.length >= MAX_SCREENS)
+      throw new Error("Defina até 16 telas com identificadores válidos.");
+    const screenIds = new Set([screenId]), screenNames = new Set([screenName.toLocaleLowerCase("pt-BR")]);
+    const additionalScreens: ProjectScreen[] = project.additionalScreens.map(raw => {
+      const scene = record(raw, ["id", "name", "components", "connections"]);
+      const id = text(scene.id, 80), name = text(scene.name, 64), key = name.toLocaleLowerCase("pt-BR");
+      if (!/^[a-zA-Z0-9_-]+$/.test(id) || screenIds.has(id) || screenNames.has(key)) throw new Error("Nome ou identificador de tela repetido.");
+      screenIds.add(id); screenNames.add(key);
+      const checked = parseProject(JSON.stringify({ schemaVersion: 2, name: project.name, screen: { width: 1200, height: 720 },
+        variables, components: scene.components, connections: scene.connections }));
+      return { id, name, components: checked.components, connections: checked.connections ?? [] };
+    });
+    navigation = { screenId, screenName, additionalScreens };
+  }
   return {
+    ...navigation,
     schemaVersion: project.schemaVersion,
     name: text(project.name, 80),
     screen: { width: 1200, height: 720 },
@@ -310,6 +335,10 @@ export function replaceVariable(project: HmiProject, previousName: string, varia
     variables: project.variables.map(v => v.name === previousName ? variable : v),
     components: project.components.map(c => c.binding === previousName ? { ...c, binding: variable.name } : c),
     connections: project.connections?.map(c => c.binding === previousName ? { ...c, binding: variable.name } : c),
+    ...(project.additionalScreens ? { additionalScreens: project.additionalScreens.map(s => ({ ...s,
+      components: s.components.map(c => c.binding === previousName ? { ...c, binding: variable.name } : c),
+      connections: s.connections.map(c => c.binding === previousName ? { ...c, binding: variable.name } : c),
+    })) } : {}),
     ...(project.alarmRules ? { alarmRules: project.alarmRules.map(rule => rule.tag === previousName ? { ...rule, tag: variable.name } : rule) } : {}),
     ...(project.simulation ? { simulation: { ...project.simulation,
       levelTag: project.simulation.levelTag === previousName ? variable.name : project.simulation.levelTag,
@@ -332,17 +361,66 @@ export function serializeProject(project: HmiProject): string {
   return JSON.stringify(parseProject(JSON.stringify(project)), null, 2);
 }
 
+export function projectScreens(project: HmiProject): ProjectScreen[] {
+  return [{ id: project.screenId ?? "main", name: project.screenName ?? "Tela principal",
+    components: project.components, connections: project.connections ?? [] }, ...project.additionalScreens ?? []];
+}
+
+export function projectComponents(project: HmiProject): HmiComponent[] {
+  return projectScreens(project).sort((a,b) => a.id.localeCompare(b.id)).flatMap(s => s.components);
+}
+
+export function operationFingerprint(project: HmiProject): string {
+  if (project.additionalScreens === undefined) return serializeProject(project);
+  const normalized = parseProject(JSON.stringify(project));
+  const { components: _components, connections: _connections, screenId: _id, screenName: _name, additionalScreens: _screens, ...shared } = normalized;
+  return JSON.stringify({ ...shared, screens: projectScreens(normalized).sort((a,b) => a.id.localeCompare(b.id)) }, null, 2);
+}
+
+export function switchProjectScreen(project: HmiProject, id: string): HmiProject {
+  if (id === (project.screenId ?? "main")) return project;
+  const screens = projectScreens(project), next = screens.find(s => s.id === id);
+  if (!next) throw new Error("Tela inexistente.");
+  // Navigation rearranges validated scenes and preserves the shared runtime definitions.
+  return { ...project, schemaVersion: 2, variables: project.variables ?? [],
+    screenId: next.id, screenName: next.name, components: next.components, connections: next.connections,
+    additionalScreens: screens.filter(s => s.id !== id) };
+}
+
+export function addProjectScreen(project: HmiProject, name: string, duplicate = false): HmiProject {
+  const screens = projectScreens(project);
+  if (screens.length >= MAX_SCREENS) throw new Error("Limite de 16 telas por projeto.");
+  return parseProject(JSON.stringify({ ...project, schemaVersion: 2, variables: project.variables ?? [],
+    screenId: crypto.randomUUID(), screenName: name, additionalScreens: screens,
+    components: duplicate ? project.components.map(c => ({ ...c })) : [],
+    connections: duplicate ? (project.connections ?? []).map(c => ({ ...c })) : [] }));
+}
+
+export function renameProjectScreen(project: HmiProject, name: string): HmiProject {
+  return parseProject(JSON.stringify({ ...project, schemaVersion: 2, variables: project.variables ?? [],
+    connections: project.connections ?? [], screenId: project.screenId ?? "main", screenName: name,
+    additionalScreens: project.additionalScreens ?? [] }));
+}
+
+export function deleteProjectScreen(project: HmiProject): HmiProject {
+  const [next, ...rest] = project.additionalScreens ?? [];
+  if (!next) throw new Error("Mantenha pelo menos uma tela no projeto.");
+  return parseProject(JSON.stringify({ ...project, screenId: next.id, screenName: next.name,
+    components: next.components, connections: next.connections, additionalScreens: rest }));
+}
+
 export interface ProjectHistory {
   past: HmiProject[];
   present: HmiProject;
   future: HmiProject[];
 }
 export type ProjectAction =
-  { type: "change"; project: HmiProject } | { type: "undo" } | { type: "redo" };
+  { type: "change"; project: HmiProject } | { type: "undo" } | { type: "redo" } | { type: "navigate"; screenId: string };
 export function projectReducer(
   state: ProjectHistory,
   action: ProjectAction,
 ): ProjectHistory {
+  if (action.type === "navigate") return { ...state, present: switchProjectScreen(state.present, action.screenId) };
   if (action.type === "change") {
     const project = parseProject(JSON.stringify(action.project));
     if (JSON.stringify(project) === JSON.stringify(state.present)) return state;
